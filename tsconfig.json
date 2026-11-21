@@ -12,6 +12,6 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["netlify/server/check-server.ts", "public/check-client.js", "tests"],
+  "include": ["scripts", "netlify/server/check-server.ts", "public/check-client.js", "tests", "src"],
   "exclude": ["netlify/server/index.ts"]
 }

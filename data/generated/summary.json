@@ -1,0 +1,28 @@
+{
+  "counts": {
+    "dictionary": 143007,
+    "known": 8510,
+    "blockedWords": 499,
+    "blockedNames": 312
+  },
+  "prompts": {
+    "contains": {
+      "easy": 88,
+      "medium": 241,
+      "hard": 540
+    },
+    "starts": {
+      "easy": 4,
+      "medium": 56,
+      "hard": 133
+    },
+    "ends": {
+      "easy": 10,
+      "medium": 33,
+      "hard": 86
+    }
+  },
+  "skipped": [
+    "blocked-extra.txt"
+  ]
+}

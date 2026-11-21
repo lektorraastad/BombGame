@@ -6,13 +6,16 @@
     "node": ">=24"
   },
   "scripts": {
-    "test": "tsx --test tests/*.test.ts",
-    "typecheck": "tsc -p tsconfig.json"
+    "test": "tsx --test tests/*.test.ts tests/engine/*.test.ts tests/words/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "build:words": "tsx scripts/build-words.ts"
   },
   "dependencies": {
     "@netlify/server": "latest"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0"
+    "@types/node": "^24.0.0",
+    "tsx": "^4",
+    "typescript": "^5"
   }
 }

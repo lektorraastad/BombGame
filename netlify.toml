@@ -1,4 +1,5 @@
 [build]
+  command = "npm run build:words"
   publish = "public"
 
 [build.environment]
