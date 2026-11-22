@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bomb game: host</title>
+  <link rel="stylesheet" href="/app/style.css">
+</head>
+<body class="hostbody">
+  <div id="start" class="joinpage">
+    <h1>Host a game</h1>
+    <form id="createform" autocomplete="off">
+      <label for="passcode">Host passcode</label>
+      <input id="passcode" name="passcode" type="password" autocomplete="current-password" required>
+      <button id="createbtn" type="submit">Create room</button>
+      <p id="createerror" class="error" role="alert"></p>
+    </form>
+    <h2>Reconnect to a running room</h2>
+    <p class="hint">If the projector tab was closed or crashed, type the room code and the passcode to get the game back.</p>
+    <form id="rejoinform" autocomplete="off">
+      <label for="rejoincode">Room code</label>
+      <input id="rejoincode" name="rejoincode" type="text" maxlength="4" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="ABCD" required>
+      <label for="rejoinpass">Host passcode</label>
+      <input id="rejoinpass" name="rejoinpass" type="password" autocomplete="current-password" required>
+      <button id="rejoinbtn" type="submit">Reconnect</button>
+      <p id="rejoinerror" class="error" role="alert"></p>
+    </form>
+    <p class="hostlink"><a href="/">Join as a player</a></p>
+  </div>
+  <div id="projector" class="projector" hidden></div>
+  <div id="netstatus" class="netstatus" hidden></div>
+  <div id="toolbar" class="toolbar" hidden>
+    <button id="overlaybtn" type="button">⚙ Control (overlay)</button>
+    <button id="windowbtn" type="button">Open control window</button>
+    <button id="mutebtn" type="button" aria-pressed="false">Mute</button>
+  </div>
+  <div id="overlay" class="overlay" hidden>
+    <div class="overlay-bar"><span>Control</span><button id="overlayclose" type="button">Close</button></div>
+    <div id="overlaybody"><p>Connecting…</p></div>
+  </div>
+  <script type="module" src="/app/host-page.js"></script>
+</body>
+</html>

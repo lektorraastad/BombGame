@@ -76,6 +76,7 @@ export const ghostActivity: KnockoutActivity = {
     return {
       ghostPoints: pl?.ghostPoints ?? 0,
       streak: pl?.ghostStreak ?? 0,
+      comebackStreak: Number(ctx.settings.comebackStreak),
       comebackAvailable: ctx.settings.comeback === true && !!pl && !pl.comebackUsed && ctx.alive().length >= MIN_ALIVE_FOR_COMEBACK,
     };
   },

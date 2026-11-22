@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bomb game – connection test</title>
+  <style>
+    :root { --ink: #1d1b16; --muted: #6b6457; --paper: #fbf7ef; --card: #fff; --line: #e6dfd0;
+            --ok: #1f7a3d; --bad: #b3261e; --warn: #9a5b00; --accent: #d9480f; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 17px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+           color: var(--ink); background: var(--paper); }
+    main { max-width: 720px; margin: 0 auto; padding: 32px 20px 64px; }
+    h1 { font-size: 30px; margin: 0 0 4px; }
+    h1 span { color: var(--accent); }
+    .lead { color: var(--muted); margin: 0 0 28px; }
+    section { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+              padding: 18px 20px; margin-bottom: 18px; }
+    h2 { font-size: 18px; margin: 0 0 10px; }
+    ol { margin: 0; padding-left: 0; list-style: none; }
+    li { padding: 6px 0; border-bottom: 1px dashed var(--line); display: flex; gap: 10px; }
+    li:last-child { border-bottom: 0; }
+    .mark { width: 1.6em; flex: none; }
+    .detail { color: var(--muted); font-size: 15px; display: block; }
+    button { font: inherit; font-weight: 600; padding: 10px 16px; border-radius: 8px;
+             border: 1px solid var(--ink); background: var(--ink); color: #fff; cursor: pointer; }
+    button.secondary { background: #fff; color: var(--ink); }
+    button:disabled { opacity: .45; cursor: default; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    #timer { font-variant-numeric: tabular-nums; font-weight: 600; }
+    #log { margin-top: 12px; max-height: 180px; overflow: auto; font: 14px/1.5 ui-monospace, Menlo, Consolas, monospace;
+           background: var(--paper); border-radius: 8px; padding: 8px 10px; white-space: pre-wrap; }
+    #log:empty { display: none; }
+    #verdict { font-size: 19px; font-weight: 600; white-space: pre-line; }
+    textarea { width: 100%; height: 150px; margin-top: 12px; font: 13px/1.4 ui-monospace, Menlo, Consolas, monospace; display: none; }
+    .hint { color: var(--muted); font-size: 15px; margin: 8px 0 0; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Bomb game <span>–</span> connection test</h1>
+  <p class="lead">Checks whether the game can run on this network. Nothing is stored and nobody is tracked.
+    Use a school laptop on the school network (not a phone hotspot).</p>
+
+  <section>
+    <h2>Quick checks</h2>
+    <ol id="quick">
+      <li><span class="mark">✅</span><span>1. Page loads<span class="detail">You're seeing this page, so the site isn't blocked.</span></span></li>
+      <li id="step-http"><span class="mark">⏳</span><span>2. Game server answers<span class="detail">Checking…</span></span></li>
+      <li id="step-ws-open"><span class="mark">⏳</span><span>3. Live connection opens<span class="detail">Waiting…</span></span></li>
+      <li id="step-round-trip"><span class="mark">⏳</span><span>4. Messages go back and forth<span class="detail">Waiting…</span></span></li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Lesson-length test</h2>
+    <p class="hint" style="margin-top:0">Keeps a live connection open for 50 minutes, like a real lesson. Leave this tab open;
+      you can use other tabs meanwhile. Stop early if you need to, but 35+ minutes gives a reliable answer.</p>
+    <div class="row" style="margin-top:12px">
+      <button id="start" disabled>Start lesson-length test (50 min)</button>
+      <button id="stop" class="secondary" disabled>Stop</button>
+      <span id="timer"></span>
+    </div>
+    <div id="log"></div>
+  </section>
+
+  <section>
+    <h2>Result</h2>
+    <p id="verdict">Running quick checks…</p>
+    <div class="row">
+      <button id="copy" class="secondary" disabled>Copy results</button>
+      <span id="copied" class="hint" style="margin:0"></span>
+    </div>
+    <textarea id="report" readonly></textarea>
+  </section>
+</main>
+<script type="module" src="check-page.js"></script>
+</body>
+</html>

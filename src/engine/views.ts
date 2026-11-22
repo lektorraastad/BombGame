@@ -50,6 +50,8 @@ export type PlayerView = ProjectorView & {
     score: number;
     isOn: boolean;
     bonusLeft: string[];
+    /** Alive, not on, the game is playing and silent answers are on: a typed word scores privately. */
+    canAnswerSilently: boolean;
     /** The knockout activity's view for this player, while they are knocked out. */
     activity?: Record<string, unknown>;
   };
@@ -108,6 +110,8 @@ export function playerView(room: Room, pid: PlayerId): PlayerView | null {
     score: p.score,
     isOn: room.isOn(pid),
     bonusLeft: letters.filter((l) => !p.bonusUsed.has(l)),
+    canAnswerSilently:
+      room.phase === "playing" && p.role === "player" && p.alive && !room.isOn(pid) && room.settings.silentAnswers === true,
   };
   if (room.phase !== "lobby" && p.role === "player" && !p.alive) {
     const activity = room.activityView(pid);

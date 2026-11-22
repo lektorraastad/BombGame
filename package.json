@@ -6,8 +6,11 @@
     "node": ">=24"
   },
   "scripts": {
-    "test": "tsx --test tests/*.test.ts tests/engine/*.test.ts tests/words/*.test.ts",
+    "test": "tsx --test tests/*.test.ts tests/engine/*.test.ts tests/words/*.test.ts tests/server/*.test.ts tests/client/*.test.ts",
+    "test:e2e": "tsx --test tests/e2e/*.e2e.ts",
     "typecheck": "tsc -p tsconfig.json",
+    "dev": "tsx scripts/dev-server.ts",
+    "load-test": "tsx scripts/load-test.ts",
     "build:words": "tsx scripts/build-words.ts"
   },
   "dependencies": {
