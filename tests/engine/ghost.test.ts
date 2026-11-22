@@ -82,7 +82,7 @@ test("three consecutive prompts bring a ghost back once", () => {
   assert.equal(p(room, g).alive, false);
   assert.equal(p(room, g).ghostStreak, 2);
   turn(room, c);
-  assert.deepEqual(ghostView(room, g), { ghostPoints: 2, streak: 2, comebackAvailable: true });
+  assert.deepEqual(ghostView(room, g), { ghostPoints: 2, streak: 2, comebackStreak: 3, comebackAvailable: true });
   assert.deepEqual(room.submit(g, "street"), { ok: true, kind: "ghost" });
   const back = p(room, g);
   assert.equal(back.alive, true);
@@ -90,7 +90,7 @@ test("three consecutive prompts bring a ghost back once", () => {
   assert.equal(back.comebackUsed, true);
   assert.equal(back.ghostStreak, 0);
   assert.equal(back.ghostPoints, 3);
-  assert.deepEqual(ghostView(room, g), { ghostPoints: 3, streak: 0, comebackAvailable: false });
+  assert.deepEqual(ghostView(room, g), { ghostPoints: 3, streak: 0, comebackStreak: 3, comebackAvailable: false });
 
   // Knocked out again: a second streak of 3 does not bring them back.
   room.context().loseLife(g);

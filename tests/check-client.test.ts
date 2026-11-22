@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { makeClock, FakeSocket } from "./fakes.ts";
 import {
   runQuickChecks, startLongTest, summarizeLong, verdict, formatReport,
-} from "../public/check-client.js";
+} from "../public/check/check-client.js";
 
 beforeEach(() => FakeSocket.reset());
 
@@ -42,7 +42,17 @@ test("all quick checks pass", async () => {
   assert.deepEqual(r.map((x: any) => x.step), ["http", "ws-open", "round-trip"]);
   assert.ok(r.every((x: any) => x.ok), JSON.stringify(r));
   assert.equal(r[2].ms, 55);
-  assert.equal(FakeSocket.instances[0].url, "wss://example.test/api/ws");
+  assert.equal(FakeSocket.instances[0].url, "wss://example.test/api/check/ws");
+});
+
+test("the http check calls /api/check/ping", async () => {
+  const clock = makeClock();
+  healthyServer(clock, []);
+  const urls: string[] = [];
+  const p = runQuickChecks(deps(clock, async (url: string) => { urls.push(url); return okFetch(); }));
+  await clock.advance(15_000);
+  await p;
+  assert.deepEqual(urls, ["https://example.test/api/check/ping"]);
 });
 
 test("http ok but websocket never opens → ws-open fails after 10s, round-trip skipped", async () => {

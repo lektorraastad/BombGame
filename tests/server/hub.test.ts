@@ -1,0 +1,632 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { Hub, MAX_ROOMS, IDLE_MS } from "../../src/server/hub.ts";
+import type { Conn, ConnHandle } from "../../src/server/hub.ts";
+import { passcodeMatches, AttemptLimiter } from "../../src/server/passcode.ts";
+import { createPromptBank } from "../../src/engine/prompts.ts";
+import { makeDeps, makeTestChecker, fixturePrompts, fixtureBlocked } from "../engine/helpers.ts";
+
+const PASS = "secret";
+
+function makeHub(...args: [passcode?: string | undefined]) {
+  const passcode = args.length > 0 ? args[0] : PASS;
+  const { deps, clock } = makeDeps(3);
+  const events: string[] = [];
+  const hub = new Hub({
+    deps,
+    words: { checker: makeTestChecker(), bank: createPromptBank(fixturePrompts), blockedNames: fixtureBlocked },
+    passcode,
+    log: (e) => events.push(e),
+  });
+  return { hub, clock, events };
+}
+
+type FakeConn = ConnHandle & { msgs: any[]; closedWith?: [number, string]; send(m: object): void; views(): any[]; last(t: string): any; clear(): void };
+
+function connect(hub: Hub): FakeConn {
+  const fc = { msgs: [] as any[] } as FakeConn;
+  const conn: Conn = {
+    send: (text) => fc.msgs.push(JSON.parse(text)),
+    close: (code, reason) => { fc.closedWith = [code, reason]; },
+  };
+  const h = hub.connect(conn);
+  fc.message = h.message;
+  fc.closed = h.closed;
+  fc.send = (m) => h.message(JSON.stringify(m));
+  fc.views = () => fc.msgs.filter((m) => m.t === "view").map((m) => m.view);
+  fc.last = (t) => fc.msgs.filter((m) => m.t === t).at(-1);
+  fc.clear = () => { fc.msgs.length = 0; };
+  return fc;
+}
+
+const tick = () => new Promise<void>((r) => setImmediate(r));
+
+async function hostRoom(hub: Hub) {
+  const host = connect(hub);
+  host.send({ t: "create", passcode: PASS, token: "host-tab" });
+  await tick();
+  const w = host.last("welcome");
+  return { host, code: w.code as string, hostToken: w.hostToken as string };
+}
+
+async function joinPlayer(hub: Hub, code: string, nickname: string, token = `tok-${nickname}`) {
+  const c = connect(hub);
+  c.send({ t: "join", code, token, nickname });
+  await tick();
+  return c;
+}
+
+// ---- passcode helpers ----
+
+test("passcodeMatches compares exactly, whatever the lengths", () => {
+  assert.equal(passcodeMatches("secret", "secret"), true);
+  assert.equal(passcodeMatches("secreT", "secret"), false);
+  assert.equal(passcodeMatches("secret-and-more", "secret"), false);
+  assert.equal(passcodeMatches("", "secret"), false);
+});
+
+test("AttemptLimiter counts only failures: 5 per key and 30 in all per minute", () => {
+  const lim = new AttemptLimiter();
+  for (let i = 0; i < 4; i++) lim.fail("a", 1000);
+  assert.equal(lim.blocked("a", 1000), false);
+  lim.fail("a", 1000);
+  assert.equal(lim.blocked("a", 1000), true);
+  assert.equal(lim.blocked("b", 1000), false);
+  assert.equal(lim.blocked("a", 61_000), false);
+  lim.forget("a");
+  assert.equal(lim.blocked("a", 1000), false);
+  const all = new AttemptLimiter();
+  for (let i = 0; i < 30; i++) all.fail(`k${i}`, 1000);
+  assert.equal(all.blocked("fresh", 1000), true);
+  assert.equal(all.blocked("fresh", 61_000), false);
+});
+
+// ---- creating a room ----
+
+test("create with wrong passcode is refused, 6th attempt is too-many-attempts", async () => {
+  const { hub } = makeHub();
+  const c = connect(hub);
+  for (let i = 0; i < 5; i++) {
+    c.send({ t: "create", passcode: "wrong", token: "t" });
+    assert.deepEqual(c.msgs.at(-1), { t: "error", reason: "wrong-passcode" });
+  }
+  c.send({ t: "create", passcode: "wrong", token: "t" });
+  assert.deepEqual(c.msgs.at(-1), { t: "error", reason: "too-many-attempts" });
+  c.send({ t: "create", passcode: PASS, token: "t" });
+  assert.deepEqual(c.msgs.at(-1), { t: "error", reason: "too-many-attempts" });
+  assert.equal(hub.roomCount(), 0);
+});
+
+test("a correct passcode after 4 wrong ones on the same connection succeeds", () => {
+  const { hub } = makeHub();
+  const c = connect(hub);
+  for (let i = 0; i < 4; i++) c.send({ t: "create", passcode: "wrong", token: "t" });
+  c.send({ t: "create", passcode: PASS, token: "t" });
+  assert.equal(c.msgs.at(-1).t, "welcome");
+  const ctl = connect(hub);
+  for (let i = 0; i < 4; i++) ctl.send({ t: "control", code: c.msgs.at(-1).code, passcode: "wrong", token: "p" });
+  ctl.send({ t: "control", code: c.msgs.at(-1).code, passcode: PASS, token: "p" });
+  assert.equal(ctl.msgs.at(-1).t, "welcome");
+});
+
+test("31 wrong attempts over 7 connections block an 8th connection until 60 s pass", async () => {
+  const { hub, clock } = makeHub();
+  const conns = Array.from({ length: 7 }, () => connect(hub));
+  for (let i = 0; i < 31; i++) conns[i % 7].send({ t: "create", passcode: "wrong", token: "t" });
+  const fresh = connect(hub);
+  fresh.send({ t: "create", passcode: PASS, token: "t" });
+  assert.deepEqual(fresh.msgs.at(-1), { t: "error", reason: "too-many-attempts" });
+  fresh.send({ t: "control", code: "ABCD", passcode: PASS, token: "t" });
+  assert.deepEqual(fresh.msgs.at(-1), { t: "error", reason: "too-many-attempts" });
+  await clock.advance(60_000);
+  fresh.send({ t: "create", passcode: PASS, token: "t" });
+  assert.equal(fresh.msgs.at(-1).t, "welcome");
+});
+
+test("a closed connection's limiter entry is deleted", () => {
+  const { hub } = makeHub();
+  const limiter = (hub as any).limiter as AttemptLimiter;
+  const forgotten: string[] = [];
+  const forget = limiter.forget.bind(limiter);
+  limiter.forget = (key: string) => { forgotten.push(key); forget(key); };
+  const c = connect(hub);
+  c.send({ t: "create", passcode: "wrong", token: "t" });
+  c.closed();
+  assert.equal(forgotten.length, 1);
+});
+
+test("create with no passcode configured is refused with no-passcode-set", () => {
+  for (const passcode of [undefined, ""]) {
+    const { hub } = makeHub(passcode);
+    const c = connect(hub);
+    c.send({ t: "create", passcode: "", token: "t" });
+    assert.deepEqual(c.msgs.at(-1), { t: "error", reason: "no-passcode-set" });
+    assert.equal(hub.roomCount(), 0);
+  }
+});
+
+test("create returns welcome with code and hostToken; projector gets a lobby view", async () => {
+  const { hub } = makeHub();
+  const host = connect(hub);
+  host.send({ t: "create", passcode: PASS, token: "host-tab" });
+  const w = host.msgs[0];
+  assert.equal(w.t, "welcome");
+  assert.equal(w.role, "host");
+  assert.match(w.code, /^[A-Z]{4}$/);
+  assert.match(w.hostToken, /^[0-9a-f-]{36}$/);
+  assert.equal(w.pid, undefined);
+  await tick();
+  const views = host.views();
+  assert.equal(views.length, 1);
+  assert.equal(views[0].phase, "lobby");
+  assert.equal(views[0].code, w.code);
+  assert.equal(hub.roomCount(), 1);
+});
+
+// ---- joining and reconnecting ----
+
+test("player joins with code and nickname; host sees them in the next view", async () => {
+  const { hub } = makeHub();
+  const { host, code } = await hostRoom(hub);
+  host.clear();
+  const p = connect(hub);
+  p.send({ t: "join", code, token: "tok-ola", nickname: "Ola" });
+  const w = p.msgs[0];
+  assert.equal(w.t, "welcome");
+  assert.equal(w.role, "player");
+  assert.equal(w.code, code);
+  assert.equal(typeof w.pid, "string");
+  assert.equal(w.hostToken, undefined);
+  await tick();
+  assert.deepEqual(host.views().at(-1).players.map((x: any) => x.nickname), ["Ola"]);
+  assert.equal(p.views().at(-1).me.nickname, "Ola");
+});
+
+test("join errors: unknown room and engine refusals", async () => {
+  const { hub } = makeHub();
+  const { code } = await hostRoom(hub);
+  const p = connect(hub);
+  p.send({ t: "join", code: code === "ZZZZ" ? "YYYY" : "ZZZZ", token: "t", nickname: "Ola" });
+  assert.deepEqual(p.msgs.at(-1), { t: "error", reason: "no-room" });
+  p.send({ t: "join", code, token: "t", nickname: "damn" });
+  assert.deepEqual(p.msgs.at(-1), { t: "error", reason: "name-blocked" });
+});
+
+test("views are batched: one broadcast per room per tick", async () => {
+  const { hub } = makeHub();
+  const { host, code } = await hostRoom(hub);
+  host.clear();
+  const conns = ["Ola", "Kari", "Nora"].map((n) => {
+    const c = connect(hub);
+    c.send({ t: "join", code, token: `tok-${n}`, nickname: n });
+    return c;
+  });
+  await tick();
+  assert.equal(host.views().length, 1);
+  assert.equal(host.views()[0].players.length, 3);
+  for (const c of conns) assert.equal(c.views().length, 1);
+});
+
+test("host reconnects with host token", async () => {
+  const { hub } = makeHub();
+  const { host, code, hostToken } = await hostRoom(hub);
+  await joinPlayer(hub, code, "Ola");
+  host.closed();
+
+  const again = connect(hub);
+  again.send({ t: "host", code, token: "host-tab", hostToken });
+  assert.deepEqual(again.msgs[0], { t: "welcome", role: "host", code });
+  await tick();
+  assert.deepEqual(again.views().at(-1).players.map((x: any) => x.nickname), ["Ola"]);
+
+  const wrong = connect(hub);
+  wrong.send({ t: "host", code, token: "x", hostToken: "not-the-token" });
+  assert.deepEqual(wrong.msgs.at(-1), { t: "error", reason: "not-host" });
+  await tick();
+  assert.equal(wrong.views().length, 0);
+});
+
+test("projector reattaches with code and passcode: welcome with hostToken, then the projector view", async () => {
+  const { hub } = makeHub();
+  const { host, code, hostToken } = await hostRoom(hub);
+  await joinPlayer(hub, code, "Ola");
+  host.closed(); // the projector tab crashed, and its host token is gone with it
+
+  const again = connect(hub);
+  again.send({ t: "host", code, token: "new-tab", passcode: PASS });
+  assert.deepEqual(again.msgs[0], { t: "welcome", role: "host", code, hostToken });
+  await tick();
+  const v = again.views().at(-1);
+  assert.equal(v.code, code);
+  assert.deepEqual(v.players.map((x: any) => x.nickname), ["Ola"]);
+  assert.equal("settingDecls" in v, false); // the projector view, not the control view
+  assert.equal(hub.roomCount(), 1);
+});
+
+test("projector reattach: wrong passcodes count toward the limits; unknown room after a right one", async () => {
+  const { hub } = makeHub();
+  const { code } = await hostRoom(hub);
+  const c = connect(hub);
+  for (let i = 0; i < 5; i++) {
+    c.send({ t: "host", code, token: "t", passcode: "wrong" });
+    assert.deepEqual(c.msgs.at(-1), { t: "error", reason: "wrong-passcode" });
+  }
+  c.send({ t: "host", code, token: "t", passcode: PASS });
+  assert.deepEqual(c.msgs.at(-1), { t: "error", reason: "too-many-attempts" });
+  // The same limiter as create: the blocked connection can't create a room either.
+  c.send({ t: "create", passcode: PASS, token: "t" });
+  assert.deepEqual(c.msgs.at(-1), { t: "error", reason: "too-many-attempts" });
+  await tick();
+  assert.equal(c.views().length, 0);
+
+  const other = connect(hub);
+  other.send({ t: "host", code: code === "ZZZZ" ? "YYYY" : "ZZZZ", token: "t", passcode: PASS });
+  assert.deepEqual(other.msgs.at(-1), { t: "error", reason: "no-room" });
+});
+
+test("projector reattach with neither a host token nor a passcode is not-host", async () => {
+  const { hub } = makeHub();
+  const { code } = await hostRoom(hub);
+  const c = connect(hub);
+  c.send({ t: "host", code, token: "t" });
+  assert.deepEqual(c.msgs.at(-1), { t: "error", reason: "not-host" });
+  await tick();
+  assert.equal(c.views().length, 0);
+});
+
+test("projector reattach with a passcode when none is set is no-passcode-set", async () => {
+  const { hub } = makeHub(undefined);
+  const c = connect(hub);
+  c.send({ t: "host", code: "ABCD", token: "t", passcode: "anything" });
+  assert.deepEqual(c.msgs.at(-1), { t: "error", reason: "no-passcode-set" });
+});
+
+test("control joins with passcode and receives hostToken", async () => {
+  const { hub } = makeHub();
+  const { code, hostToken } = await hostRoom(hub);
+  const ctl = connect(hub);
+  ctl.send({ t: "control", code, passcode: PASS, token: "phone" });
+  assert.deepEqual(ctl.msgs[0], { t: "welcome", role: "control", code, hostToken });
+  await tick();
+  assert.ok(Array.isArray(ctl.views().at(-1).settingDecls));
+
+  // A control window with the host token gets the control role, but is not sent the token again.
+  const win = connect(hub);
+  win.send({ t: "control", code, hostToken, token: "second-window" });
+  assert.deepEqual(win.msgs[0], { t: "welcome", role: "control", code });
+
+  const badPass = connect(hub);
+  badPass.send({ t: "control", code, passcode: "nope", token: "x" });
+  assert.deepEqual(badPass.msgs.at(-1), { t: "error", reason: "wrong-passcode" });
+  const badToken = connect(hub);
+  badToken.send({ t: "control", code, hostToken: "nope", token: "x" });
+  assert.deepEqual(badToken.msgs.at(-1), { t: "error", reason: "not-host" });
+});
+
+test("two connections, one token, one player", async () => {
+  const { hub } = makeHub();
+  const { host, code } = await hostRoom(hub);
+  const a = await joinPlayer(hub, code, "Ola", "same");
+  const b = await joinPlayer(hub, code, "Ola", "same");
+  assert.equal(a.last("welcome").pid, b.last("welcome").pid);
+  assert.equal(host.views().at(-1).players.length, 1);
+
+  a.clear(); b.clear();
+  host.send({ t: "cmd", cmd: "lock" });
+  await tick();
+  assert.equal(a.views().length, 1);
+  assert.equal(b.views().length, 1);
+
+  a.closed();
+  await tick();
+  assert.equal(host.views().at(-1).players[0].connected, true);
+  b.closed();
+  await tick();
+  assert.equal(host.views().at(-1).players[0].connected, false);
+});
+
+// ---- privacy ----
+
+test("each role receives its own view", async () => {
+  const { hub } = makeHub();
+  const { host, code } = await hostRoom(hub);
+  const ctl = connect(hub);
+  ctl.send({ t: "control", code, passcode: PASS, token: "phone" });
+  const p = await joinPlayer(hub, code, "Ola");
+  await joinPlayer(hub, code, "Kari");
+
+  const pv = p.views().at(-1);
+  assert.equal(pv.me.nickname, "Ola");
+  assert.equal(pv.settingDecls, undefined);
+
+  const hv = host.views().at(-1);
+  assert.equal(hv.me, undefined);
+  assert.equal(hv.settingDecls, undefined);
+  for (const pl of hv.players) { assert.equal(pl.score, undefined); assert.equal(pl.ghostPoints, undefined); }
+
+  const cv = ctl.views().at(-1);
+  assert.ok(Array.isArray(cv.settingDecls));
+  assert.equal(typeof cv.players[0].score, "number");
+
+  for (const c of [host, ctl, p]) {
+    const text = JSON.stringify(c.msgs.filter((m) => m.t === "view"));
+    assert.ok(!text.includes("tok-Ola") && !text.includes("tok-Kari"), "views never carry tokens");
+  }
+});
+
+test("control views carry promptCounts for every band and type; other views do not", async () => {
+  const { hub } = makeHub();
+  const { host, code, hostToken } = await hostRoom(hub);
+  const ctl = connect(hub);
+  ctl.send({ t: "control", code, hostToken, token: "overlay-tab" });
+  const p = await joinPlayer(hub, code, "Ola");
+
+  const bank = createPromptBank(fixturePrompts);
+  const expected: Record<string, Record<string, number>> = {};
+  for (const band of ["easy", "medium", "hard", "mixed"] as const) {
+    expected[band] = {};
+    for (const type of ["contains", "starts", "ends"] as const) expected[band][type] = bank.size(band, [type]);
+  }
+  const cv = ctl.views().at(-1);
+  assert.deepEqual(cv.promptCounts, expected);
+  assert.equal(cv.promptCounts.easy.starts, 1, "only 'st' starts with 200+ answers");
+  assert.equal(host.views().at(-1).promptCounts, undefined);
+  assert.equal(p.views().at(-1).promptCounts, undefined);
+});
+
+test("projector views carry lastEvent: word after an accepted word, explosion after the bomb, else null", async () => {
+  const { hub, clock } = makeHub();
+  const { host, code, hostToken } = await hostRoom(hub);
+  const ctl = connect(hub);
+  ctl.send({ t: "control", code, hostToken, token: "overlay-tab" });
+  const players = [await joinPlayer(hub, code, "Ola"), await joinPlayer(hub, code, "Kari")];
+  assert.equal(host.views().at(-1).lastEvent, null, "lobby");
+  host.send({ t: "cmd", cmd: "settings", settings: { mode: "classic", timerStyle: "visible", turnTime: 5 } });
+  host.send({ t: "cmd", cmd: "start" });
+  await tick();
+  const started = host.views().at(-1);
+  assert.equal(started.phase, "playing");
+  assert.equal(started.lastEvent, null, "starting a game is neither");
+
+  const on = players.find((p) => p.last("welcome").pid === started.mode.current)!;
+  const fits = ["station", "stone", "ring", "king", "house", "round", "return", "remember", "last", "fast", "found", "repeat", "sing", "out"]
+    .find((w) => (started.prompt.type === "starts" ? w.startsWith(started.prompt.text) : started.prompt.type === "ends" ? w.endsWith(started.prompt.text) : w.includes(started.prompt.text)));
+  assert.ok(fits);
+  on.send({ t: "submit", word: fits });
+  assert.equal(on.last("result").ok, true);
+  await tick();
+  assert.equal(host.views().at(-1).lastEvent, "word");
+
+  host.clear();
+  await clock.advance(5_000);
+  await tick();
+  assert.equal(host.views().length, 1, "one broadcast for the explosion");
+  assert.equal(host.views()[0].lastEvent, "explosion");
+
+  host.send({ t: "cmd", cmd: "lock" });
+  await tick();
+  assert.equal(host.views().at(-1).lastEvent, null, "the next broadcast is not another explosion");
+
+  assert.equal(ctl.views().at(-1).lastEvent, undefined, "projector only");
+  assert.equal(players[0].views().at(-1).lastEvent, undefined, "projector only");
+});
+
+// ---- playing and commands ----
+
+async function playingRoom(hub: Hub) {
+  const r = await hostRoom(hub);
+  const ola = await joinPlayer(hub, r.code, "Ola");
+  const kari = await joinPlayer(hub, r.code, "Kari");
+  r.host.send({ t: "cmd", cmd: "settings", settings: { mode: "everyone" } });
+  r.host.send({ t: "cmd", cmd: "start" });
+  assert.deepEqual(r.host.msgs.at(-1), { t: "result", ok: true });
+  await tick();
+  return { ...r, ola, kari };
+}
+
+test("submit routes to the room and replies with result", async () => {
+  const { hub } = makeHub();
+  const { host, ola } = await playingRoom(hub);
+  const prompt = host.views().at(-1).prompt;
+  assert.ok(prompt);
+  ola.send({ t: "submit", word: "qqqq" });
+  assert.deepEqual(ola.msgs.at(-1), { t: "result", ok: false, reason: "not-a-word" });
+
+  host.send({ t: "submit", word: "station" });
+  assert.deepEqual(host.msgs.at(-1), { t: "result", ok: false, reason: "not-player" });
+});
+
+test("submit of a fitting word is accepted with its kind", async () => {
+  const { hub } = makeHub();
+  const { host, ola } = await playingRoom(hub);
+  const prompt = host.views().at(-1).prompt;
+  const words = ["station", "stone", "ring", "king", "house", "round", "return", "remember", "last", "fast",
+    "found", "ground", "repeat", "sing", "out"];
+  const fits = words.find((w) =>
+    prompt.type === "starts" ? w.startsWith(prompt.text) : prompt.type === "ends" ? w.endsWith(prompt.text) : w.includes(prompt.text));
+  assert.ok(fits, `a fixture word fits ${prompt.type}:${prompt.text}`);
+  ola.send({ t: "submit", word: fits });
+  const r = ola.last("result");
+  assert.equal(r.ok, true);
+  assert.equal(typeof r.kind, "string");
+});
+
+test("commands from a player connection are refused with not-host", async () => {
+  const { hub } = makeHub();
+  const { host, code } = await hostRoom(hub);
+  const p = await joinPlayer(hub, code, "Ola");
+  await joinPlayer(hub, code, "Kari");
+  host.clear();
+  p.send({ t: "cmd", cmd: "start" });
+  assert.deepEqual(p.msgs.at(-1), { t: "result", ok: false, reason: "not-host" });
+  p.send({ t: "cmd", cmd: "lock" });
+  assert.deepEqual(p.msgs.at(-1), { t: "result", ok: false, reason: "not-host" });
+  const stranger = connect(hub);
+  stranger.send({ t: "cmd", cmd: "start" });
+  assert.deepEqual(stranger.msgs.at(-1), { t: "result", ok: false, reason: "not-host" });
+  await tick();
+  assert.equal(host.views().length, 0, "room unchanged");
+});
+
+test("host commands reach the engine and reply with a result", async () => {
+  const { hub } = makeHub();
+  const { host, code } = await hostRoom(hub);
+  host.send({ t: "cmd", cmd: "start" });
+  assert.deepEqual(host.msgs.at(-1), { t: "result", ok: false, reason: "need-2-players" });
+  host.send({ t: "cmd", cmd: "lock" });
+  assert.deepEqual(host.msgs.at(-1), { t: "result", ok: true });
+  await tick();
+  assert.equal(host.views().at(-1).locked, true);
+  const late = connect(hub);
+  late.send({ t: "join", code, token: "late", nickname: "Late" });
+  assert.deepEqual(late.msgs.at(-1), { t: "error", reason: "locked" });
+  host.send({ t: "cmd", cmd: "unlock" });
+  const p = await joinPlayer(hub, code, "Ola");
+  const pid = p.last("welcome").pid;
+  host.send({ t: "cmd", cmd: "rename", pid, nickname: "Olav" });
+  assert.deepEqual(host.msgs.at(-1), { t: "result", ok: true });
+  host.send({ t: "cmd", cmd: "rename", pid: "nobody", nickname: "Olav" });
+  assert.deepEqual(host.msgs.at(-1), { t: "result", ok: false, reason: "not-found" });
+  host.send({ t: "cmd", cmd: "kick", pid: "nobody" });
+  assert.deepEqual(host.msgs.at(-1), { t: "result", ok: false, reason: "not-found" });
+  await tick();
+  assert.equal(host.views().at(-1).players[0].nickname, "Olav");
+});
+
+test("pause, resume, skip, end and play again from a control connection", async () => {
+  const { hub } = makeHub();
+  const { host, code } = await playingRoom(hub);
+  const ctl = connect(hub);
+  ctl.send({ t: "control", code, passcode: PASS, token: "phone" });
+  for (const [cmd, phase] of [["pause", "paused"], ["resume", "playing"], ["skip", "playing"], ["end", "results"], ["playAgain", "lobby"]]) {
+    ctl.send({ t: "cmd", cmd });
+    assert.deepEqual(ctl.msgs.at(-1), { t: "result", ok: true }, cmd);
+    await tick();
+    assert.equal(host.views().at(-1).phase, phase, cmd);
+  }
+});
+
+test("kick sends kicked and closes with 4003, and the token cannot rejoin", async () => {
+  const { hub } = makeHub();
+  const { host, code } = await hostRoom(hub);
+  const a = await joinPlayer(hub, code, "Ola", "ola");
+  const b = await joinPlayer(hub, code, "Ola", "ola");
+  const pid = a.last("welcome").pid;
+  host.send({ t: "cmd", cmd: "kick", pid });
+  assert.deepEqual(host.msgs.at(-1), { t: "result", ok: true });
+  for (const c of [a, b]) {
+    assert.deepEqual(c.msgs.at(-1), { t: "kicked" });
+    assert.equal(c.closedWith?.[0], 4003);
+  }
+  a.closed(); b.closed();
+  await tick();
+  assert.equal(host.views().at(-1).players.length, 0);
+  const back = connect(hub);
+  back.send({ t: "join", code, token: "ola", nickname: "Ola" });
+  assert.deepEqual(back.msgs.at(-1), { t: "error", reason: "kicked" });
+});
+
+// ---- robustness ----
+
+test("malformed and oversized messages are ignored", async () => {
+  const { hub } = makeHub();
+  const { host, code } = await hostRoom(hub);
+  const p = await joinPlayer(hub, code, "Ola");
+  host.clear();
+  for (const raw of ["nope", "{}", JSON.stringify({ t: "cmd", cmd: "boom" }), JSON.stringify({ t: "submit", word: "x".repeat(3000) })]) {
+    p.message(raw);
+    assert.deepEqual(p.msgs.at(-1), { t: "error", reason: "bad-message" });
+    host.message(raw);
+    assert.deepEqual(host.msgs.at(-1), { t: "error", reason: "bad-message" });
+  }
+  await tick();
+  assert.equal(host.views().length, 0, "room unchanged");
+});
+
+test("rate limit drops floods", async () => {
+  const { hub, clock } = makeHub();
+  const { code } = await playingRoom(hub);
+  const p = await joinPlayer(hub, code, "Nora");
+  p.clear();
+  for (let i = 0; i < 100; i++) p.send({ t: "submit", word: "qqqq" });
+  const handled = p.msgs.filter((m) => m.t === "result").length;
+  assert.ok(handled <= 20 && handled > 0, `handled ${handled}`);
+
+  await clock.advance(1000);
+  p.clear();
+  for (let i = 0; i < 15; i++) p.send({ t: "typing", text: "st" });
+  p.send({ t: "submit", word: "qqqq" });
+  assert.equal(p.msgs.filter((m) => m.t === "result").length, 1, "typing beyond 10 is dropped, other messages still pass");
+});
+
+test("idle room is cleaned up and connections closed with 4004", async () => {
+  const { hub, clock } = makeHub();
+  const { host, code } = await hostRoom(hub);
+  const p = await joinPlayer(hub, code, "Ola");
+  await clock.advance(IDLE_MS - 60_000);
+  p.send({ t: "typing", text: "a" }); // any valid message resets the idle timer
+  await clock.advance(IDLE_MS - 1000);
+  assert.equal(hub.roomCount(), 1);
+  assert.equal(host.closedWith, undefined);
+  await clock.advance(1000);
+  assert.equal(hub.roomCount(), 0);
+  assert.deepEqual(host.closedWith, [4004, "Room closed"]);
+  assert.deepEqual(p.closedWith, [4004, "Room closed"]);
+  const late = connect(hub);
+  late.send({ t: "join", code, token: "x", nickname: "Kari" });
+  assert.deepEqual(late.msgs.at(-1), { t: "error", reason: "no-room" });
+});
+
+// ---- exceptions never escape the hub ----
+
+function catchUncaught() {
+  const errors: unknown[] = [];
+  const onErr = (e: unknown) => errors.push(e);
+  process.on("uncaughtException", onErr);
+  return { errors, stop: () => process.off("uncaughtException", onErr) };
+}
+
+test("a connection whose send throws does not stop the broadcast", async () => {
+  const { hub, events } = makeHub();
+  const { host, code } = await hostRoom(hub);
+  const thrower = connect(hub);
+  thrower.send({ t: "join", code, token: "bad", nickname: "Bad" });
+  const brokenConn = (hub as any).rooms.get(code).clients;
+  for (const k of brokenConn) if (k.pid === thrower.last("welcome").pid) k.conn = { send() { throw new Error("socket gone"); }, close() {} };
+  const p = await joinPlayer(hub, code, "Ola");
+  host.clear(); p.clear();
+  const caught = catchUncaught();
+  try {
+    host.send({ t: "cmd", cmd: "lock" });
+    await tick();
+  } finally { caught.stop(); }
+  assert.deepEqual(caught.errors, []);
+  assert.equal(host.views().length, 1);
+  assert.equal(p.views().length, 1);
+  assert.ok(events.includes("broadcast-error"));
+});
+
+test("idle cleanup still deletes the room when a close throws", async () => {
+  const { hub, clock, events } = makeHub();
+  const { host, code } = await hostRoom(hub);
+  const bad = connect(hub);
+  bad.send({ t: "join", code, token: "bad", nickname: "Bad" });
+  for (const k of (hub as any).rooms.get(code).clients) if (k.role === "player") k.conn = { send() {}, close() { throw new Error("already closed"); } };
+  await clock.advance(IDLE_MS);
+  assert.equal(hub.roomCount(), 0);
+  assert.deepEqual(host.closedWith, [4004, "Room closed"]);
+  assert.ok(events.includes("close-error"));
+});
+
+test("room limit: 21st room is refused with server-full", () => {
+  const { hub } = makeHub();
+  for (let i = 0; i < MAX_ROOMS; i++) {
+    const c = connect(hub);
+    c.send({ t: "create", passcode: PASS, token: `h${i}` });
+    assert.equal(c.msgs.at(-1).t, "welcome");
+  }
+  const c = connect(hub);
+  c.send({ t: "create", passcode: PASS, token: "h21" });
+  assert.deepEqual(c.msgs.at(-1), { t: "error", reason: "server-full" });
+  assert.equal(hub.roomCount(), MAX_ROOMS);
+});

@@ -75,7 +75,7 @@ test("projector view hides tokens, ghost words and silent words", () => {
   assert.ok(!JSON.stringify(sv.players).includes("score"));
   // The ghost's own view holds their ghost view, and nobody else's.
   const gv = playerView(room, ghost)!;
-  assert.deepEqual(gv.me.activity, { ghostPoints: 1, streak: 1, comebackAvailable: true });
+  assert.deepEqual(gv.me.activity, { ghostPoints: 1, streak: 1, comebackStreak: 3, comebackAvailable: true });
   assert.equal(sv.me.activity, undefined);
 
   // The control view has ghost points and scores, but still no tokens.
@@ -256,4 +256,18 @@ test("lobby view has no prompt or mode", () => {
   assert.equal(v.mode, null);
   assert.equal(v.paused, false);
   if (j.ok) assert.equal(playerView(room, j.playerId)!.me.isOn, false);
+});
+
+test("me.canAnswerSilently: alive, not on, playing, and silentAnswers on", () => {
+  const { room, ids } = setup(3, { silentAnswers: true });
+  const on = current(room);
+  const other = ids.find((p) => p !== on)!;
+  assert.equal(playerView(room, on)!.me.canAnswerSilently, false, "the player whose turn it is");
+  assert.equal(playerView(room, other)!.me.canAnswerSilently, true);
+  room.pause();
+  assert.equal(playerView(room, other)!.me.canAnswerSilently, false, "paused");
+  room.resume();
+  const off = setup(3, { silentAnswers: false });
+  const waiting = off.ids.find((p) => p !== current(off.room))!;
+  assert.equal(playerView(off.room, waiting)!.me.canAnswerSilently, false, "setting off");
 });
