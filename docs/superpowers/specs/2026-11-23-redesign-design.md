@@ -49,7 +49,7 @@ Success: Roy runs a lesson on the new look and the class can read the prompt, fi
 ## 3. Constraints
 
 - Every rule in `CLAUDE.md` still applies: no deploys on lesson days, privacy, untrusted student input, escaping, no crash from one room or client.
-- **Design work never changes game logic.** The redesign needs four small server additions (section 7), none of which change how the game is played. Each is built test-first.
+- **Design work never changes game logic.** The redesign needs six small server additions (section 7), none of which change how the game is played. Each is built test-first.
 - No build step for the browser client: plain ES modules, as now.
 - No outside requests from the browser: fonts and emoji pictures are files in the project.
 - Reduced-motion settings are respected everywhere.
@@ -104,18 +104,19 @@ Success: Roy runs a lesson on the new look and the class can read the prompt, fi
 ### 5.3 Classic (projector)
 - The bomb in the middle, with the prompt on it as letter tiles and the prompt type ("CONTAINS", "STARTS WITH", "ENDS WITH") above. The flame flickers continuously.
 - The arrow points from the bomb to the current player and swings to the next player once per turn, with a small bounce.
-- Each player: emoji, name, hearts, and their last word with the prompt letters shown as raised highlighted tiles inside the word (colour **and** shape, never colour alone). Knocked-out players are dimmed; offline players are marked as now.
-- The current player's live typing appears under their name, with a cursor.
+- Each player: emoji, name, hearts, and their last accepted word with the letters of the prompt *that word answered* shown as raised highlighted tiles inside it (colour **and** shape, never colour alone). Knocked-out players are dimmed; offline players are marked as now.
+- A player's last word stays under their name until they play another accepted word. During their own turn it's replaced by their live typing (with a cursor) **(Claude's call)**.
 - With the hidden (original-style) fuse there's no number. With the visible countdown, the number sits on the bomb, and the bomb shows urgency in the last seconds as now.
 - An explosion plays the one big animation, then "Could have said: …" example words as now.
 
 ### 5.4 Everyone at once (projector)
 - No arrow. The fuse visibly burns down over the round.
-- Players get a ✓ as they answer. No one's typing is shown, to prevent copying **(Claude's call)**. Words appear after the round as now.
+- Players get a ✓ as they answer. No one's typing is shown, to prevent copying **(Claude's call)**.
+- When the round ends, each player's accepted word for that round appears under their name, with the prompt letters as tiles (the agreed layout in `design-principles.md`: "words are shown after the round"). The server holds every word back until the round is over, so nobody can copy. Accepted words can't be rude, since blocked words are refused. The "Could have said" examples still appear as now.
 - Players sit on the circle (two rings above 20) rather than in a grid.
 
 ### 5.5 Student screens
-- The same circle and bomb as the projector, smaller, with the student's own tile-style text box along the bottom (letters appear as tiles as they type).
+- The same circle, bomb, arrow swing and explosion as the projector, smaller, with the student's own tile-style text box along the bottom (letters appear as tiles as they type).
 - Their own hearts and score in a corner. Scores stay private: a student sees only their own.
 - The existing messages (accepted, refused with reason, "not your turn", silent answer scored, ghost mode and comeback progress) keep their wording and move into the new layout.
 - The text box is always focused, as now.
@@ -173,7 +174,7 @@ Above 20 players on the circle, emoji and names shrink and sit in two rings (alt
 
 ## 7. Server additions (none change the rules)
 
-All four are built test-first, with validation of every message.
+All six are built test-first, with validation of every message.
 
 1. **Avatars.** Each player gets an avatar number (0–59), assigned at random from the free ones on join. A new client message lets a player change it: a whole number from 0 to 59, accepted only in the lobby (or while a spectator waits), and refused if taken. Avatars appear in every view that lists players. A kick frees the avatar; a reconnect keeps it.
 2. **Theme in every view.** The theme setting is sent in the projector and player views (not only the control view), so every screen follows it. It's exempt from the "locked during a game" rule.
@@ -182,6 +183,8 @@ All four are built test-first, with validation of every message.
    - Masking is deliberately simple (Roy: seeing a rude word is not critical): if the whole typed text, in lower case, is a word on the blocked-answers list, it's sent as ★★★★ instead. Half-typed words aren't masked.
    - Typing is still only shown for the current player in Classic, never in Everyone at once.
 4. **Ghost ranking without points.** The results in the projector and player views carry the ghost ranking as names and avatars in order, without points. The control view keeps the points.
+5. **Each player's last word.** Views carry, per player, their last accepted word and the prompt (text and type) it answered, so screens can raise the right letters even after the prompt has moved on, and a refreshed projector still shows them. Classic: updated as each word is accepted. Everyone at once: the round's words are added only once the round has ended, never while it runs. Silent answers and ghost words are never included (they stay private, as now).
+6. **Explosion signal on student screens.** The `lastEvent` signal the hub already sends to the projector (explosion or word) is also sent in player views, so student laptops play the same explosion and turn animations (Claude's call; students' sound stays muted by default as now).
 
 **Nicknames:** blocking stays exactly as now (the English and Norwegian lists, plus Roy's `blocked-extra.txt`). Nothing is loosened.
 
@@ -197,7 +200,11 @@ All four are built test-first, with validation of every message.
 
 ## 9. How it reaches the classroom
 
-Built on a branch in steps. Each step gets a Netlify deploy preview Roy can try at home before anything goes live:
+Built on a branch in steps. Each step gets a Netlify deploy preview Roy can try at home before anything goes live.
+
+**First task of the plan (Claude's call):** confirm, with a tiny harmless change, that a deploy preview runs its own game server, that building it doesn't restart the live game, and that the host passcode works there. If any of that fails, the builder stops and tells Roy before going further; the fallback is pushing to the live site only on evenings or weekends, never on a lesson day.
+
+The steps:
 
 1. Themes and fonts (with the theme picker).
 2. The bomb (flame, arrow, explosion).
