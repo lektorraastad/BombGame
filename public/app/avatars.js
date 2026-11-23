@@ -80,3 +80,8 @@ export function avatarImg(index, cls = "") {
   if (!a) return `<span class="${c}"></span>`;
   return `<img class="${c}" src="/avatars/${esc(a.file)}" alt="${esc(a.label)}" width="64" height="64">`;
 }
+
+/** The trophy on the results screen. A Twemoji graphic too, kept with the avatars but never one of them. */
+export function trophyImg() {
+  return `<img class="trophy" src="/avatars/1f3c6.svg" alt="Trophy" width="64" height="64">`;
+}

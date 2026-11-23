@@ -156,7 +156,7 @@ function draw() {
   if (!view || !hosting) return;
   const countdownMs = countdown.remainingMs();
   const bomb = motion.bombState(countdownMs, view.phase === "playing" && !view.paused);
-  $("projector").innerHTML = renderProjector(view, { countdownMs, credits: CREDITS, site: location.host, bomb });
+  $("projector").innerHTML = renderProjector(view, { countdownMs, credits: CREDITS, site: location.host, bomb, popElapsed: motion.popElapsed });
 }
 
 // ---- the overlay: a control connection of its own, open only while the overlay shows ----

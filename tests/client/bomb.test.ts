@@ -98,3 +98,12 @@ test("every bomb style lives in the bomb file, none in style.css", () => {
   // style.css may hold the seat pop's keyframes (the one animation outside the bomb), never the bomb's.
   assert.ok(!/@keyframes bomb-|\.bomb-svg|\.bomb\b/.test(css), "no bomb rules in style.css");
 });
+
+test("the countdown number leaves room on the bomb for the prompt above it", () => {
+  // The prompt type and the prompt's tiles share the bomb's face with the number, so the number is
+  // no more than a fifth of the bomb across, even when urgent.
+  const size = (sel: string) => Number(BOMB_CSS.match(new RegExp(`\\n${sel} \\{[^}]*font-size: ([\\d.]+)cqw`))?.[1]);
+  assert.ok(size("\\.bomb-count") <= 20, `calm ${size("\\.bomb-count")}`);
+  assert.ok(size("\\.urgent \\.bomb-count") <= 22, `urgent ${size("\\.urgent \\.bomb-count")}`);
+  assert.ok(size("\\.urgent \\.bomb-count") > size("\\.bomb-count"), "bigger when urgent");
+});

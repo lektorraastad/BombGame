@@ -86,7 +86,7 @@ button:disabled { cursor: default; }
 .top .who { color: var(--names); font-family: var(--font-display); font-weight: 800; }
 .gamepage main h1 { font-size: 34px; margin: 12px 0; }
 .names { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
-.names li, .p-names li {
+.names li {
   background: var(--panel); border: 3px solid var(--muted); border-radius: 999px; padding: 6px 14px;
   font-family: var(--font-display); font-weight: 800;
 }
@@ -94,7 +94,7 @@ button:disabled { cursor: default; }
 
 /* Emoji avatars (avatars.js): a picture beside each name, and the picker on student screens. */
 .avatar { display: inline-block; width: 1.4em; height: 1.4em; flex: none; vertical-align: middle; }
-.names li, .p-names li { display: inline-flex; align-items: center; gap: 0.35em; }
+.names li { display: inline-flex; align-items: center; gap: 0.35em; }
 .ctl td.name .avatar { width: 24px; height: 24px; margin-right: 2px; }
 .picker { margin: 14px 0 0; }
 .picker h2 { font-size: 22px; margin: 0 0 8px; }
@@ -116,7 +116,7 @@ button:disabled { cursor: default; }
 .lives { font-size: 34px; color: var(--lives); letter-spacing: 4px; line-height: 1.1; }
 .ask { font-size: 22px; margin-top: 10px; color: var(--muted); }
 /* The prompt: ink letters on a letter tile. */
-.prompt, .p-prompt {
+.prompt {
   display: inline-block; font-family: var(--font-display); font-weight: 800; letter-spacing: 0.08em; line-height: 1;
   background: var(--tile); color: var(--tile-ink); border: 5px solid var(--tile-edge); border-radius: 14px;
   box-shadow: inset 0 -8px 0 var(--tile-edge);
@@ -249,76 +249,91 @@ button:disabled { cursor: default; }
   border-radius: 1.5vh; font-family: var(--font-display); font-size: 6vh; font-weight: 800; padding: 0.4vh 4vh; letter-spacing: 0.05em;
 }
 
-.p-goto { font-size: 5vh; margin: 0; }
-.p-goto strong { color: var(--spark); }
-/* The room code on a big letter tile. */
-.p-code {
-  font-family: var(--font-display); font-size: max(12vh, min(24vh, 17cqw)); font-weight: 800; letter-spacing: 0.12em; line-height: 1; margin: 2.5vh 0;
-  background: var(--tile); color: var(--tile-ink); border: 0.8vh solid var(--tile-edge); border-radius: 3vh;
-  padding: 1vh 2vh 2.8vh 4vh; box-shadow: inset 0 -1.6vh 0 var(--tile-edge);
+/* The circle (render-circle.js) as big a square as the space left over allows. The ring box is a
+   size container, so the circle can take the smaller of its width and height. Seats at the sides
+   reach a little past the square, into the wide screen's spare width. */
+.p-ring { flex: 1; min-height: 0; width: 100%; container-type: size; display: flex; align-items: center; justify-content: center; }
+.p-ring .circle { --circle-size: min(100cqw, 100cqh); }
+/* A bigger bomb on the projector while there is one ring; two rings keep the smaller one. */
+.p-ring .circle-centre { --bomb-size: 40cqw; }
+.p-ring .circle:has(.seat.small) .circle-centre { --bomb-size: 28cqw; }
+/* Fewer players, bigger seats, to be read from the back of the room. From 15 on, the circle's own size. */
+.p-ring .circle:not(:has(> .seat:nth-child(11))) { --seat-size: 3cqw; }
+.p-ring .circle:has(> .seat:nth-child(11)):not(:has(> .seat:nth-child(15))) { --seat-size: 2.6cqw; }
+
+/* On the bomb: the prompt type, then the prompt on tiles (and bomb.js's countdown number below).
+   Sized in cqw of the bomb, so they fit whatever the bomb's size. The tiles are the biggest thing
+   on the bomb and may reach past its body at the sides (never as far as the arrow's base); they
+   never wrap. The prompt type sits on a dark label, so it reads where it crosses the rim or cap.
+   Smaller when the countdown number shares the bomb; relatively bigger on the smaller two-ring bomb. */
+.p-ask {
+  font-family: var(--font-display); font-weight: 800; font-size: 6cqw; line-height: 1; letter-spacing: 0.04em; white-space: nowrap;
+  color: var(--names); background: var(--tile-ink); border-radius: 0.4em; padding: 0.2em 0.45em 0.25em;
 }
-.p-count, .p-wait, .p-locked { font-size: 3.6vh; margin: 1vh 0; }
+.p-prompt { font-size: 18cqw; line-height: 1; }
+.p-prompt .tiles { flex-wrap: nowrap; max-width: none; }
+.circle-centre:has([data-countdown]) .p-ask { font-size: 5.5cqw; }
+.circle-centre:has([data-countdown]) .p-prompt { font-size: 17cqw; }
+.circle:has(.seat.small) .p-ask { font-size: 7cqw; }
+.circle:has(.seat.small) .p-prompt { font-size: 20cqw; }
+.circle:has(.seat.small) .circle-centre:has([data-countdown]) .p-ask { font-size: 6.5cqw; }
+.circle:has(.seat.small) .circle-centre:has([data-countdown]) .p-prompt { font-size: 19cqw; }
+.p-examples { flex: none; min-height: 1.35em; font-size: 3.4vh; color: var(--muted); }
+.p-round { flex: none; font-size: 4vh; color: var(--muted); font-weight: 600; }
+
+/* Lobby: the site, the code on big tiles, then the circle as students join. */
+.p-goto { flex: none; font-size: 4.2vh; margin: 0; }
+.p-goto strong { color: var(--spark); }
+.p-code { flex: none; font-size: 10vh; margin: 1.2vh 0 0.6vh; }
+.p-code .tiles { gap: 0.1em; }
+/* The lobby has no arrow, so its circle may stretch into an oval across the wide screen: the names
+   get the room to be read from the back. Sizes here are in cqh of the oval. */
+.p-lobby .p-ring .circle {
+  aspect-ratio: auto; width: min(100cqw, 230cqh); height: 100cqh; max-width: none; container-type: size; --seat-size: 4cqh;
+}
+.p-lobby .p-ring .circle:not(:has(> .seat:nth-child(11))) { --seat-size: 5cqh; }
+.p-lobby .p-ring .circle:has(> .seat:nth-child(11)):not(:has(> .seat:nth-child(15))) { --seat-size: 4.5cqh; }
+.p-lobby .p-ring .circle-centre { --bomb-size: 36cqh; }
+.p-lobby .p-ring .circle:has(.seat.small) .circle-centre { --bomb-size: 30cqh; }
+/* Nobody has lives before the game. */
+.p-lobby .seat .lives { display: none; }
+/* Beside the circle, above the toolbar, so the circle keeps the height. */
+.p-foot { position: absolute; right: 3vw; bottom: calc(2vh + 48px); text-align: right; max-width: 22vw; }
+.p-count, .p-locked { font-size: 3.6vh; margin: 1vh 0 0; }
 .p-count { color: var(--muted); }
 .p-locked { color: var(--refusal); font-weight: 600; }
-.p-names { list-style: none; padding: 0; margin: 1vh 0 5vh; display: flex; flex-wrap: wrap; justify-content: center; gap: 1.2vh; max-width: 92%; font-size: 3.6vh; }
-.p-names li { border-width: 0.4vh; padding: 0.5vh 2vh; }
 .p-credits { position: absolute; bottom: 1vh; left: 2vw; right: calc(2vw + 440px); text-align: left; font-size: 1.8vh; color: var(--muted); margin: 0; }
 
-/* The bomb (drawn and animated by bomb.js) beside the prompt. */
-.p-fuse-row { display: flex; align-items: center; justify-content: center; gap: 4vh; --bomb-size: 28vh; }
-.p-word { display: flex; flex-direction: column; align-items: center; }
-.p-ask { font-size: 4vh; font-weight: 600; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 1vh; }
-.p-prompt { font-size: max(12vh, min(16vh, 13cqw)); padding: 0.6vh 3vh 2vh; border-width: 0.8vh; border-radius: 2.4vh; box-shadow: inset 0 -1.2vh 0 var(--tile-edge); }
-.p-typing { font-size: 5vh; min-height: 1.2em; color: var(--muted); font-weight: 600; letter-spacing: 0.04em; margin-top: 1vh; }
-
-/* Classic: players in a ring around the bomb (the old ring, until the projector moves to .circle). */
-.p-classic { gap: 1vh; }
-.p-circle { position: relative; width: min(100%, 150vh); flex: 1; min-height: 0; }
-.p-center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
-.p-everyone .p-center { position: static; transform: none; }
-.p-circle .seat {
-  position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center;
-  background: var(--panel); border: 0.5vh solid var(--muted); border-radius: 2vh;
-  padding: 0.6vh 2vh; font-size: 3.6vh; font-weight: 600; min-width: 14vh; max-width: 30vh; line-height: 1.15;
-}
-.p-circle .seat .name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-display); font-weight: 800; }
-/* Whose turn: a light tile, bigger, ringed in the turn colour, not colour alone. */
-.p-circle .seat.on {
-  background: var(--tile); color: var(--tile-ink); border: 0.7vh solid var(--turn); box-shadow: 0 0 0 0.5vh var(--turn);
-  font-size: 4.6vh; z-index: 1;
-}
-.p-circle .seat.on .lives { color: var(--tile-ink); }
-.p-circle .seat.out { opacity: 0.6; border-style: dashed; }
-.p-circle .seat .lives, .tick .lives { color: var(--lives); font-size: 0.8em; letter-spacing: 0.1em; }
-.p-circle .seat .away { font-size: 0.6em; color: var(--muted); }
-.p-circle .seat.on .away { color: var(--tile-ink); }
-.p-last { font-size: 4.6vh; min-height: 1.3em; flex: none; }
-.p-last strong { color: var(--spark); }
-.p-examples { font-size: 3.4vh; color: var(--muted); flex: none; }
-
-/* Everyone: one grid of players, a ✓ for each answer. */
-.p-everyone { gap: 1.5vh; }
-.p-round { font-size: 4vh; color: var(--muted); font-weight: 600; }
-.p-grid { list-style: none; padding: 0; margin: 2vh 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 1.4vh; max-width: 100%; }
-.tick {
-  background: var(--panel); border: 0.5vh solid var(--muted); border-radius: 1.6vh;
-  padding: 0.8vh 2vh; font-family: var(--font-display); font-size: 3.6vh; font-weight: 800;
-}
-.tick.answered { background: var(--answered); color: var(--tile-ink); border-color: var(--tile-ink); }
-.tick.answered .lives { color: var(--tile-ink); }
-.tick.out { opacity: 0.6; border-style: dashed; }
-
-/* Results */
-.p-results { gap: 2vh; }
-.p-results h1 { font-size: 9vh; margin: 0; color: var(--muted); }
-.p-winner {
-  font-family: var(--font-display); font-size: 10vh; font-weight: 800; line-height: 1.05; color: var(--tile-ink); background: var(--tile);
-  border: 0.8vh solid var(--tile-edge); border-radius: 3vh; box-shadow: inset 0 -1.2vh 0 var(--tile-edge); padding: 1vh 5vh 2.6vh; max-width: 94%;
-}
-.p-longest { font-size: 4.5vh; margin: 1vh 0; }
-.p-longest strong { color: var(--spark); }
+/* Results: the trophy and the winner's emoji where the bomb was, the name on tiles. Shared winners
+   sit side by side, smaller as there are more; a long name wraps onto a second row of tiles. "safe":
+   if it is ever too tall, it runs off the bottom rather than losing "Game over" off the top. */
+.projector main.p-results { gap: 1.4vh; justify-content: safe center; }
+.p-results h1 { font-size: 5vh; margin: 0; color: var(--muted); }
+.p-podium { display: flex; flex-direction: column; align-items: center; gap: 1vh; max-width: 100%; }
+.p-podium .trophy { width: 9vh; height: 9vh; }
+.p-winners { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 2vh 5vh; max-width: 100%; }
+.p-winner { display: flex; flex-direction: column; align-items: center; gap: 1.2vh; font-size: 7vh; max-width: 100%; min-width: 0; }
+.p-winner .avatar { width: 18vh; height: 18vh; }
+.p-winners:has(> :nth-child(2)) { flex-wrap: nowrap; }
+.p-winners:has(> :nth-child(2)) .p-winner { font-size: 5vh; flex: 0 1 auto; }
+.p-winners:has(> :nth-child(2)) .p-winner .avatar { width: 14vh; height: 14vh; }
+.p-winners:has(> :nth-child(3)) { flex-wrap: wrap; }
+.p-winners:has(> :nth-child(3)) .p-winner { font-size: 3.8vh; max-width: 30%; }
+.p-winners:has(> :nth-child(3)) .p-winner .avatar { width: 10vh; height: 10vh; }
+.p-winners:has(> :nth-child(7)) .p-winner { font-size: 2.8vh; max-width: 15%; }
+.p-winners:has(> :nth-child(7)) .p-winner .avatar { width: 6vh; height: 6vh; }
+.p-nowinner { font-family: var(--font-display); font-weight: 800; font-size: 8vh; margin: 2vh 0; color: var(--names); }
+.p-longest { font-size: 4.5vh; margin: 1vh 0 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.4em; }
+.p-longest .by { color: var(--muted); }
 .p-results h2 { font-size: 4vh; margin: 1vh 0 0; }
-.p-ghosts { font-size: 3.6vh; text-align: left; margin: 0; }
+.p-ghosts {
+  list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 1vh 4vh;
+  font-size: 3.6vh; max-width: 92%;
+}
+.p-ghosts:has(> li:nth-child(11)) { font-size: 3vh; }
+.p-ghosts li { display: inline-flex; align-items: center; gap: 0.3em; }
+.p-ghosts .rank { color: var(--muted); font-weight: 600; }
+.p-ghosts .who { font-family: var(--font-display); font-weight: 800; }
 
 .netstatus {
   position: fixed; top: 1vh; left: 50%; transform: translateX(-50%); z-index: 6;

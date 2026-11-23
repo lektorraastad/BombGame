@@ -177,11 +177,13 @@ export const BOMB_CSS = `
   transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2cqw;
 }
 .bomb-count {
-  font-family: var(--font-display, sans-serif); font-weight: 800; font-size: 27cqw; line-height: 1;
+  font-family: var(--font-display, sans-serif); font-weight: 800; font-size: 18cqw; line-height: 1;
   font-variant-numeric: tabular-nums; color: var(--names);
 }
-/* On the bomb itself: spark is at least 3:1 on every bomb (Workshop red included), lives is not. */
-.urgent .bomb-count { color: var(--spark); font-size: 32cqw; }
+/* The number shares the face with the prompt type and the prompt's tiles above it, so it stays
+   smaller than the tiles. On the bomb itself: spark is at least 3:1 on every bomb (Workshop red
+   included), lives is not. */
+.urgent .bomb-count { color: var(--spark); font-size: 21cqw; }
 .urgent .bomb-body { animation: bomb-shake 0.25s linear infinite; }
 
 .bomb.exploding .bomb-body { animation: bomb-jolt ${EXPLOSION_MS}ms ease-out both; }

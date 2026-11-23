@@ -149,7 +149,7 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
   test("host creates a room and three players join", async () => {
     const { host, code } = await hostRoom();
     for (const name of ["Ann", "Ben", "Cat"]) await joinPlayer(code, name);
-    const names = host.locator(".p-names li");
+    const names = host.locator(".seat .name");
     await assert.doesNotReject(names.nth(2).waitFor({ timeout: WAIT }));
     assert.deepEqual(await names.allTextContents(), ["Ann", "Ben", "Cat"]);
     assert.match(await host.locator(".p-count").textContent(), /3 joined/);
@@ -177,10 +177,10 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     const label = await free.getAttribute("aria-label");
     await free.click();
     await ben.locator(`.picker button[data-avatar="${freeAvatar}"][aria-pressed="true"]`).waitFor({ timeout: WAIT });
-    await host.locator(".p-names li", { hasText: "Ben" }).locator(`img[alt="${label}"]`).waitFor({ timeout: WAIT });
+    await host.locator(".seat", { hasText: "Ben" }).locator(`img[alt="${label}"]`).waitFor({ timeout: WAIT });
     // And Ann's picker now shows Ben's new emoji as taken.
     await ann.locator(`.picker button[data-avatar="${freeAvatar}"][disabled]`).waitFor({ timeout: WAIT });
-    assert.deepEqual(await host.locator(".p-names li").allTextContents(), ["Ann", "Ben"]);
+    assert.deepEqual(await host.locator(".seat .name").allTextContents(), ["Ann", "Ben"]);
   });
 
   test("classic: valid word passes the turn and shows Last word", async () => {
@@ -195,7 +195,7 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     await on.fill("#word", word);
     await on.press("#word", "Enter");
 
-    await host.locator(".p-last", { hasText: `Last word: ${word}` }).waitFor({ timeout: WAIT });
+    await host.locator(".seat .last-word", { hasText: word }).waitFor({ timeout: WAIT });
     await other.locator("main.turn-on").waitFor({ timeout: WAIT });
     await on.locator("main.waiting").waitFor({ timeout: WAIT });
     assert.match(await on.locator(".last").textContent(), new RegExp(`Last word: ${word}`));
@@ -261,7 +261,7 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     await ben.click("#joinbtn");
     await ben.locator("#joinerror", { hasText: /removed/ }).waitFor({ timeout: WAIT });
     assert.equal(await ben.locator("#game").isHidden(), true);
-    assert.deepEqual(await host.locator(".p-names li").allTextContents(), ["Ann"]);
+    assert.deepEqual(await host.locator(".seat .name").allTextContents(), ["Ann"]);
 
     // A new tab in the same browser has a new token, but the kick is remembered in localStorage.
     const tab = await ben.context().newPage();
@@ -272,7 +272,7 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     await tab.locator("#joinerror", { hasText: "You were removed from this game" }).waitFor({ timeout: WAIT });
     assert.equal(await tab.locator("#game").isHidden(), true);
     await host.waitForTimeout(300);
-    assert.deepEqual(await host.locator(".p-names li").allTextContents(), ["Ann"]);
+    assert.deepEqual(await host.locator(".seat .name").allTextContents(), ["Ann"]);
   });
 
   test("the student join page has no link to /host", async () => {
@@ -298,7 +298,7 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     const word = wordFor(before);
     await on.fill("#word", word);
     await on.press("#word", "Enter");
-    await host.locator(".p-last", { hasText: `Last word: ${word}` }).waitFor({ timeout: WAIT });
+    await host.locator(".seat .last-word", { hasText: word }).waitFor({ timeout: WAIT });
   });
 
   test("a closed projector tab is reattached in a new browser with code and passcode", async () => {
@@ -328,7 +328,7 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     const word = wordFor(before);
     await on.fill("#word", word);
     await on.press("#word", "Enter");
-    await again.locator(".p-last", { hasText: `Last word: ${word}` }).waitFor({ timeout: WAIT });
+    await again.locator(".seat .last-word", { hasText: word }).waitFor({ timeout: WAIT });
     await openOverlay(again);
   });
 

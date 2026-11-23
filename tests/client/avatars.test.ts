@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { AVATARS, AVATAR_COUNT, avatarImg, EMOJI_CREDIT } from "../../public/app/avatars.js";
+import { AVATARS, AVATAR_COUNT, avatarImg, trophyImg, EMOJI_CREDIT } from "../../public/app/avatars.js";
 import { AVATAR_COUNT as SERVER_AVATAR_COUNT } from "../../src/engine/avatars.ts";
 
 test("exactly 60 avatars, unique files and labels, all files present", () => {
@@ -41,4 +41,10 @@ test("avatarImg", () => {
 test("the client and the server agree on how many avatars there are", () => {
   assert.equal(AVATAR_COUNT, SERVER_AVATAR_COUNT);
   assert.equal(AVATARS.length, SERVER_AVATAR_COUNT);
+});
+
+test("trophyImg: the Twemoji trophy for the results, not one of the 60", () => {
+  assert.equal(trophyImg(), '<img class="trophy" src="/avatars/1f3c6.svg" alt="Trophy" width="64" height="64">');
+  assert.ok(existsSync(new URL("../../public/avatars/1f3c6.svg", import.meta.url)));
+  assert.ok(!AVATARS.some((a) => a.file === "1f3c6.svg"), "nobody can pick the trophy");
 });
