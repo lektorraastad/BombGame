@@ -178,6 +178,13 @@ main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
 .arena .circle:has(> .seat:nth-child(11)):not(:has(> .seat:nth-child(21))) { --seat-size: max(11px, 2.7cqw); }
 .arena .circle-centre { --bomb-size: 40cqw; }
 .arena .circle:has(.seat.small) .circle-centre { --bomb-size: 30cqw; }
+/* A last word is one row of tiles, never split mid-word (as on the projector): the seat grows to fit. */
+.circle.compact .seat { max-width: none; }
+.circle.compact .seat .last-word { max-width: none; }
+.circle.compact .seat .last-word .tiles { flex-wrap: nowrap; max-width: none; }
+/* More than 20 seats (two rings) on a laptop: no room for every last word, so they are left to the
+   projector. The student's own box, the prompt and the current player's typing matter most here. */
+.circle.compact .seat.small .last-word { display: none; }
 .circle.compact .p-ask { font-size: 8cqw; }
 .circle.compact .p-prompt { font-size: 20cqw; }
 .circle.compact:has(.seat.small) .p-ask { font-size: 9cqw; }
@@ -255,7 +262,9 @@ main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
   font-family: var(--font-display); font-weight: 800; font-size: 0.9em; line-height: 1;
 }
 .circle .seat .last-word, .circle .seat .typing { font-size: 0.8em; margin-top: 0.2em; max-width: 10em; }
-.circle .seat .typing { display: inline-flex; align-items: center; flex-wrap: wrap; justify-content: center; }
+/* Live typing is one row of tiles on every circle, never split mid-word: the seat grows to fit. */
+.circle .seat .typing { display: inline-flex; align-items: center; flex-wrap: nowrap; justify-content: center; max-width: none; }
+.circle .seat .typing .tiles { flex-wrap: nowrap; max-width: none; }
 /* The typing cursor, after the typed tiles. Steady: only the bomb and the join pop move. */
 .caret {
   display: inline-block; width: 0.14em; height: 1.2em; margin-left: 0.12em; border-radius: 0.07em;

@@ -402,3 +402,24 @@ test("style.css: the student circle is square and fills the space; the text box 
   assert.match(rule("#word"), /caret-color:\s*transparent/);
   assert.match(rule(".word-tiles"), /pointer-events:\s*none/);
 });
+
+test("style.css: on the student circle a last word or live typing is one row of tiles, never split mid-word", () => {
+  const rule = (sel: string) => {
+    const css = CSS.replace(/\/\*[\s\S]*?\*\//g, "");
+    const m = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter((x) => x[1].split(",").map((s) => s.trim()).includes(sel));
+    return m.map((x) => x[2]).join(";");
+  };
+  assert.match(rule(".circle.compact .seat"), /max-width:\s*none/);
+  assert.match(rule(".circle.compact .seat .last-word"), /max-width:\s*none/);
+  assert.match(rule(".circle.compact .seat .last-word .tiles"), /flex-wrap:\s*nowrap/);
+  assert.match(rule(".circle.compact .seat .last-word .tiles"), /max-width:\s*none/);
+  // More than 20 seats (two rings) on a laptop: last words are left to the projector, so the seats
+  // don't run into each other. Live typing still shows.
+  assert.match(rule(".circle.compact .seat.small .last-word"), /display:\s*none/);
+  assert.doesNotMatch(CSS, /\.circle\.compact \.seat\.small \.typing[^{]*\{[^}]*display:\s*none/);
+  // Live typing, on every circle: the current player's word never splits either.
+  assert.match(rule(".circle .seat .typing"), /flex-wrap:\s*nowrap/);
+  assert.doesNotMatch(rule(".circle .seat .typing"), /flex-wrap:\s*wrap/);
+  assert.match(rule(".circle .seat .typing .tiles"), /flex-wrap:\s*nowrap/);
+  assert.match(rule(".circle .seat .typing .tiles"), /max-width:\s*none/);
+});

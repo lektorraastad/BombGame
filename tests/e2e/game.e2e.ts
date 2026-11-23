@@ -29,6 +29,23 @@ function wordFor(p: Prompt): string {
   return found;
 }
 
+/** The longest known word that fits the prompt (for checks on long words). */
+function longWordFor(p: Prompt): string {
+  const t = p.text.toLowerCase();
+  const fits = (w: string) =>
+    p.type === "contains" ? w.includes(t) : p.type === "starts" ? w.startsWith(t) : w.endsWith(t);
+  const found = KNOWN.filter(fits).reduce((a, w) => (w.length > a.length ? w : a), "");
+  assert.ok(found, `no known word for ${p.type} ${p.text}`);
+  return found;
+}
+
+/** How many rows of tiles each matching element's tiles sit on, measured in one step (screens redraw often). */
+async function tileRows(page: any, sel: string): Promise<number[]> {
+  return page.evaluate((s: string) =>
+    [...document.querySelectorAll(s)].map((el) => new Set([...el.querySelectorAll(".tile")].map((t) => Math.round((t as HTMLElement).offsetTop / 4))).size),
+  sel);
+}
+
 let pw: any;
 let browser: any;
 let server: { url: string; close(): Promise<void> };
@@ -284,6 +301,24 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     await on.waitForTimeout(300);
     assert.equal(await on.locator("#word").inputValue(), "qz");
     assert.equal(await on.locator("#word-tiles").textContent(), "qz");
+
+    // A long word being typed stays one row of tiles on the others' circles.
+    await on.locator("#word").pressSequentially("qzqzqzqzqzqz");
+    const long = "qz".repeat(7);
+    await other.locator(".seat.on .typing", { hasText: long }).waitFor({ timeout: WAIT });
+    assert.deepEqual(await tileRows(other, ".seat.on .typing"), [1]);
+
+    // A long last word stays one row of tiles on every student's circle.
+    await on.fill("#word", "");
+    const word = longWordFor(await projectorPrompt(host));
+    assert.ok(word.length >= 11, word);
+    await on.fill("#word", word);
+    await on.press("#word", "Enter");
+    for (const p of players) {
+      await p.locator(".seat .last-word", { hasText: word }).waitFor({ timeout: WAIT });
+      const rows = await tileRows(p, ".circle.compact .seat .last-word");
+      assert.ok(rows.length > 0 && rows.every((r) => r === 1), `${word}: ${rows}`);
+    }
   });
 
   test("kick: kicked player sees the removed message and cannot rejoin", async () => {
