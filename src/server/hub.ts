@@ -382,7 +382,10 @@ export class Hub {
         text = shared.get(role)!;
       } else if (c.role === "player" && c.pid) {
         const pid = c.pid;
-        text = viewText(() => playerView(room, pid));
+        text = viewText(() => {
+          const v = playerView(room, pid);
+          return v ? { ...v, lastEvent } : null;
+        });
       }
       if (text === null) continue;
       try {

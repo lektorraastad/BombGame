@@ -407,8 +407,26 @@ test("projector views carry lastEvent: word after an accepted word, explosion af
   await tick();
   assert.equal(host.views().at(-1).lastEvent, null, "the next broadcast is not another explosion");
 
-  assert.equal(ctl.views().at(-1).lastEvent, undefined, "projector only");
-  assert.equal(players[0].views().at(-1).lastEvent, undefined, "projector only");
+  assert.equal(ctl.views().at(-1).lastEvent, undefined, "projector and players only");
+});
+
+test("player views carry the same lastEvent as the projector: explosion, then null", async () => {
+  const { hub, clock } = makeHub();
+  const { host, code } = await hostRoom(hub);
+  const players = [await joinPlayer(hub, code, "Ola"), await joinPlayer(hub, code, "Kari")];
+  assert.equal(players[0].views().at(-1).lastEvent, null, "lobby");
+  host.send({ t: "cmd", cmd: "settings", settings: { mode: "classic", timerStyle: "visible", turnTime: 5 } });
+  host.send({ t: "cmd", cmd: "start" });
+  await tick();
+  for (const p of players) p.clear();
+  host.clear();
+  await clock.advance(5_000);
+  await tick();
+  assert.equal(host.views().at(-1).lastEvent, "explosion");
+  for (const p of players) assert.equal(p.views().at(-1).lastEvent, "explosion");
+  host.send({ t: "cmd", cmd: "lock" });
+  await tick();
+  for (const p of players) assert.equal(p.views().at(-1).lastEvent, null, "the next broadcast is not another explosion");
 });
 
 // ---- playing and commands ----
