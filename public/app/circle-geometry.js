@@ -5,10 +5,16 @@
 /** More players than this on the circle: two rings. */
 export const ONE_RING_MAX = 20;
 
-/** Radius of each ring as a percentage of the circle box: [horizontal, vertical]. */
+/**
+ * Radius of each ring as a percentage of the circle box: [horizontal, vertical]. The outer ring
+ * reaches as far as a seat can go and stay in the box. The inner ring is far enough in that a seat
+ * with a long word clears the outer ring at the sides, and far enough out that seats clear the bomb
+ * and that its seats have room side by side at the top and bottom. Checked end to end in
+ * tests/e2e/game.e2e.ts with 24 players.
+ */
 const RINGS = [
-  [42, 40],
-  [30, 28],
+  [42, 43],
+  [30, 29],
 ];
 
 /**
@@ -56,7 +62,7 @@ export function arrowAngle(view) {
 /**
  * Where a seat really is on screen, as an arrow angle (0 = straight up, clockwise), when the
  * circle's box is `aspect` times wider than tall: on a wide oval a seat at 45° round the ring sits
- * further out sideways, about 62° on a 16:9 box. Up, right, down and left don't move. The answer
+ * further out sideways, about 60° on a 16:9 box. Up, right, down and left don't move. The answer
  * stays within half a turn of `angle`, so angles past a full turn (a swing the short way round)
  * keep their turn. A junk aspect counts as a square box.
  * @param {number} angle the seat's angle round the ring, in degrees

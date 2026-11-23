@@ -167,7 +167,10 @@ function draw(again = true) {
     if (again) draw(false);
   }
 }
-window.addEventListener("resize", () => draw());
+// Redraw whenever the projector's size changes: the window is resized, or the ⚙ overlay opens or
+// closes and the game moves into the space beside it. No new view comes then, but the oval's shape
+// changes, and the arrow must turn with it.
+new ResizeObserver(() => draw()).observe($("projector"));
 
 // ---- the overlay: a control connection of its own, open only while the overlay shows ----
 

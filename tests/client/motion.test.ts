@@ -31,12 +31,12 @@ function tracker() {
 // ---- circle geometry ----
 
 test("seats start straight up and go clockwise on one ring up to 20", () => {
-  assert.deepEqual(seatPosition(0, 4), { left: 50, top: 10, angle: 0, ring: 0 });
+  assert.deepEqual(seatPosition(0, 4), { left: 50, top: 7, angle: 0, ring: 0 });
   const right = seatPosition(1, 4);
   assert.equal(right.angle, 90);
   assert.ok(Math.abs(right.left - 92) < 1e-9 && Math.abs(right.top - 50) < 1e-9);
   const bottom = seatPosition(2, 4);
-  assert.ok(Math.abs(bottom.left - 50) < 1e-9 && Math.abs(bottom.top - 90) < 1e-9);
+  assert.ok(Math.abs(bottom.left - 50) < 1e-9 && Math.abs(bottom.top - 93) < 1e-9);
   for (let i = 0; i < 20; i++) assert.equal(seatPosition(i, 20).ring, 0);
 });
 
@@ -44,13 +44,13 @@ test("more than 20 seats alternate between the outer and the inner ring", () => 
   const outer = seatPosition(0, 21);
   const inner = seatPosition(1, 21);
   assert.deepEqual([outer.ring, inner.ring], [0, 1]);
-  assert.equal(outer.top, 10);
+  assert.equal(outer.top, 7);
   const down = seatPosition(16, 32); // 180°: straight down, outer ring
   assert.equal(down.ring, 0);
-  assert.ok(Math.abs(down.top - 90) < 1e-9);
-  const innerDown = seatPosition(15, 30); // 180°, inner ring: 28 % below the middle
+  assert.ok(Math.abs(down.top - 93) < 1e-9);
+  const innerDown = seatPosition(15, 30); // 180°, inner ring: 29 % below the middle
   assert.equal(innerDown.ring, 1);
-  assert.ok(Math.abs(innerDown.top - 78) < 1e-9);
+  assert.ok(Math.abs(innerDown.top - 79) < 1e-9);
   const innerRight = seatPosition(7, 28); // 90°, inner ring: 30 % right of the middle
   assert.ok(Math.abs(innerRight.left - 80) < 1e-9);
 });
@@ -83,10 +83,10 @@ function seen(i: number, n: number, aspect: number) {
 const near = (a: number, b: number, eps = 1e-6) => Math.abs((((a - b) % 360) + 540) % 360 - 180) < eps;
 
 test("screenAngle: on a 16:9 oval the arrow points where the seat really is", () => {
-  // A seat at 45° round the ring sits further out sideways on a wide oval: about 61.8° on screen.
+  // A seat at 45° round the ring sits further out sideways on a wide oval: about 60.1° on screen.
   const a = screenAngle(45, 16 / 9);
-  assert.ok(Math.abs(a - (Math.atan2(42 * (16 / 9) * Math.SQRT1_2, 40 * Math.SQRT1_2) * 180) / Math.PI) < 1e-9, String(a));
-  assert.ok(Math.abs(a - 61.83) < 0.01, String(a));
+  assert.ok(Math.abs(a - (Math.atan2(42 * (16 / 9) * Math.SQRT1_2, 43 * Math.SQRT1_2) * 180) / Math.PI) < 1e-9, String(a));
+  assert.ok(Math.abs(a - 60.06) < 0.01, String(a));
   // Every seat, either ring, on screens of different shapes.
   for (const aspect of [1, 4 / 3, 16 / 9, 2.1]) {
     for (const n of [3, 8, 16, 30, 32]) {

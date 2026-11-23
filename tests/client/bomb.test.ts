@@ -107,3 +107,27 @@ test("the countdown number leaves room on the bomb for the prompt above it", () 
   assert.ok(size("\\.urgent \\.bomb-count") <= 22, `urgent ${size("\\.urgent \\.bomb-count")}`);
   assert.ok(size("\\.urgent \\.bomb-count") > size("\\.bomb-count"), "bigger when urgent");
 });
+
+test("the arrow starts outside the prompt's tiles, stays short of the inner ring, and is drawn above the flame", () => {
+  const html = renderBomb(still({ arrow: { from: 0, to: 90, elapsedMs: 5_000 }, fuse: { totalMs: 10_000, elapsedMs: 2_000 } }), "");
+  const points = (html.match(/<g class="bomb-arrow[^>]*><polygon points="([^"]+)"/)?.[1] ?? "")
+    .split(" ")
+    .map((p) => p.split(",").map(Number));
+  assert.ok(points.length >= 3, html);
+  // Distance from the bomb's middle (60, 60 in its 120 box) to the nearest point of each edge.
+  const toEdge = ([ax, ay]: number[], [bx, by]: number[]) => {
+    const [dx, dy] = [bx - ax, by - ay];
+    const t = Math.max(0, Math.min(1, ((60 - ax) * dx + (60 - ay) * dy) / (dx * dx + dy * dy)));
+    return Math.hypot(ax + t * dx - 60, ay + t * dy - 60);
+  };
+  const nearest = Math.min(...points.map((p, i) => toEdge(p, points[(i + 1) % points.length])));
+  const furthest = Math.max(...points.map(([x, y]) => Math.hypot(x - 60, y - 60)));
+  // Three prompt tiles on the two-ring bomb reach about 46 units out sideways (the label less far
+  // up), and the tiles sit above the drawing: an arrow that starts nearer is partly hidden.
+  assert.ok(nearest >= 50, `the arrow starts ${nearest.toFixed(1)} units from the middle`);
+  // The tip may poke out past the bomb's box, but not so far that it reaches the inner ring's seats.
+  assert.ok(furthest <= 72, `the tip is ${furthest.toFixed(1)} units from the middle`);
+  // Where it crosses the fuse and the flame (pointing up and to the right), the arrow is on top.
+  assert.ok(html.indexOf('class="bomb-arrow') > html.indexOf('class="bomb-flame"'), "arrow after the flame");
+  assert.ok(html.indexOf('class="bomb-arrow') > html.indexOf('class="bomb-fuse'), "arrow after the fuse");
+});

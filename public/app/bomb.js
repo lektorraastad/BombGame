@@ -64,7 +64,11 @@ const BODY = `<circle class="bomb-shell" cx="60" cy="60" r="${R_BODY}"/>
 const FLAME = `<path class="bomb-flame-out" transform="translate(${f1(TIP.x)} ${f1(TIP.y)})" d="M0 3C-7 3-9-4-6-10C-4-14-1-16-1-24C4-19 9-13 8-5C7 0 4 3 0 3Z"/>
 <path class="bomb-flame-in" transform="translate(${f1(TIP.x)} ${f1(TIP.y)})" d="M0 2C-4 2-5-3-3-7C-2-10 0-11 0-15C3-11 5-7 4-3C4 0 2 2 0 2Z"/>`;
 
-const ARROW = `<polygon points="60,-10 80,17 60,9 40,17"/>`;
+/** The turn arrow, pointing up before it is turned. It starts 50 units out, clear of the prompt's
+ * tiles and label (they sit above the drawing and would hide its base when it points sideways), and
+ * its tip stops 72 units out, short of the inner ring's seats. It is drawn after the fuse and the
+ * flame, so it stays on top where it crosses them. */
+const ARROW = `<polygon points="60,-12 77,10 60,4 43,10"/>`;
 
 /** Bits flying out of the explosion, every 30°. */
 const DEBRIS_ANGLES = Array.from({ length: 12 }, (_, i) => i * 30 + 15);

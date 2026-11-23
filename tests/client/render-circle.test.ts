@@ -166,7 +166,10 @@ test("style.css: seat names are never cut short", () => {
     assert.ok(!/text-overflow|overflow:\s*hidden|white-space:\s*nowrap/.test(body), sel);
   }
   const name = rules.find((m) => /\.circle \.seat \.name\s*$/.test(m[1].trim()) || m[1].trim() === ".circle .seat .name")!;
-  assert.match(name[2], /overflow-wrap:\s*anywhere/, "long single words break instead of spilling out");
+  // break-word, not anywhere: a name wraps at its spaces, and only a single word too long for the
+  // label breaks. ("anywhere" lets the seat's grid squeeze a name and split words that would fit.)
+  assert.match(name[2], /overflow-wrap:\s*break-word/, "long single words break instead of spilling out");
+  assert.doesNotMatch(name[2], /anywhere|word-break:\s*break-all/);
 });
 
 test("style.css: tiles use the tile colours and Rubik 800; matched tiles are raised and spark", () => {
