@@ -5,6 +5,7 @@ import { WORD_LIST_CREDITS } from "../../src/words/credits.ts";
 import { CREDITS } from "../../public/app/credits.js";
 import { AVATARS, EMOJI_CREDIT, avatarImg } from "../../public/app/avatars.js";
 import { tiles, matchedTiles } from "../../public/app/tiles.js";
+import { screenAngle } from "../../public/app/circle-geometry.js";
 import { createRoom } from "../../src/engine/registry.ts";
 import { createPromptBank } from "../../src/engine/prompts.ts";
 import { projectorView } from "../../src/engine/views.ts";
@@ -279,4 +280,14 @@ test("the lobby credits the word lists and the emoji", () => {
   const { room } = game({});
   const credits = draw(room).match(/<p class="p-credits">(.*?)<\/p>/s)?.[1] ?? "";
   assert.equal(credits, `${CREDITS} · ${EMOJI_CREDIT}`.replace(/&/g, "&amp;"));
+});
+
+test("classic: the arrow follows the ring's real shape from ui.ringAspect", () => {
+  const c = game({ mode: "classic", timerStyle: "hidden" });
+  assert.deepEqual(c.room.start(), { ok: true });
+  const bomb = { ...LIT, countdownMs: null, fuse: null, arrow: { from: 120, to: 240, elapsedMs: 700 } };
+  const html = draw(c.room, { bomb, ringAspect: 1.75 });
+  assert.ok(html.includes(`--to:${Math.round(screenAngle(240, 1.75) * 10) / 10}deg"`), html.match(/--to:[^"]*/)?.[0]);
+  assert.ok(draw(c.room, { bomb }).includes('--to:240deg"'), "no aspect: as given");
+  assert.ok(draw(c.room, { bomb, ringAspect: Number.NaN }).includes('--to:240deg"'), "junk aspect: as given");
 });

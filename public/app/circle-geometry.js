@@ -52,3 +52,23 @@ export function arrowAngle(view) {
   const i = seated.findIndex((p) => p.id === current);
   return i < 0 ? null : seatPosition(i, seated.length).angle;
 }
+
+/**
+ * Where a seat really is on screen, as an arrow angle (0 = straight up, clockwise), when the
+ * circle's box is `aspect` times wider than tall: on a wide oval a seat at 45° round the ring sits
+ * further out sideways, about 62° on a 16:9 box. Up, right, down and left don't move. The answer
+ * stays within half a turn of `angle`, so angles past a full turn (a swing the short way round)
+ * keep their turn. A junk aspect counts as a square box.
+ * @param {number} angle the seat's angle round the ring, in degrees
+ * @param {number} [aspect] the box's width / height
+ * @param {0 | 1} [ring]
+ * @returns {number} degrees
+ */
+export function screenAngle(angle, aspect = 1, ring = 0) {
+  const a = Number.isFinite(aspect) && aspect > 0 ? aspect : 1;
+  const [rx, ry] = RINGS[ring === 1 ? 1 : 0];
+  const rad = (angle * Math.PI) / 180;
+  const seen = (Math.atan2(rx * a * Math.sin(rad), ry * Math.cos(rad)) * 180) / Math.PI;
+  const d = (((seen - angle) % 360) + 540) % 360 - 180; // -180 to 180
+  return angle + d;
+}

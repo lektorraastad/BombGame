@@ -5,7 +5,7 @@
 import { esc } from "./escape.js";
 import { renderBomb } from "./bomb.js";
 import { avatarImg } from "./avatars.js";
-import { seatPosition, seatedPlayers, ONE_RING_MAX } from "./circle-geometry.js";
+import { seatPosition, seatedPlayers, screenAngle, ONE_RING_MAX } from "./circle-geometry.js";
 import { tiles, matchedTiles } from "./tiles.js";
 
 /**
@@ -14,6 +14,7 @@ import { tiles, matchedTiles } from "./tiles.js";
  *   bomb: import("./bomb.js").BombState,
  *   centre: string,                                // trusted HTML on the bomb (the caller escapes its text)
  *   popElapsed?: (pid: string) => number | null,   // ms since this player joined, while their pop runs
+ *   aspect?: number,                               // the box's width / height when it is an oval (projector)
  * }} CircleOptions
  */
 
@@ -63,5 +64,23 @@ export function renderCircle(view, opts) {
       return `<div class="${cls}" style="${style}">${avatarImg(p.avatar)}<span class="name">${esc(p.nickname)}</span>${lives}${away}${answered}${word(view, p)}</div>`;
     })
     .join("");
-  return `<div class="circle${opts.compact ? " compact" : ""}">${seats}<div class="circle-centre">${renderBomb(opts.bomb, opts.centre)}</div></div>`;
+  return `<div class="circle${opts.compact ? " compact" : ""}">${seats}<div class="circle-centre">${renderBomb(onScreen(opts, seated, current), opts.centre)}</div></div>`;
+}
+
+/**
+ * The motion tracker's arrow angles are angles round the ring. On an oval box they are turned to
+ * where the seats really are on screen: the target by the current seat's ring, the start by the
+ * outer ring. Without an aspect (the square student circle) the bomb is passed on as it is.
+ * @param {CircleOptions} opts @param {any[]} seated @param {unknown} current
+ * @returns {import("./bomb.js").BombState}
+ */
+function onScreen(opts, seated, current) {
+  const { bomb, aspect } = opts;
+  if (!bomb?.arrow || typeof aspect !== "number" || !Number.isFinite(aspect) || aspect <= 0) return bomb;
+  const i = seated.findIndex((p) => p.id === current);
+  const ring = i < 0 ? 0 : seatPosition(i, seated.length).ring;
+  const to = screenAngle(bomb.arrow.to, aspect, ring);
+  // The start stays within half a turn of the target, so the swing still goes the short way round.
+  const from = to + (((screenAngle(bomb.arrow.from, aspect, 0) - to) % 360) + 540) % 360 - 180;
+  return { ...bomb, arrow: { ...bomb.arrow, from, to } };
 }

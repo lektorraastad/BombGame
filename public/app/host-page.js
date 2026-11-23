@@ -152,12 +152,22 @@ function onStatus(s) {
   $("netstatus").textContent = s === "open" ? "" : "Reconnecting…";
 }
 
-function draw() {
+/** The circle's shape on screen (width / height), measured after each draw, so the arrow points at the seat. */
+let ringAspect = 1;
+
+function draw(again = true) {
   if (!view || !hosting) return;
   const countdownMs = countdown.remainingMs();
   const bomb = motion.bombState(countdownMs, view.phase === "playing" && !view.paused);
-  $("projector").innerHTML = renderProjector(view, { countdownMs, credits: CREDITS, site: location.host, bomb, popElapsed: motion.popElapsed });
+  $("projector").innerHTML = renderProjector(view, { countdownMs, credits: CREDITS, site: location.host, bomb, popElapsed: motion.popElapsed, ringAspect });
+  // A new screen or window size can change the oval's shape: then draw once more with the real one.
+  const box = document.querySelector("#projector .circle")?.getBoundingClientRect();
+  if (box && box.width > 0 && box.height > 0 && Math.abs(box.width / box.height - ringAspect) > 0.005) {
+    ringAspect = box.width / box.height;
+    if (again) draw(false);
+  }
 }
+window.addEventListener("resize", () => draw());
 
 // ---- the overlay: a control connection of its own, open only while the overlay shows ----
 

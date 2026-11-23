@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createMotion, POP_MS } from "../../public/app/motion.js";
-import { seatPosition, seatedPlayers, arrowAngle } from "../../public/app/circle-geometry.js";
+import { seatPosition, seatedPlayers, arrowAngle, screenAngle } from "../../public/app/circle-geometry.js";
 import { ARROW_SWING_MS, EXPLOSION_MS } from "../../public/app/bomb.js";
 
 const player = (id: string, over: Record<string, unknown> = {}) =>
@@ -72,6 +72,39 @@ test("arrowAngle points at the current seat", () => {
   assert.equal(arrowAngle(classicView("nobody")), null);
   assert.equal(arrowAngle(everyoneView()), null);
   assert.equal(arrowAngle({ players: PLAYERS, mode: null }), null);
+});
+
+/** The on-screen direction (0° up, clockwise) from the middle of a box with this width/height to a seat. */
+function seen(i: number, n: number, aspect: number) {
+  const s = seatPosition(i, n);
+  const deg = (Math.atan2((s.left - 50) * aspect, -(s.top - 50)) * 180) / Math.PI;
+  return (deg + 360) % 360;
+}
+const near = (a: number, b: number, eps = 1e-6) => Math.abs((((a - b) % 360) + 540) % 360 - 180) < eps;
+
+test("screenAngle: on a 16:9 oval the arrow points where the seat really is", () => {
+  // A seat at 45° round the ring sits further out sideways on a wide oval: about 61.8° on screen.
+  const a = screenAngle(45, 16 / 9);
+  assert.ok(Math.abs(a - (Math.atan2(42 * (16 / 9) * Math.SQRT1_2, 40 * Math.SQRT1_2) * 180) / Math.PI) < 1e-9, String(a));
+  assert.ok(Math.abs(a - 61.83) < 0.01, String(a));
+  // Every seat, either ring, on screens of different shapes.
+  for (const aspect of [1, 4 / 3, 16 / 9, 2.1]) {
+    for (const n of [3, 8, 16, 30, 32]) {
+      for (let i = 0; i < n; i++) {
+        const s = seatPosition(i, n);
+        assert.ok(near(screenAngle(s.angle, aspect, s.ring), seen(i, n, aspect)), `${aspect} ${i}/${n}`);
+      }
+    }
+  }
+});
+
+test("screenAngle: straight up, right, down and left don't move; it stays near the angle it was given", () => {
+  for (const d of [0, 90, 180, 270, 360, -90]) assert.ok(Math.abs(screenAngle(d, 16 / 9) - d) < 1e-9, String(d));
+  // Angles past a full turn (a swing the short way round) keep their turn, so the swing still goes the short way.
+  assert.ok(Math.abs(screenAngle(405, 16 / 9) - (screenAngle(45, 16 / 9) + 360)) < 1e-9);
+  assert.ok(Math.abs(screenAngle(-45, 16 / 9) + screenAngle(45, 16 / 9)) < 1e-9);
+  // Junk aspect: treated as a square box.
+  for (const bad of [0, -2, Number.NaN, Infinity]) assert.equal(screenAngle(45, bad), screenAngle(45, 1));
 });
 
 // ---- the motion tracker ----

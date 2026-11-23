@@ -14,6 +14,7 @@ import { avatarImg, trophyImg, EMOJI_CREDIT } from "./avatars.js";
  *   site?: string,
  *   bomb?: import("./bomb.js").BombState,          // from the motion tracker (host-page.js)
  *   popElapsed?: (pid: string) => number | null,   // ms since a player joined, while their pop runs
+ *   ringAspect?: number,                           // the ring box's width / height, measured by the page
  * }} ProjectorUi
  */
 
@@ -48,11 +49,12 @@ function screen(view, ui) {
 }
 
 /**
- * The circle in its own box, which the stylesheet makes as big a square as the space allows.
+ * The circle in its own box. On the projector the stylesheet makes it an oval as tall as the space
+ * and as wide as the screen allows; ui.ringAspect (its measured shape) turns the arrow to the seat.
  * @param {any} view @param {ProjectorUi} ui @param {BombState} bomb @param {string} centre
  */
 function ring(view, ui, bomb, centre) {
-  return `<div class="p-ring">${renderCircle(view, { compact: false, bomb, centre, popElapsed: ui.popElapsed })}</div>`;
+  return `<div class="p-ring">${renderCircle(view, { compact: false, bomb, centre, popElapsed: ui.popElapsed, aspect: ui.ringAspect })}</div>`;
 }
 
 /** @param {any} view @param {ProjectorUi} ui */

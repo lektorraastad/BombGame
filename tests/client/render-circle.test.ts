@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { renderCircle } from "../../public/app/render-circle.js";
-import { seatPosition } from "../../public/app/circle-geometry.js";
+import { seatPosition, screenAngle } from "../../public/app/circle-geometry.js";
 import { renderBomb, type BombState } from "../../public/app/bomb.js";
 import { avatarImg } from "../../public/app/avatars.js";
 import { matchedTiles, tiles } from "../../public/app/tiles.js";
@@ -174,4 +174,28 @@ test("style.css: tiles use the tile colours and Rubik 800; matched tiles are rai
   for (const v of ["var(--tile)", "var(--tile-ink)", "var(--tile-edge)", "var(--font-display)", "font-weight: 800"]) assert.ok(tile.includes(v), v);
   const matched = CSS.match(/\n\.tile\.matched \{([^}]*)\}/)?.[1] ?? "";
   assert.ok(matched.includes("var(--spark)") && /transform: translateY\(-/.test(matched), "spark and raised");
+});
+
+test("on an oval (aspect given), the arrow is turned to where the current seat really is", () => {
+  const ps = Array.from({ length: 8 }, (_, i) => player(`p${i}`));
+  const deg = (v: number) => `${Math.round(v * 10) / 10}deg`;
+  const bomb: BombState = { ...BOMB, arrow: { from: 0, to: 45, elapsedMs: 100 } };
+  const html = draw(classic(ps, "p1"), { bomb, aspect: 16 / 9 });
+  assert.ok(html.includes(`--from:${deg(screenAngle(0, 16 / 9))};--to:${deg(screenAngle(45, 16 / 9))};`), html.match(/--from[^"]*/)?.[0]);
+  // Two rings: the current seat's own ring.
+  const many = Array.from({ length: 30 }, (_, i) => player(`p${i}`));
+  const inner = seatPosition(1, 30);
+  const two = draw(classic(many, "p1"), { bomb: { ...BOMB, arrow: { from: inner.angle, to: inner.angle, elapsedMs: 600 } }, aspect: 16 / 9 });
+  assert.ok(two.includes(`--to:${deg(screenAngle(inner.angle, 16 / 9, 1))}"`));
+  // No aspect (the student's square circle): the arrow as the tracker gave it.
+  assert.ok(draw(classic(ps, "p1"), { bomb }).includes("--from:0deg;--to:45deg;"));
+  for (const bad of [Number.NaN, -1, 0, "2"]) assert.ok(draw(classic(ps, "p1"), { bomb, aspect: bad }).includes("--from:0deg;--to:45deg;"), String(bad));
+});
+
+test("style.css: on the projector a last word is one row of tiles, never split", () => {
+  const rule = (sel: string) => CSS.match(new RegExp(`\\n${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\{([^}]*)\\}`))?.[1] ?? "";
+  assert.match(rule(".p-ring .seat .last-word .tiles"), /flex-wrap:\s*nowrap/);
+  assert.match(rule(".p-ring .seat .last-word .tiles"), /max-width:\s*none/);
+  assert.match(rule(".p-ring .seat .last-word"), /max-width:\s*none/);
+  assert.match(rule(".p-ring .circle .seat"), /max-width:\s*none/);
 });

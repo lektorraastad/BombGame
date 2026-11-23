@@ -243,56 +243,62 @@ button:disabled { cursor: default; }
 /* The overlay takes the right-hand side; the game moves into the space left of it. */
 .overlay-open .projector { right: var(--overlay-w); padding-left: 2vw; padding-right: 2vw; }
 .projector main { flex: 1; min-height: 0; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-/* In the flow above the game, so it never covers the top seat. */
+/* In the flow above the game, so it never covers the top seat; small, so the circle keeps the height. */
 .p-paused {
-  flex: none; align-self: center; margin-bottom: 1vh; background: var(--refusal); color: var(--tile-ink);
-  border-radius: 1.5vh; font-family: var(--font-display); font-size: 6vh; font-weight: 800; padding: 0.4vh 4vh; letter-spacing: 0.05em;
+  flex: none; align-self: center; margin-bottom: 0.5vh; background: var(--refusal); color: var(--tile-ink);
+  border-radius: 1vh; font-family: var(--font-display); font-size: 3.6vh; font-weight: 800; padding: 0.2vh 3vh; letter-spacing: 0.05em;
 }
 
-/* The circle (render-circle.js) as big a square as the space left over allows. The ring box is a
-   size container, so the circle can take the smaller of its width and height. Seats at the sides
-   reach a little past the square, into the wide screen's spare width. */
+/* The circle (render-circle.js) on the projector: an oval as tall as the space left over and as wide
+   as the 16:9 screen allows, keeping room at the sides for the side seats' words. The ring box is a
+   size container, and so is the oval, so every size inside is in cqh of the oval: the height sets
+   how big things can be read. The page measures the oval's shape (ui.ringAspect) so the arrow
+   still points at the seat. The student screen keeps the square circle. */
 .p-ring { flex: 1; min-height: 0; width: 100%; container-type: size; display: flex; align-items: center; justify-content: center; }
-.p-ring .circle { --circle-size: min(100cqw, 100cqh); }
-/* A bigger bomb on the projector while there is one ring; two rings keep the smaller one. */
-.p-ring .circle-centre { --bomb-size: 40cqw; }
-.p-ring .circle:has(.seat.small) .circle-centre { --bomb-size: 28cqw; }
-/* Fewer players, bigger seats, to be read from the back of the room. From 15 on, the circle's own size. */
-.p-ring .circle:not(:has(> .seat:nth-child(11))) { --seat-size: 3cqw; }
-.p-ring .circle:has(> .seat:nth-child(11)):not(:has(> .seat:nth-child(15))) { --seat-size: 2.6cqw; }
+.p-ring .circle {
+  aspect-ratio: auto; width: min(100cqw - 18cqh, 210cqh); height: 100cqh; max-width: none; container-type: size; --seat-size: 3.3cqh;
+}
+/* Seats: big for a few players, smaller as the ring fills; above 20 the circle's .small (x0.8). */
+.p-ring .circle:not(:has(> .seat:nth-child(11))) { --seat-size: 4.2cqh; }
+.p-ring .circle:has(> .seat:nth-child(11)):not(:has(> .seat:nth-child(17))) { --seat-size: 3.6cqh; }
+.p-ring .circle:has(> .seat:nth-child(17)):not(:has(> .seat:nth-child(21))) { --seat-size: 3.2cqh; }
+/* A seat grows to fit its word: the last word is one row of tiles, never split across two. */
+.p-ring .circle .seat { max-width: none; }
+.p-ring .seat .last-word { max-width: none; }
+.p-ring .seat .last-word .tiles { flex-wrap: nowrap; max-width: none; }
+/* The bomb: big with one ring, smaller with two so the arrow and flame clear the inner ring. */
+.p-ring .circle-centre { --bomb-size: 47cqh; }
+.p-ring .circle:has(.seat.small) .circle-centre { --bomb-size: 37cqh; }
 
 /* On the bomb: the prompt type, then the prompt on tiles (and bomb.js's countdown number below).
    Sized in cqw of the bomb, so they fit whatever the bomb's size. The tiles are the biggest thing
-   on the bomb and may reach past its body at the sides (never as far as the arrow's base); they
-   never wrap. The prompt type sits on a dark label, so it reads where it crosses the rim or cap.
-   Smaller when the countdown number shares the bomb; relatively bigger on the smaller two-ring bomb. */
+   on the bomb and may reach past its body at the sides; they never wrap. The prompt type is small,
+   on a dark label, so it reads where it crosses the rim or cap. */
 .p-ask {
-  font-family: var(--font-display); font-weight: 800; font-size: 6cqw; line-height: 1; letter-spacing: 0.04em; white-space: nowrap;
+  font-family: var(--font-display); font-weight: 800; font-size: 5.5cqw; line-height: 1; letter-spacing: 0.04em; white-space: nowrap;
   color: var(--names); background: var(--tile-ink); border-radius: 0.4em; padding: 0.2em 0.45em 0.25em;
 }
 .p-prompt { font-size: 18cqw; line-height: 1; }
 .p-prompt .tiles { flex-wrap: nowrap; max-width: none; }
-.circle-centre:has([data-countdown]) .p-ask { font-size: 5.5cqw; }
-.circle-centre:has([data-countdown]) .p-prompt { font-size: 17cqw; }
-.circle:has(.seat.small) .p-ask { font-size: 7cqw; }
-.circle:has(.seat.small) .p-prompt { font-size: 20cqw; }
-.circle:has(.seat.small) .circle-centre:has([data-countdown]) .p-ask { font-size: 6.5cqw; }
-.circle:has(.seat.small) .circle-centre:has([data-countdown]) .p-prompt { font-size: 19cqw; }
-.p-examples { flex: none; min-height: 1.35em; font-size: 3.4vh; color: var(--muted); }
-.p-round { flex: none; font-size: 4vh; color: var(--muted); font-weight: 600; }
+.circle-centre:has([data-countdown]) .p-ask { font-size: 5cqw; }
+.circle:has(.seat.small) .p-ask { font-size: 6cqw; }
+.circle:has(.seat.small) .p-prompt { font-size: 23cqw; }
+/* Two rings with a countdown: the stack is taller than the small bomb's body, so it moves up (the
+   label may sit over the top of the rim) and the number stays on the bomb. */
+.circle:has(.seat.small) .circle-centre:has([data-countdown]) .p-ask { font-size: 5cqw; margin-top: -6cqw; }
+.p-examples { flex: none; min-height: 1.35em; font-size: 2.8vh; color: var(--muted); }
+/* In the corner, out of the circle's way. */
+.p-round { position: absolute; top: 2vh; left: 3vw; font-size: 3.2vh; color: var(--muted); font-weight: 600; }
 
 /* Lobby: the site, the code on big tiles, then the circle as students join. */
 .p-goto { flex: none; font-size: 4.2vh; margin: 0; }
 .p-goto strong { color: var(--spark); }
 .p-code { flex: none; font-size: 10vh; margin: 1.2vh 0 0.6vh; }
 .p-code .tiles { gap: 0.1em; }
-/* The lobby has no arrow, so its circle may stretch into an oval across the wide screen: the names
-   get the room to be read from the back. Sizes here are in cqh of the oval. */
-.p-lobby .p-ring .circle {
-  aspect-ratio: auto; width: min(100cqw, 230cqh); height: 100cqh; max-width: none; container-type: size; --seat-size: 4cqh;
-}
-.p-lobby .p-ring .circle:not(:has(> .seat:nth-child(11))) { --seat-size: 5cqh; }
-.p-lobby .p-ring .circle:has(> .seat:nth-child(11)):not(:has(> .seat:nth-child(15))) { --seat-size: 4.5cqh; }
+/* Lobby seats are just emoji and name, so they can be bigger. */
+.p-lobby .p-ring .circle { --seat-size: 4.2cqh; }
+.p-lobby .p-ring .circle:not(:has(> .seat:nth-child(11))) { --seat-size: 5.5cqh; }
+.p-lobby .p-ring .circle:has(> .seat:nth-child(11)):not(:has(> .seat:nth-child(21))) { --seat-size: 5cqh; }
 .p-lobby .p-ring .circle-centre { --bomb-size: 36cqh; }
 .p-lobby .p-ring .circle:has(.seat.small) .circle-centre { --bomb-size: 30cqh; }
 /* Nobody has lives before the game. */
