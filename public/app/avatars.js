@@ -1,4 +1,4 @@
-import { esc } from "./render-player.js";
+import { esc } from "./escape.js";
 
 // The 60 emoji avatars. Twemoji graphics (CC BY 4.0), stored in /avatars/ (see LICENSE.txt there).
 // The index (0-59) is what the server stores for each player. Never reorder: add only at the end.

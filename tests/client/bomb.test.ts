@@ -95,5 +95,6 @@ test("BOMB_CSS uses the theme's bomb colours and no colour values", () => {
 
 test("every bomb style lives in the bomb file, none in style.css", () => {
   const css = readFileSync(new URL("../../public/app/style.css", import.meta.url), "utf8");
-  assert.ok(!/bomb-svg|@keyframes/.test(css), "old bomb rules are gone from style.css");
+  // style.css may hold the seat pop's keyframes (the one animation outside the bomb), never the bomb's.
+  assert.ok(!/@keyframes bomb-|\.bomb-svg|\.bomb\b/.test(css), "no bomb rules in style.css");
 });

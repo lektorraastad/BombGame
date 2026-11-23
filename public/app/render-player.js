@@ -2,6 +2,7 @@
 // a player (nicknames, words) goes through esc().
 import { renderBomb } from "./bomb.js";
 import { AVATARS, avatarImg } from "./avatars.js";
+import { esc } from "./escape.js";
 
 /**
  * @typedef {{ text: string, type: "contains" | "starts" | "ends" }} PromptInfo
@@ -9,10 +10,8 @@ import { AVATARS, avatarImg } from "./avatars.js";
  * @typedef {{ countdownMs: number | null, lastResult?: ResultInfo, status: string, bomb?: import("./bomb.js").BombState }} PlayerUi
  */
 
-/** @param {unknown} s */
-export function esc(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);
-}
+// esc lives in escape.js; it is re-exported here so older imports keep working.
+export { esc };
 
 /** @type {Record<string, { ask: string, no: string }>} */
 const PROMPT_WORDING = {

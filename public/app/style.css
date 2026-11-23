@@ -144,6 +144,94 @@ button:disabled { cursor: default; }
 /* The bomb (drawn and animated by bomb.js) beside whose turn it is. */
 .gamepage { --bomb-size: 110px; }
 
+/* ---- Letter tiles (tiles.js): words, names and the prompt as a row of chunky tiles ---- */
+/* Sized in em, so a row takes the size of wherever it sits. Light tiles with a dark outline. */
+.tiles { display: inline-flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 0.08em; max-width: 100%; vertical-align: middle; line-height: 1; }
+.tile {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 1em; padding: 0.1em 0.1em 0.2em;
+  font-family: var(--font-display); font-weight: 800; background: var(--tile); color: var(--tile-ink);
+  border: 0.06em solid var(--tile-ink); border-radius: 0.18em; box-shadow: inset 0 -0.12em 0 var(--tile-edge);
+}
+/* The prompt's letters in a word: raised (lifted, with a deep edge below) and in spark, so the match
+   shows by shape as well as colour. */
+.tile.matched {
+  background: var(--spark); transform: translateY(-0.2em);
+  box-shadow: inset 0 -0.12em 0 var(--tile-edge), 0 0.2em 0 var(--tile-ink);
+}
+.gap { display: inline-block; width: 0.4em; }
+
+/* ---- The circle (render-circle.js): everyone's seat round the bomb, on every screen ---- */
+/* The box is square (aspect-ratio: 1), so a seat's angle round the centre is the angle the arrow
+   points at: circle-geometry.js puts seats on a 42% x 40% ellipse of this box, about 2 degrees from
+   round at most. Its width comes from the page (--circle-size); every size inside is in cqw, a
+   share of the box, so the same markup fits the projector and the compact student circle. */
+.circle {
+  position: relative; width: var(--circle-size, 100%); max-width: 100%; aspect-ratio: 1; margin: 0 auto;
+  container-type: inline-size; --seat-size: 2.2cqw;
+}
+/* On a laptop the box is small: a floor keeps names readable. */
+.circle.compact { --seat-size: max(10px, 2.5cqw); }
+.circle-centre { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); --bomb-size: 36cqw; }
+/* Two rings: a smaller bomb, so its flame stays clear of the inner ring. */
+.circle:has(.seat.small) .circle-centre { --bomb-size: 28cqw; }
+
+/* A seat is a small card: the emoji beside the name and hearts, the word underneath. Wide rather
+   than tall, so seats down the sides of the circle don't run into each other. */
+.circle .seat {
+  position: absolute; transform: translate(-50%, -50%); z-index: 1;
+  display: grid; grid-template-columns: auto auto; column-gap: 0.25em; row-gap: 0.06em; align-items: center; justify-items: start;
+  max-width: 8em; font-size: var(--seat-size); line-height: 1.1; text-align: center;
+}
+.circle .seat > .avatar { grid-column: 1; grid-row: 1 / span 2; }
+.circle .seat > .name { grid-column: 2; grid-row: 1; }
+.circle .seat > .lives { grid-column: 2; grid-row: 2; }
+.circle .seat > .away { grid-column: 2; grid-row: 3; }
+.circle .seat > .last-word, .circle .seat > .typing { grid-column: 1 / -1; grid-row: 4; justify-self: center; }
+/* More than 20 on the circle: two rings, everything smaller. */
+.circle .seat.small { font-size: calc(var(--seat-size) * 0.8); }
+.circle .seat .avatar { width: 1.9em; height: 1.9em; }
+/* The name on a light tile label with a dark outline. */
+.circle .seat .name {
+  max-width: 5.6em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--font-display); font-weight: 800; background: var(--tile); color: var(--tile-ink);
+  border: 0.08em solid var(--tile-ink); border-radius: 0.3em; padding: 0.04em 0.35em 0.1em;
+}
+.circle .seat .lives { font-size: 0.75em; color: var(--lives); letter-spacing: 0.05em; line-height: 1; white-space: nowrap; }
+.circle .seat .away { font-size: 0.65em; color: var(--muted); }
+/* Answered (Everyone at once): a ✓ badge on the emoji's corner, shape as well as colour. */
+.circle .seat .answered {
+  position: absolute; top: -0.3em; left: 1.25em; width: 1.15em; height: 1.15em;
+  display: flex; align-items: center; justify-content: center; border-radius: 50%;
+  background: var(--answered); color: var(--tile-ink); border: 0.08em solid var(--tile-ink);
+  font-family: var(--font-display); font-weight: 800; font-size: 0.9em; line-height: 1;
+}
+.circle .seat .last-word, .circle .seat .typing { font-size: 0.8em; margin-top: 0.2em; max-width: 10em; }
+.circle .seat .typing { display: inline-flex; align-items: center; flex-wrap: wrap; justify-content: center; }
+/* The typing cursor, after the typed tiles. */
+.caret {
+  display: inline-block; width: 0.14em; height: 1.2em; margin-left: 0.12em; border-radius: 0.07em;
+  background: var(--spark); vertical-align: middle; animation: caret-blink 1s step-end infinite;
+}
+@keyframes caret-blink { 50% { opacity: 0; } }
+/* Whose turn: bigger, and the name ringed in the turn colour, so not by colour alone. */
+.circle .seat.on { font-size: calc(var(--seat-size) * 1.25); z-index: 2; }
+.circle .seat.small.on { font-size: var(--seat-size); }
+.circle .seat.on .name { box-shadow: 0 0 0 0.14em var(--turn); }
+/* Knocked out: greyed, with a dashed outline on the name. */
+.circle .seat.out .avatar { filter: grayscale(1); opacity: 0.5; }
+.circle .seat.out .name { background: transparent; color: var(--muted); border: 0.08em dashed var(--muted); }
+.circle .seat.out .lives { color: var(--muted); }
+/* A new arrival pops in (the one animation outside the bomb). Lasts POP_MS from motion.js. */
+.circle .seat.pop { animation: seat-pop 400ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+@keyframes seat-pop {
+  from { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+  to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .circle .seat.pop { animation: none; }
+  .caret { animation: none; }
+}
+
 /* ---- Host screen: the projector ---- */
 .hostbody { overflow: hidden; }
 .projector {
@@ -182,27 +270,27 @@ button:disabled { cursor: default; }
 .p-prompt { font-size: max(12vh, min(16vh, 13cqw)); padding: 0.6vh 3vh 2vh; border-width: 0.8vh; border-radius: 2.4vh; box-shadow: inset 0 -1.2vh 0 var(--tile-edge); }
 .p-typing { font-size: 5vh; min-height: 1.2em; color: var(--muted); font-weight: 600; letter-spacing: 0.04em; margin-top: 1vh; }
 
-/* Classic: players in a ring around the bomb. */
+/* Classic: players in a ring around the bomb (the old ring, until the projector moves to .circle). */
 .p-classic { gap: 1vh; }
 .p-circle { position: relative; width: min(100%, 150vh); flex: 1; min-height: 0; }
 .p-center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
 .p-everyone .p-center { position: static; transform: none; }
-.seat {
+.p-circle .seat {
   position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center;
   background: var(--panel); border: 0.5vh solid var(--muted); border-radius: 2vh;
   padding: 0.6vh 2vh; font-size: 3.6vh; font-weight: 600; min-width: 14vh; max-width: 30vh; line-height: 1.15;
 }
-.seat .name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-display); font-weight: 800; }
+.p-circle .seat .name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-display); font-weight: 800; }
 /* Whose turn: a light tile, bigger, ringed in the turn colour, not colour alone. */
-.seat.on {
+.p-circle .seat.on {
   background: var(--tile); color: var(--tile-ink); border: 0.7vh solid var(--turn); box-shadow: 0 0 0 0.5vh var(--turn);
   font-size: 4.6vh; z-index: 1;
 }
-.seat.on .lives { color: var(--tile-ink); }
-.seat.out { opacity: 0.6; border-style: dashed; }
-.seat .lives, .tick .lives { color: var(--lives); font-size: 0.8em; letter-spacing: 0.1em; }
-.seat .away { font-size: 0.6em; color: var(--muted); }
-.seat.on .away { color: var(--tile-ink); }
+.p-circle .seat.on .lives { color: var(--tile-ink); }
+.p-circle .seat.out { opacity: 0.6; border-style: dashed; }
+.p-circle .seat .lives, .tick .lives { color: var(--lives); font-size: 0.8em; letter-spacing: 0.1em; }
+.p-circle .seat .away { font-size: 0.6em; color: var(--muted); }
+.p-circle .seat.on .away { color: var(--tile-ink); }
 .p-last { font-size: 4.6vh; min-height: 1.3em; flex: none; }
 .p-last strong { color: var(--spark); }
 .p-examples { font-size: 3.4vh; color: var(--muted); flex: none; }

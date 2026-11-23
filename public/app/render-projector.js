@@ -1,7 +1,7 @@
 // The projector screen as an HTML string. Pure: no DOM access, and every piece of text that came from
 // a player (nicknames, words) goes through esc(). The projector view has no scores, ghost points or
 // tokens to show; the results' ghost leaderboard is the one place ghost points appear.
-import { esc } from "./render-player.js";
+import { esc } from "./escape.js";
 import { renderBomb } from "./bomb.js";
 import { seatedPlayers } from "./circle-geometry.js";
 import { avatarImg, EMOJI_CREDIT } from "./avatars.js";

@@ -1,7 +1,7 @@
 // The control panel as an HTML string, plus the small pure rules it needs. Pure: no DOM access, and
 // every piece of text that came from a player goes through esc(). In overlay mode (shown on the
 // projector, which the class may see) there are no score or ghost-point columns.
-import { esc } from "./render-player.js";
+import { esc } from "./escape.js";
 import { avatarImg } from "./avatars.js";
 
 /** Fewer prompts than this for a band and type, and the panel warns that they will repeat. */
