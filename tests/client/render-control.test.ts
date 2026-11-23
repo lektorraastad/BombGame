@@ -138,3 +138,19 @@ test("game buttons follow the phase", () => {
   locked.locked = true;
   assert.equal(btn(renderControl(locked, ui()), "unlock")![1], "Unlock");
 });
+
+test("theme picker sits outside the locked settings, in overlay mode too", () => {
+  for (const phase of ["lobby", "playing", "paused"]) {
+    for (const overlay of [false, true]) {
+      const html = renderControl(view({ theme: "enamel" }, phase), ui({ overlay }));
+      const look = html.match(/<fieldset class="look"><legend>Look<\/legend>([\s\S]*?)<\/fieldset>/);
+      assert.ok(look, `${phase} overlay=${overlay}: a Look fieldset`);
+      assert.ok(look[1].includes(`<select name="theme">`), "the theme select is in it");
+      assert.ok(look[1].includes(`<option value="enamel" selected>Enamel</option>`));
+      const locked = html.match(/<fieldset class="settings"[^>]*>[\s\S]*?<\/fieldset><\/form>|<fieldset class="settings"[^>]*>[\s\S]*$/)![0];
+      assert.ok(!locked.includes(`name="theme"`), "not in the settings fieldset");
+      assert.equal(html.match(/name="theme"/g)?.length, 1, "only once");
+      assert.ok(!/<fieldset class="look"[^>]*disabled/.test(html), "never disabled");
+    }
+  }
+});

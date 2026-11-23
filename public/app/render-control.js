@@ -15,6 +15,8 @@ export const FEW_PROMPTS = 15;
 const TYPE_LABEL = { contains: "Contains", starts: "Starts with", ends: "Ends with" };
 /** @type {Record<string, string>} */
 const BAND_LABEL = { easy: "Easy", medium: "Medium", hard: "Hard", mixed: "Mixed" };
+/** Settings that change only how the game looks: never locked, shown under "Look". */
+const LOOK_KEYS = ["theme"];
 /** @type {Record<string, string>} */
 const PHASE_LABEL = { lobby: "Lobby", playing: "Playing", paused: "Paused", results: "Game over" };
 
@@ -113,8 +115,13 @@ function settings(view) {
     .map((w) => `<p class="warning">⚠ ${esc(w)}</p>`)
     .join("");
   const note = locked ? `<p class="note">Settings are locked while a game is running. End the game to change them.</p>` : "";
-  const fields = (view.settingDecls ?? []).map((/** @type {any} */ d) => field(d, s[d.key])).join("");
-  return `<form class="ctl-form" autocomplete="off"><fieldset class="settings"${locked ? " disabled" : ""}><legend>Settings</legend>${note}${warnings}${fields}</fieldset></form>`;
+  const decls = view.settingDecls ?? [];
+  // The look can change at any time, so it sits outside the fieldset that a running game disables.
+  const isLook = (/** @type {any} */ d) => LOOK_KEYS.includes(d.key);
+  const look = decls.filter(isLook).map((/** @type {any} */ d) => field(d, s[d.key])).join("");
+  const fields = decls.filter((/** @type {any} */ d) => !isLook(d)).map((/** @type {any} */ d) => field(d, s[d.key])).join("");
+  const lookSet = look ? `<fieldset class="look"><legend>Look</legend>${look}</fieldset>` : "";
+  return `<form class="ctl-form" autocomplete="off">${lookSet}<fieldset class="settings"${locked ? " disabled" : ""}><legend>Settings</legend>${note}${warnings}${fields}</fieldset></form>`;
 }
 
 /** @param {any} d a SettingDecl @param {any} value */

@@ -1,20 +1,34 @@
 /* Bomb game: one look for every screen.
-   Sticker comic: a deep indigo stage, letters on spark-yellow tiles with thick ink outlines and hard
-   offset shadows (no soft blur), fuse orange for whose turn it is, mint for answered, coral for lives.
-   Everything is self-contained: system fonts only, no images. Projector sizes are in vh. */
+   Letter tiles and a lit fuse: names, words and the prompt sit on light tiles on a darker stage.
+   Every colour is a named colour from themes.css, so the host's theme recolours every screen.
+   Lexend for reading, Rubik 800 for tiles, names, headings and the room code. Both are stored in
+   /fonts (OFL), never loaded from outside. Projector sizes are in vh. */
+
+@font-face {
+  font-family: "Lexend";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/lexend-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Lexend";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/lexend-latin-600-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Rubik";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("/fonts/rubik-latin-800-normal.woff2") format("woff2");
+}
 
 :root {
-  --night: #1c1650;     /* the stage */
-  --night-2: #2c2479;   /* raised chips and panels */
-  --line: #6d62e8;      /* chip outlines on the stage */
-  --ink: #050314;       /* outlines, shadows, text on light tiles */
-  --paper: #ffffff;
-  --spark: #ffd23f;     /* prompts, room code, main buttons */
-  --fuse: #ff7a1a;      /* whose turn it is, urgency */
-  --mint: #3ddc97;      /* answered, accepted */
-  --coral: #ff6b86;     /* lives, refusals */
-  --muted: #c9c3ff;     /* secondary text on the stage: 8.9:1 on --night */
-  --font: ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", Nunito, "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-read: "Lexend", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Rubik", "Lexend", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
   --overlay-w: min(520px, 100vw);
 }
 
@@ -23,83 +37,81 @@
 
 body {
   margin: 0;
-  font-family: var(--font);
+  font-family: var(--font-read);
   font-size: 20px;
-  font-weight: 600;
+  font-weight: 400;
   line-height: 1.35;
-  color: var(--paper);
-  background-color: var(--night);
-  /* A faint halftone, like a comic page. */
-  background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1.5px, transparent 1.6px);
-  background-size: 22px 22px;
+  color: var(--names);
+  background-color: var(--stage);
   min-height: 100vh;
 }
 
-a { color: var(--spark); text-underline-offset: 0.2em; }
-h1, h2 { line-height: 1.1; }
-:focus-visible { outline: 4px solid var(--fuse); outline-offset: 3px; }
+a { color: var(--names); text-underline-offset: 0.2em; }
+h1, h2 { font-family: var(--font-display); font-weight: 800; line-height: 1.1; }
+strong { font-weight: 600; }
+:focus-visible { outline: 4px solid var(--spark); outline-offset: 3px; }
 
 /* ---- Forms: join, host start, control start ---- */
 .joinpage, .gamepage { max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
-.joinpage h1 {
-  font-size: 56px; font-weight: 900; margin: 24px 0 8px; color: var(--spark);
-  -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; text-shadow: 4px 4px 0 var(--ink);
-}
-label { display: block; margin: 18px 0 6px; font-weight: 700; }
+.joinpage h1 { font-size: 56px; margin: 24px 0 8px; color: var(--spark); }
+label { display: block; margin: 18px 0 6px; font-weight: 600; }
+/* The text box is a letter tile. */
 input {
-  width: 100%; font: inherit; font-size: 28px; font-weight: 700; padding: 10px 14px;
-  border-radius: 12px; border: 4px solid var(--ink); background: var(--paper); color: var(--ink);
-  box-shadow: 4px 4px 0 var(--ink);
+  width: 100%; font: inherit; font-size: 28px; font-weight: 600; padding: 10px 14px;
+  border-radius: 12px; border: 4px solid var(--tile-edge); background: var(--tile); color: var(--tile-ink);
 }
-input::placeholder { color: #6b6890; }
-/* Not orange: orange on a text box means "your turn". */
+input::placeholder { color: var(--tile-ink); opacity: 0.5; }
+/* Not the turn colour: that on a text box means "your turn". */
 input:focus-visible { outline: 4px solid var(--muted); outline-offset: 2px; }
-#code, #rejoincode { text-transform: uppercase; letter-spacing: 0.3em; text-align: center; font-weight: 900; }
+#code, #rejoincode { text-transform: uppercase; letter-spacing: 0.3em; text-align: center; font-family: var(--font-display); font-weight: 800; }
 
+/* Buttons are tiles too, with a shaded bottom edge in place of a shadow. */
 button {
-  margin-top: 22px; width: 100%; font: inherit; font-size: 28px; font-weight: 900; padding: 12px;
-  border: 4px solid var(--ink); border-radius: 12px; background: var(--spark); color: var(--ink);
-  box-shadow: 4px 4px 0 var(--ink); cursor: pointer;
+  margin-top: 22px; width: 100%; font: inherit; font-family: var(--font-display); font-size: 28px; font-weight: 800; padding: 12px;
+  border: 4px solid var(--tile-edge); border-radius: 12px; background: var(--tile); color: var(--tile-ink);
+  box-shadow: inset 0 -5px 0 var(--tile-edge); cursor: pointer;
 }
-button:active:not(:disabled) { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--ink); }
+button:active:not(:disabled) { transform: translateY(2px); box-shadow: inset 0 -2px 0 var(--tile-edge); }
 button:disabled { cursor: default; }
-.error { color: var(--coral); min-height: 1.5em; font-weight: 700; }
+.error { color: var(--refusal); min-height: 1.5em; font-weight: 600; }
 .hostlink { margin-top: 32px; text-align: center; }
 .joinpage h2 { font-size: 26px; margin: 40px 0 0; }
 
 /* ---- Player screen ---- */
 .banner {
-  background: var(--coral); color: var(--ink); border: 3px solid var(--ink); font-weight: 900;
+  background: var(--refusal); color: var(--tile-ink); font-weight: 600;
   padding: 8px 12px; border-radius: 10px; margin-bottom: 10px; text-align: center;
 }
 .top { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); margin-bottom: 12px; font-size: 18px; }
-.top .who { color: var(--paper); font-weight: 800; }
-.gamepage main h1 { font-size: 34px; font-weight: 900; margin: 12px 0; }
+.top .who { color: var(--names); font-family: var(--font-display); font-weight: 800; }
+.gamepage main h1 { font-size: 34px; margin: 12px 0; }
 .names { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .names li, .p-names li {
-  background: var(--night-2); border: 3px solid var(--line); border-radius: 999px; padding: 6px 14px; font-weight: 700;
+  background: var(--panel); border: 3px solid var(--muted); border-radius: 999px; padding: 6px 14px;
+  font-family: var(--font-display); font-weight: 800;
 }
 .big { font-size: 26px; }
-.lives { font-size: 34px; color: var(--coral); letter-spacing: 4px; line-height: 1.1; }
+.lives { font-size: 34px; color: var(--lives); letter-spacing: 4px; line-height: 1.1; }
 .ask { font-size: 22px; margin-top: 10px; color: var(--muted); }
-/* The prompt: ink letters on a spark-yellow tile. */
+/* The prompt: ink letters on a letter tile. */
 .prompt, .p-prompt {
-  display: inline-block; font-weight: 900; letter-spacing: 0.08em; line-height: 1;
-  background: var(--spark); color: var(--ink); border: 5px solid var(--ink); border-radius: 14px;
-  box-shadow: 6px 6px 0 var(--ink);
+  display: inline-block; font-family: var(--font-display); font-weight: 800; letter-spacing: 0.08em; line-height: 1;
+  background: var(--tile); color: var(--tile-ink); border: 5px solid var(--tile-edge); border-radius: 14px;
+  box-shadow: inset 0 -8px 0 var(--tile-edge);
 }
-.prompt { font-size: 88px; padding: 6px 22px 10px; margin: 8px 0 6px; align-self: flex-start; }
-.yourturn { font-size: 28px; font-weight: 900; margin: 6px 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.prompt { font-size: 88px; padding: 6px 22px 14px; margin: 8px 0 6px; align-self: flex-start; }
+.yourturn { font-size: 28px; font-family: var(--font-display); font-weight: 800; margin: 6px 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+/* Your turn: a tile ringed in the turn colour, not colour alone. */
 .turn-on .yourturn {
-  align-self: flex-start; background: var(--fuse); color: var(--ink); border: 4px solid var(--ink);
-  border-radius: 12px; padding: 2px 14px; box-shadow: 4px 4px 0 var(--ink);
+  align-self: flex-start; background: var(--tile); color: var(--tile-ink); border: 5px solid var(--turn);
+  border-radius: 12px; padding: 2px 14px;
 }
 .turn-on, .waiting { display: flex; flex-direction: column; }
 .word { margin-top: 16px; }
-.word.my-turn { border-color: var(--fuse); box-shadow: 0 0 0 5px var(--fuse), 6px 6px 0 5px var(--ink); }
-.result { min-height: 1.6em; margin-top: 12px; font-size: 26px; font-weight: 900; }
-.result.good { color: var(--mint); }
-.result.bad { color: var(--coral); }
+.word.my-turn { border-color: var(--turn); box-shadow: 0 0 0 5px var(--turn); }
+.result { min-height: 1.6em; margin-top: 12px; font-size: 26px; font-weight: 600; }
+.result.good { color: var(--answered); }
+.result.bad { color: var(--refusal); }
 .hint, .letters, .last { color: var(--muted); margin: 8px 0 0; }
 .ghost h1 { font-size: 26px; color: var(--muted); }
 .ghost .prompt { font-size: 64px; }
@@ -108,22 +120,22 @@ button:disabled { cursor: default; }
 .results h2 { font-size: 24px; margin: 18px 0 6px; }
 
 /* The bomb, inline on the player screen. */
-.bomb { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-weight: 900; }
+.bomb { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-weight: 600; }
 .bomb .bomb-svg { width: 1.6em; height: 1.6em; }
 
 /* ---- The bomb (shared) ---- */
 .bomb-svg { display: block; overflow: visible; }
-.bomb-svg .body { fill: #24213f; stroke: var(--ink); stroke-width: 5; }
-.bomb-svg .shine { fill: none; stroke: #8b86c9; stroke-width: 7; stroke-linecap: round; }
-.bomb-svg .cap { fill: #6c6898; stroke: var(--ink); stroke-width: 4; }
-.bomb-svg .fuse { fill: none; stroke: #e8d3a2; stroke-width: 6; stroke-linecap: round; stroke-dasharray: 7 5; }
-.bomb-svg .spark { fill: var(--spark); stroke: var(--fuse); stroke-width: 2; transform-origin: 103px 12px; animation: spark 0.35s steps(2) infinite; }
-.bomb-svg .spark-core { fill: var(--paper); }
-.urgent .bomb-svg .spark { fill: var(--fuse); stroke: var(--coral); animation-duration: 0.12s; transform: scale(1.5); }
-.urgent .bomb-svg .fuse { stroke: var(--fuse); animation: burn 0.3s linear infinite; }
+.bomb-svg .body { fill: var(--bomb); stroke: var(--bomb-rim); stroke-width: 5; }
+.bomb-svg .shine { fill: none; stroke: var(--bomb-rim); stroke-opacity: 0.6; stroke-width: 7; stroke-linecap: round; }
+.bomb-svg .cap { fill: var(--bomb-shade); stroke: var(--bomb-rim); stroke-width: 4; }
+.bomb-svg .fuse { fill: none; stroke: var(--tile); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 7 5; }
+.bomb-svg .spark { fill: var(--spark); stroke: var(--lives); stroke-width: 2; transform-origin: 103px 12px; animation: spark 0.35s steps(2) infinite; }
+.bomb-svg .spark-core { fill: var(--names); }
+.urgent .bomb-svg .spark { fill: var(--lives); stroke: var(--spark); animation-duration: 0.12s; transform: scale(1.5); }
+.urgent .bomb-svg .fuse { stroke: var(--lives); animation: burn 0.3s linear infinite; }
 .urgent .bomb-svg { animation: shake 0.25s linear infinite; }
 .bomb-count { font-variant-numeric: tabular-nums; }
-.urgent .bomb-count { color: var(--fuse); }
+.urgent .bomb-count { color: var(--lives); }
 
 @keyframes spark { 0% { transform: scale(0.8) rotate(0deg); } 100% { transform: scale(1.15) rotate(22deg); } }
 @keyframes burn { to { stroke-dashoffset: -12; } }
@@ -146,21 +158,21 @@ button:disabled { cursor: default; }
 .projector main { flex: 1; min-height: 0; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 /* In the flow above the game, so it never covers the top seat. */
 .p-paused {
-  flex: none; align-self: center; margin-bottom: 1vh; background: var(--coral); color: var(--ink);
-  border: 0.6vh solid var(--ink); border-radius: 1.5vh; box-shadow: 0.8vh 0.8vh 0 var(--ink);
-  font-size: 6vh; font-weight: 900; padding: 0.4vh 4vh; letter-spacing: 0.05em;
+  flex: none; align-self: center; margin-bottom: 1vh; background: var(--refusal); color: var(--tile-ink);
+  border-radius: 1.5vh; font-family: var(--font-display); font-size: 6vh; font-weight: 800; padding: 0.4vh 4vh; letter-spacing: 0.05em;
 }
 
 .p-goto { font-size: 5vh; margin: 0; }
 .p-goto strong { color: var(--spark); }
+/* The room code on a big letter tile. */
 .p-code {
-  font-size: max(12vh, min(24vh, 17cqw)); font-weight: 900; letter-spacing: 0.12em; line-height: 1; margin: 2.5vh 0;
-  background: var(--spark); color: var(--ink); border: 1vh solid var(--ink); border-radius: 3vh;
-  padding: 1vh 2vh 2vh 4vh; box-shadow: 1.6vh 1.6vh 0 var(--ink);
+  font-family: var(--font-display); font-size: max(12vh, min(24vh, 17cqw)); font-weight: 800; letter-spacing: 0.12em; line-height: 1; margin: 2.5vh 0;
+  background: var(--tile); color: var(--tile-ink); border: 0.8vh solid var(--tile-edge); border-radius: 3vh;
+  padding: 1vh 2vh 2.8vh 4vh; box-shadow: inset 0 -1.6vh 0 var(--tile-edge);
 }
 .p-count, .p-wait, .p-locked { font-size: 3.6vh; margin: 1vh 0; }
 .p-count { color: var(--muted); }
-.p-locked { color: var(--coral); font-weight: 800; }
+.p-locked { color: var(--refusal); font-weight: 600; }
 .p-names { list-style: none; padding: 0; margin: 1vh 0 5vh; display: flex; flex-wrap: wrap; justify-content: center; gap: 1.2vh; max-width: 92%; font-size: 3.6vh; }
 .p-names li { border-width: 0.4vh; padding: 0.5vh 2vh; }
 .p-credits { position: absolute; bottom: 1vh; left: 2vw; right: calc(2vw + 440px); text-align: left; font-size: 1.8vh; color: var(--muted); margin: 0; }
@@ -168,16 +180,16 @@ button:disabled { cursor: default; }
 /* The bomb beside the prompt. */
 .p-fuse-row { display: flex; align-items: center; justify-content: center; gap: 4vh; }
 .p-word { display: flex; flex-direction: column; align-items: center; }
-.p-ask { font-size: 4vh; font-weight: 800; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 1vh; }
-.p-prompt { font-size: max(12vh, min(16vh, 13cqw)); padding: 0.6vh 3vh 1.4vh; border-width: 0.8vh; border-radius: 2.4vh; box-shadow: 1.2vh 1.2vh 0 var(--ink); }
+.p-ask { font-size: 4vh; font-weight: 600; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 1vh; }
+.p-prompt { font-size: max(12vh, min(16vh, 13cqw)); padding: 0.6vh 3vh 2vh; border-width: 0.8vh; border-radius: 2.4vh; box-shadow: inset 0 -1.2vh 0 var(--tile-edge); }
 .p-bomb { position: relative; width: 22vh; height: 22vh; flex: none; }
 .p-bomb .bomb-svg { width: 100%; height: 100%; }
 .p-bomb .bomb-count {
   position: absolute; left: 45%; top: 60%; transform: translate(-50%, -50%);
-  font-size: 8vh; font-weight: 900; color: var(--paper); line-height: 1;
+  font-family: var(--font-display); font-size: 8vh; font-weight: 800; color: var(--names); line-height: 1;
 }
-.p-bomb.urgent .bomb-count { color: var(--fuse); font-size: 9.5vh; }
-.p-typing { font-size: 5vh; min-height: 1.2em; color: var(--muted); font-weight: 800; letter-spacing: 0.04em; margin-top: 1vh; }
+.p-bomb.urgent .bomb-count { color: var(--lives); font-size: 9.5vh; }
+.p-typing { font-size: 5vh; min-height: 1.2em; color: var(--muted); font-weight: 600; letter-spacing: 0.04em; margin-top: 1vh; }
 
 /* Classic: players in a ring around the bomb. */
 .p-classic { gap: 1vh; }
@@ -186,42 +198,42 @@ button:disabled { cursor: default; }
 .p-everyone .p-center { position: static; transform: none; }
 .seat {
   position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center;
-  background: var(--night-2); border: 0.5vh solid var(--line); border-radius: 2vh;
-  padding: 0.6vh 2vh; font-size: 3.6vh; font-weight: 800; min-width: 14vh; max-width: 30vh; line-height: 1.15;
+  background: var(--panel); border: 0.5vh solid var(--muted); border-radius: 2vh;
+  padding: 0.6vh 2vh; font-size: 3.6vh; font-weight: 600; min-width: 14vh; max-width: 30vh; line-height: 1.15;
 }
-.seat .name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Whose turn: orange, bigger, a thicker ink outline and a hard shadow, not colour alone. */
+.seat .name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-display); font-weight: 800; }
+/* Whose turn: a light tile, bigger, ringed in the turn colour, not colour alone. */
 .seat.on {
-  background: var(--fuse); color: var(--ink); border: 0.7vh solid var(--ink); box-shadow: 0.9vh 0.9vh 0 var(--ink);
-  font-size: 4.6vh; font-weight: 900; z-index: 1;
+  background: var(--tile); color: var(--tile-ink); border: 0.7vh solid var(--turn); box-shadow: 0 0 0 0.5vh var(--turn);
+  font-size: 4.6vh; z-index: 1;
 }
-.seat.on .lives { color: var(--ink); }
+.seat.on .lives { color: var(--tile-ink); }
 .seat.out { opacity: 0.6; border-style: dashed; }
-.seat .lives, .tick .lives { color: var(--coral); font-size: 0.8em; letter-spacing: 0.1em; }
+.seat .lives, .tick .lives { color: var(--lives); font-size: 0.8em; letter-spacing: 0.1em; }
 .seat .away { font-size: 0.6em; color: var(--muted); }
-.seat.on .away { color: var(--ink); }
+.seat.on .away { color: var(--tile-ink); }
 .p-last { font-size: 4.6vh; min-height: 1.3em; flex: none; }
 .p-last strong { color: var(--spark); }
 .p-examples { font-size: 3.4vh; color: var(--muted); flex: none; }
 
 /* Everyone: one grid of players, a ✓ for each answer. */
 .p-everyone { gap: 1.5vh; }
-.p-round { font-size: 4vh; color: var(--muted); font-weight: 800; }
+.p-round { font-size: 4vh; color: var(--muted); font-weight: 600; }
 .p-grid { list-style: none; padding: 0; margin: 2vh 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 1.4vh; max-width: 100%; }
 .tick {
-  background: var(--night-2); border: 0.5vh solid var(--line); border-radius: 1.6vh;
-  padding: 0.8vh 2vh; font-size: 3.6vh; font-weight: 800;
+  background: var(--panel); border: 0.5vh solid var(--muted); border-radius: 1.6vh;
+  padding: 0.8vh 2vh; font-family: var(--font-display); font-size: 3.6vh; font-weight: 800;
 }
-.tick.answered { background: var(--mint); color: var(--ink); border-color: var(--ink); box-shadow: 0.6vh 0.6vh 0 var(--ink); }
-.tick.answered .lives { color: var(--ink); }
+.tick.answered { background: var(--answered); color: var(--tile-ink); border-color: var(--tile-ink); }
+.tick.answered .lives { color: var(--tile-ink); }
 .tick.out { opacity: 0.6; border-style: dashed; }
 
 /* Results */
 .p-results { gap: 2vh; }
-.p-results h1 { font-size: 9vh; font-weight: 900; margin: 0; color: var(--muted); }
+.p-results h1 { font-size: 9vh; margin: 0; color: var(--muted); }
 .p-winner {
-  font-size: 10vh; font-weight: 900; line-height: 1.05; color: var(--ink); background: var(--spark);
-  border: 0.9vh solid var(--ink); border-radius: 3vh; box-shadow: 1.4vh 1.4vh 0 var(--ink); padding: 1vh 5vh 2vh; max-width: 94%;
+  font-family: var(--font-display); font-size: 10vh; font-weight: 800; line-height: 1.05; color: var(--tile-ink); background: var(--tile);
+  border: 0.8vh solid var(--tile-edge); border-radius: 3vh; box-shadow: inset 0 -1.2vh 0 var(--tile-edge); padding: 1vh 5vh 2.6vh; max-width: 94%;
 }
 .p-longest { font-size: 4.5vh; margin: 1vh 0; }
 .p-longest strong { color: var(--spark); }
@@ -230,69 +242,69 @@ button:disabled { cursor: default; }
 
 .netstatus {
   position: fixed; top: 1vh; left: 50%; transform: translateX(-50%); z-index: 6;
-  background: var(--coral); color: var(--ink); border: 3px solid var(--ink); font-weight: 900; padding: 6px 14px; border-radius: 10px;
+  background: var(--refusal); color: var(--tile-ink); font-weight: 600; padding: 6px 14px; border-radius: 10px;
 }
 
 .toolbar { position: fixed; right: 10px; bottom: 10px; z-index: 7; display: flex; gap: 8px; opacity: 0.4; transition: opacity 0.2s; }
 .toolbar:hover, .toolbar:focus-within { opacity: 1; }
 .toolbar button {
-  width: auto; margin: 0; font-size: 15px; padding: 8px 12px; background: var(--night-2); color: var(--paper);
-  border: 2px solid var(--line); box-shadow: none;
+  width: auto; margin: 0; font-family: var(--font-read); font-size: 15px; font-weight: 600; padding: 8px 12px; background: var(--panel); color: var(--names);
+  border: 2px solid var(--muted); box-shadow: none;
 }
-.toolbar button[aria-pressed="true"] { background: var(--coral); color: var(--ink); border-color: var(--ink); }
+.toolbar button[aria-pressed="true"] { background: var(--refusal); color: var(--tile-ink); border-color: var(--tile-ink); }
 .overlay {
   position: fixed; top: 0; right: 0; bottom: 0; z-index: 8; width: var(--overlay-w); overflow-y: auto;
-  background: #140f3d; border-left: 4px solid var(--ink); box-shadow: -6px 0 0 var(--line); padding: 0 14px 70px;
+  background: var(--panel); border-left: 4px solid var(--muted); padding: 0 14px 70px;
 }
 .overlay-bar {
   position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center;
-  background: #140f3d; padding: 10px 0; font-weight: 900; font-size: 20px; z-index: 1;
+  background: var(--panel); padding: 10px 0; font-family: var(--font-display); font-weight: 800; font-size: 20px; z-index: 1;
 }
-.overlay-bar button { width: auto; margin: 0; font-size: 16px; padding: 6px 14px; box-shadow: 3px 3px 0 var(--ink); }
+.overlay-bar button { width: auto; margin: 0; font-size: 16px; padding: 6px 14px; border-width: 3px; box-shadow: inset 0 -3px 0 var(--tile-edge); }
 
 /* ---- Control panel (control page and overlay) ---- */
 .panelpage { max-width: 760px; margin: 0 auto; padding: 12px; }
 .controlbody > .banner { max-width: 760px; margin: 10px auto 0; }
-.ctl { font-size: 16px; font-weight: 600; }
+.ctl { font-size: 16px; font-weight: 400; }
 .ctl-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 18px; margin: 6px 0 12px; }
-.ctl-head strong { color: var(--spark); font-size: 24px; letter-spacing: 0.12em; }
-.ctl-msg { background: var(--coral); color: var(--ink); border: 3px solid var(--ink); font-weight: 800; padding: 8px 10px; border-radius: 10px; margin: 6px 0; }
+.ctl-head strong { color: var(--spark); font-family: var(--font-display); font-weight: 800; font-size: 24px; letter-spacing: 0.12em; }
+.ctl-msg { background: var(--refusal); color: var(--tile-ink); font-weight: 600; padding: 8px 10px; border-radius: 10px; margin: 6px 0; }
 .ctl-status { margin: 10px 0; }
-.ctl-status strong { color: var(--spark); }
+.ctl-status strong { color: var(--names); font-family: var(--font-display); font-weight: 800; letter-spacing: 0.06em; }
 .ctl-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-.ctl button { margin: 0; font-size: 17px; padding: 10px 6px; border-width: 3px; box-shadow: 3px 3px 0 var(--ink); }
-.ctl button:disabled { background: transparent; color: var(--muted); border: 3px dashed #5d55a8; box-shadow: none; opacity: 0.7; }
+.ctl button { margin: 0; font-size: 17px; padding: 10px 6px; border-width: 3px; box-shadow: inset 0 -4px 0 var(--tile-edge); }
+.ctl button:disabled { background: transparent; color: var(--muted); border: 3px dashed var(--muted); box-shadow: none; opacity: 0.7; }
 .ctl button.small {
-  width: auto; padding: 3px 9px; font-size: 13px; font-weight: 800; background: var(--night-2); color: var(--paper);
-  border: 2px solid var(--line); box-shadow: none;
+  width: auto; padding: 3px 9px; font-family: var(--font-read); font-size: 13px; font-weight: 600; background: var(--panel); color: var(--names);
+  border: 2px solid var(--muted); box-shadow: none;
 }
-.ctl button.kick.armed { background: var(--coral); color: var(--ink); border-color: var(--ink); }
+.ctl button.kick.armed { background: var(--refusal); color: var(--tile-ink); border-color: var(--tile-ink); }
 .ctl h2 { font-size: 18px; margin: 18px 0 6px; }
 .ctl table { width: 100%; border-collapse: collapse; }
-.ctl th, .ctl td { text-align: left; padding: 5px 4px; border-bottom: 2px solid var(--night-2); vertical-align: middle; }
-.ctl th { font-size: 13px; color: var(--muted); font-weight: 700; }
+.ctl th, .ctl td { text-align: left; padding: 5px 4px; border-bottom: 1px solid var(--muted); vertical-align: middle; }
+.ctl th { font-size: 13px; color: var(--muted); font-weight: 600; }
 .ctl td.name { overflow-wrap: anywhere; }
 .ctl td.state { font-size: 13px; color: var(--muted); }
 .ctl input.rename { width: 9em; font-size: 16px; padding: 4px 6px; border-width: 2px; box-shadow: none; }
-.ctl input[type="number"], .ctl select, .ctl input.rename { color: var(--ink); }
-.ctl-form fieldset.settings { border: 3px solid var(--line); border-radius: 12px; margin: 18px 0 0; padding: 8px 12px 12px; }
+.ctl input[type="number"], .ctl select, .ctl input.rename { color: var(--tile-ink); }
+.ctl-form fieldset.settings, .ctl-form fieldset.look { border: 3px solid var(--muted); border-radius: 12px; margin: 18px 0 0; padding: 8px 12px 12px; }
 .ctl-form fieldset.settings:disabled .field { opacity: 0.5; }
-.ctl-form legend { font-weight: 900; padding: 0 6px; }
-.ctl .note { color: var(--spark); margin: 4px 0 8px; }
-.ctl .warning { background: #5c3a00; border: 2px solid var(--spark); padding: 6px 8px; border-radius: 8px; margin: 6px 0; }
+.ctl-form legend { font-family: var(--font-display); font-weight: 800; padding: 0 6px; }
+.ctl .note { color: var(--names); margin: 4px 0 8px; }
+.ctl .warning { background: var(--panel); border: 2px solid var(--spark); padding: 6px 8px; border-radius: 8px; margin: 6px 0; }
 .ctl .field { display: block; margin: 12px 0; }
 .ctl .field > span { display: block; }
 .ctl .field.check > span { display: inline; }
 .ctl .field input[type="number"], .ctl .field select {
-  width: 8em; font: inherit; font-size: 16px; padding: 4px 6px; border-radius: 8px; border: 2px solid var(--ink); box-shadow: none; background: var(--paper);
+  width: 8em; font: inherit; font-size: 16px; padding: 4px 6px; border-radius: 8px; border: 2px solid var(--tile-edge); box-shadow: none; background: var(--tile);
 }
 .ctl .field select { width: auto; max-width: 100%; }
-.ctl input[type="checkbox"] { width: auto; transform: scale(1.3); margin: 0 6px 0 2px; box-shadow: none; accent-color: var(--fuse); }
-.ctl .help { display: block; font-size: 13px; color: var(--muted); font-weight: 500; }
+.ctl input[type="checkbox"] { width: auto; transform: scale(1.3); margin: 0 6px 0 2px; box-shadow: none; accent-color: var(--spark); }
+.ctl .help { display: block; font-size: 13px; color: var(--muted); font-weight: 400; }
 .ctl fieldset.multi { border: 0; padding: 0; margin: 12px 0; }
-.ctl fieldset.multi legend { font-weight: 600; padding: 0; }
+.ctl fieldset.multi legend { font-family: var(--font-read); font-weight: 600; padding: 0; }
 .ctl .choices { display: flex; flex-wrap: wrap; gap: 4px 14px; }
-.ctl .choices label, .ctl .lettergrid label { margin: 0; font-weight: 600; }
+.ctl .choices label, .ctl .lettergrid label { margin: 0; font-weight: 400; }
 .ctl .lettergrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap: 4px; font-size: 14px; }
 
 @media (max-width: 480px) {

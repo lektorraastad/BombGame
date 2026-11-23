@@ -2,6 +2,7 @@
 import { createConnection } from "./net.js";
 import { createCountdown, URGENT_MS } from "./countdown.js";
 import { renderPlayer, reasonText } from "./render-player.js";
+import { themeOf } from "./theme.js";
 import { initialJoin, saveJoin, clearJoin, terminalError, joinStatusText, submitOutcome, rememberKick, wasKicked, KICKED_TEXT } from "./session.js";
 
 const TYPING_GAP_MS = 100; // at most 10 typing messages a second
@@ -86,6 +87,7 @@ function onMessage(msg) {
     $("game").hidden = false;
   } else if (msg.t === "view") {
     view = msg.view;
+    document.documentElement.dataset.theme = themeOf(view);
     countdown.update(view);
     const text = view.prompt ? view.prompt.text : "";
     if (text !== lastPromptText) lastResult = undefined;

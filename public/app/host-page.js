@@ -7,6 +7,7 @@ import { renderProjector } from "./render-projector.js";
 import { reasonText } from "./render-player.js";
 import { CREDITS } from "./credits.js";
 import { mountPanel } from "./panel-page.js";
+import { themeOf } from "./theme.js";
 
 const HOST_TOKEN = "bomb.hostToken";
 const HOST_CODE = "bomb.hostCode";
@@ -124,6 +125,7 @@ function onMessage(msg) {
     $("toolbar").hidden = false;
   } else if (msg.t === "view") {
     view = msg.view;
+    document.documentElement.dataset.theme = themeOf(view);
     countdown.update(view);
     sounds.view(view);
     draw();
