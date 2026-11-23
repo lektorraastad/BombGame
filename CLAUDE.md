@@ -25,7 +25,8 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
   - `npm run load-test` runs 32 bots.
 
 ## Hosting
-- **Netlify:** GitHub deploys to Netlify. The game server is **Netlify Server** (Early Access) on the free plan, with 1 instance.
+- **Netlify:** GitHub deploys to Netlify. The game server is **Netlify Server** (Early Access) on the free plan, with 1 instance. The Netlify project is called **wordfire** (https://wordfire.netlify.app), with no visitor login, so students can open it.
+- **Deploy previews:** a draft pull request gets a preview at `https://deploy-preview-<number>--wordfire.netlify.app`. Previews run their own game server and the host passcode works there (checked 23 November 2026).
 - **Connection limit:** WebSocket connections close after 30 minutes, and clients reconnect automatically.
 - **Passcode:** `HOST_PASSCODE` is a Netlify environment variable. It's never logged, never sent to clients and never stored in the browser.
 - **Health check:** `/api/health` shows word counts. The connection test is at `/check/`.
