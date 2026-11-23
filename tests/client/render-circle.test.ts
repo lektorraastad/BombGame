@@ -144,12 +144,29 @@ test("style.css: the circle box is square, so the arrow's angle is the seat's an
   assert.match(rule[1], /aspect-ratio:\s*1\s*;/);
 });
 
-test("style.css: the pop lasts POP_MS and is off under reduced motion; the caret stops blinking", () => {
+test("style.css: the pop lasts POP_MS and is off under reduced motion", () => {
   assert.match(CSS, new RegExp(`\\.seat\\.pop \\{[^}]*animation: seat-pop ${POP_MS}ms`));
   assert.match(CSS, /@keyframes seat-pop\b/);
   const reduced = [...CSS.matchAll(/@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n\}/g)].map((m) => m[1]).join("\n");
   assert.match(reduced, /\.seat\.pop[^{]*\{[^}]*animation: none/);
-  assert.match(reduced, /\.caret[^{]*\{[^}]*animation: none/);
+});
+
+test("style.css: the caret is steady; the pop is the only animation outside the bomb", () => {
+  assert.ok(!/caret-blink/.test(CSS), "no caret keyframes");
+  const caret = [...CSS.matchAll(/([^{}]*\.caret[^{}]*)\{([^}]*)\}/g)];
+  assert.ok(caret.length > 0, "a .caret rule");
+  for (const m of caret) assert.ok(!/animation/.test(m[2]), m[1]);
+  assert.deepEqual([...CSS.matchAll(/@keyframes ([\w-]+)/g)].map((m) => m[1]), ["seat-pop"]);
+});
+
+test("style.css: seat names are never cut short", () => {
+  const rules = [...CSS.matchAll(/([^{}]*\.seat[^{}]*\.name[^{}]*)\{([^}]*)\}/g)].filter((m) => m[1].includes(".circle"));
+  assert.ok(rules.length > 0, "a .circle .seat .name rule");
+  for (const [, sel, body] of rules) {
+    assert.ok(!/text-overflow|overflow:\s*hidden|white-space:\s*nowrap/.test(body), sel);
+  }
+  const name = rules.find((m) => /\.circle \.seat \.name\s*$/.test(m[1].trim()) || m[1].trim() === ".circle .seat .name")!;
+  assert.match(name[2], /overflow-wrap:\s*anywhere/, "long single words break instead of spilling out");
 });
 
 test("style.css: tiles use the tile colours and Rubik 800; matched tiles are raised and spark", () => {
