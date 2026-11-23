@@ -158,7 +158,8 @@ Above 20 players on the circle, emoji and names shrink and sit in two rings (alt
 ### 6.1 Themes
 - Each theme is one named list of colours, kept in one file. No colour is typed anywhere else in the client code or stylesheet; everything refers to the named colours.
 - The colour names follow `design-principles.md`: stage, tile, tile edge, tile ink, bomb, bomb shade, spark (matched letters, arrow), names on stage, muted, lives, plus the few the screens need that the table doesn't name (at least: answered ✓, refusal/error, and a raised panel colour). The builder fills any gap in Enamel and Night fuse with a colour that fits that theme.
-- **Readability check:** a test computes the contrast of every text-on-background pair in every theme and fails below 4.5:1 for normal text or 3:1 for large text. This is what keeps future themes safe too.
+- **The bomb must stand out from the stage.** In Enamel and Night fuse the bomb stays dark, as sketched (Roy's decision), and gets a light rim or glow so it can't disappear on a washed-out projector. The rim is one more named colour in each theme (Workshop may use it too).
+- **Readability check:** a test computes the contrast of every text-on-background pair in every theme and fails below 4.5:1 for normal text or 3:1 for large text. It also checks the bomb's rim against the stage at 3:1 or more. This is what keeps future themes safe too.
 - A test checks that no colour value is written outside the theme file.
 
 ### 6.2 Fonts
