@@ -1,0 +1,5 @@
+Emoji graphics: Twemoji
+Copyright (c) Twitter, Inc and other contributors.
+Licensed under CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
+Source: https://github.com/jdecked/twemoji (via the npm package @twemoji/svg@15.0.0)
+The files in this folder are unmodified copies of the Twemoji SVG graphics.
