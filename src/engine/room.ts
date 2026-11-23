@@ -7,6 +7,7 @@ import { CORE_SETTINGS, resolveSettings, withChoices } from "./settings.ts";
 import type { GameMode, ModeContext, SubmitResult } from "./modes/mode.ts";
 import type { KnockoutActivity } from "./knockout/activity.ts";
 import { noopActivity } from "./knockout/activity.ts";
+import { AVATAR_COUNT } from "./avatars.ts";
 
 export type PlayerId = string;
 
@@ -14,6 +15,8 @@ export type Player = {
   id: PlayerId;
   token: string;
   nickname: string;
+  /** Index 0 to 59 into the emoji list; unique within the room. */
+  avatar: number;
   connected: boolean;
   role: "player" | "spectator";
   lives: number;
@@ -30,6 +33,10 @@ export type JoinResult =
   | { ok: true; playerId: PlayerId }
   | { ok: false; reason: "locked" | "full" | "kicked" | NameFailure };
 export type RenameResult = { ok: true; playerId: PlayerId } | { ok: false; reason: NameFailure | "not-found" };
+
+export type AvatarResult =
+  | { ok: true }
+  | { ok: false; reason: "not-found" | "bad-avatar" | "avatar-taken" | "avatar-locked" };
 
 export type Phase = "lobby" | "playing" | "paused" | "results";
 export type StartResult =
@@ -146,6 +153,7 @@ export class Room {
       id: this.newId(),
       token,
       nickname: name.nickname,
+      avatar: this.freeAvatar(),
       connected: true,
       role: inGame ? "spectator" : "player",
       lives: 0,
@@ -187,6 +195,21 @@ export class Room {
     p.nickname = name.nickname;
     this.changed();
     return { ok: true, playerId };
+  }
+
+  /** Change a player's emoji: only in the lobby (or for a waiting spectator), and never to one in use. */
+  setAvatar(playerId: PlayerId, avatar: number): AvatarResult {
+    const p = this.find(playerId);
+    if (!p) return { ok: false, reason: "not-found" };
+    if (typeof avatar !== "number" || !Number.isInteger(avatar) || avatar < 0 || avatar >= AVATAR_COUNT) {
+      return { ok: false, reason: "bad-avatar" };
+    }
+    if (this.phase !== "lobby" && p.role !== "spectator") return { ok: false, reason: "avatar-locked" };
+    if (p.avatar === avatar) return { ok: true };
+    if (this.list.some((q) => q.avatar === avatar)) return { ok: false, reason: "avatar-taken" };
+    p.avatar = avatar;
+    this.changed();
+    return { ok: true };
   }
 
   setLocked(locked: boolean): void {
@@ -571,6 +594,14 @@ export class Room {
 
   private find(id: PlayerId): Player | undefined {
     return this.list.find((p) => p.id === id);
+  }
+
+  /** A random avatar nobody in the room has. MAX_PLAYERS is below AVATAR_COUNT, so one is always free. */
+  private freeAvatar(): number {
+    const used = new Set(this.list.map((p) => p.avatar));
+    const free: number[] = [];
+    for (let i = 0; i < AVATAR_COUNT; i++) if (!used.has(i)) free.push(i);
+    return free[Math.min(free.length - 1, Math.floor(this.deps.random() * free.length))];
   }
 
   private newId(): PlayerId {

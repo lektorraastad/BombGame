@@ -147,3 +147,71 @@ test("rename uses join rules and calls onChange", () => {
   assert.deepEqual(r.rename(a.playerId, "dritt"), { ok: false, reason: "name-blocked" });
   assert.ok(n > before);
 });
+
+// ---- avatars ----
+const avatarOf = (r: Room, id: string) => r.players().find((p) => p.id === id)!.avatar;
+function joinOk(r: Room, token: string, nick: string): string {
+  const j = r.join(token, nick);
+  assert.ok(j.ok);
+  return j.ok ? j.playerId : "";
+}
+
+test("each joiner gets a different avatar in 0..59", () => {
+  const r = makeRoom();
+  for (let i = 0; i < 32; i++) joinOk(r, "t" + i, "Player" + i);
+  const av = r.players().map((p) => p.avatar);
+  assert.equal(new Set(av).size, 32);
+  for (const a of av) assert.ok(Number.isInteger(a) && a >= 0 && a < 60);
+});
+
+test("setAvatar: free one in the lobby works; taken one is refused", () => {
+  let changes = 0;
+  const r = makeRoom(() => changes++);
+  const a = joinOk(r, "ta", "Anna");
+  const b = joinOk(r, "tb", "Bjorn");
+  assert.deepEqual(r.setAvatar(b, avatarOf(r, a)), { ok: false, reason: "avatar-taken" });
+  const free = [...Array(60).keys()].find((i) => i !== avatarOf(r, a) && i !== avatarOf(r, b))!;
+  const before = changes;
+  assert.deepEqual(r.setAvatar(b, free), { ok: true });
+  assert.equal(avatarOf(r, b), free);
+  assert.ok(changes > before);
+  assert.deepEqual(r.setAvatar(b, free), { ok: true }); // own avatar: no-op ok
+  assert.deepEqual(r.setAvatar("nobody", 3), { ok: false, reason: "not-found" });
+});
+
+test("setAvatar is locked for players during a game, open for spectators", () => {
+  const r = makeRoom();
+  const a = joinOk(r, "ta", "Anna");
+  joinOk(r, "tb", "Bjorn");
+  assert.deepEqual(r.start(), { ok: true });
+  const mine = avatarOf(r, a);
+  const free = [...Array(60).keys()].find((i) => !r.players().some((p) => p.avatar === i))!;
+  assert.deepEqual(r.setAvatar(a, free), { ok: false, reason: "avatar-locked" });
+  assert.equal(avatarOf(r, a), mine);
+  const late = joinOk(r, "tc", "Cara");
+  assert.equal(r.players().find((p) => p.id === late)!.role, "spectator");
+  assert.deepEqual(r.setAvatar(late, free), { ok: true });
+  assert.equal(avatarOf(r, late), free);
+});
+
+test("setAvatar rejects 60, -1, 2.5 and NaN with bad-avatar", () => {
+  const r = makeRoom();
+  const a = joinOk(r, "ta", "Anna");
+  for (const bad of [60, -1, 2.5, NaN, Infinity, "3" as unknown as number, null as unknown as number]) {
+    assert.deepEqual(r.setAvatar(a, bad), { ok: false, reason: "bad-avatar" });
+  }
+  r.start(); // junk is bad-avatar even when locked
+  assert.deepEqual(r.setAvatar(a, 60), { ok: false, reason: "bad-avatar" });
+});
+
+test("reconnect keeps the avatar; kick frees it", () => {
+  const r = makeRoom();
+  const a = joinOk(r, "ta", "Anna");
+  const b = joinOk(r, "tb", "Bjorn");
+  const av = avatarOf(r, a);
+  r.disconnect(a);
+  assert.equal(joinOk(r, "ta", "Anna"), a);
+  assert.equal(avatarOf(r, a), av);
+  r.kick(a);
+  assert.deepEqual(r.setAvatar(b, av), { ok: true });
+});

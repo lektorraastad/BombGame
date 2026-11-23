@@ -66,7 +66,7 @@ test("projector view hides tokens, ghost words and silent words", () => {
   assert.equal(pv.phase, "playing");
   assert.equal(pv.locked, false);
   assert.equal(pv.players.length, 4);
-  assert.deepEqual(Object.keys(pv.players[0]).sort(), ["alive", "connected", "id", "lives", "nickname", "spectator"]);
+  assert.deepEqual(Object.keys(pv.players[0]).sort(), ["alive", "avatar", "connected", "id", "lives", "nickname", "spectator"]);
   assert.equal(pv.players.find((x) => x.id === ghost)!.alive, false);
 
   // A player's own view carries only their own score.
@@ -300,4 +300,18 @@ test("an unknown theme falls back to the default", () => {
   assert.equal(projectorView(room).theme, "enamel");
   room.updateSettings({ theme: "<b>x</b>" });
   assert.equal(projectorView(room).theme, "workshop");
+});
+
+test("views show each player's avatar and me.id", () => {
+  const { room, ids } = setup(3);
+  const proj = projectorView(room);
+  for (const id of ids) {
+    const want = room.players().find((p) => p.id === id)!.avatar;
+    assert.equal(proj.players.find((p) => p.id === id)!.avatar, want);
+    const pv = playerView(room, id)!;
+    assert.equal(pv.me.id, id);
+    assert.equal(pv.me.avatar, want);
+  }
+  assert.ok(controlView(room).players.every((p) => Number.isInteger(p.avatar)));
+  assert.ok(!JSON.stringify(proj).includes("secret-tok"));
 });

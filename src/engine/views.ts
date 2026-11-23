@@ -10,6 +10,8 @@ import { settingsFor } from "./registry.ts";
 export type ProjectorPlayer = {
   id: PlayerId;
   nickname: string;
+  /** Emoji index 0 to 59. */
+  avatar: number;
   lives: number;
   alive: boolean;
   connected: boolean;
@@ -46,7 +48,9 @@ export type ProjectorView = {
 
 export type PlayerView = ProjectorView & {
   me: {
+    id: PlayerId;
     nickname: string;
+    avatar: number;
     lives: number;
     alive: boolean;
     score: number;
@@ -81,7 +85,7 @@ export function projectorView(room: Room): ProjectorView {
     locked: room.locked,
     theme: String(room.settings.theme),
     players: room.players().map((p) => {
-      const out: ProjectorPlayer = { id: p.id, nickname: p.nickname, lives: p.lives, alive: p.alive, connected: p.connected, spectator: p.role === "spectator" };
+      const out: ProjectorPlayer = { id: p.id, nickname: p.nickname, avatar: p.avatar, lives: p.lives, alive: p.alive, connected: p.connected, spectator: p.role === "spectator" };
       if (answered && running(room)) out.answered = answered.includes(p.id);
       return out;
     }),
@@ -107,7 +111,9 @@ export function playerView(room: Room, pid: PlayerId): PlayerView | null {
   if (!p) return null;
   const letters = room.settings.bonusAlphabet === true ? (room.settings.bonusLetters as string[]) : [];
   const me: PlayerView["me"] = {
+    id: p.id,
     nickname: p.nickname,
+    avatar: p.avatar,
     lives: p.lives,
     alive: p.alive,
     score: p.score,
