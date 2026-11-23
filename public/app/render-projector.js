@@ -115,7 +115,7 @@ ${examples(view)}
 
 /** @param {any} view */
 function results(view) {
-  const r = view.results ?? { winners: [], ghostBoard: [], longestWord: null };
+  const r = view.results ?? { winners: [], ghostRanking: [], longestWord: null };
   const names = r.winners.map((/** @type {string} */ id) => nick(view, id)).filter((/** @type {unknown} */ n) => typeof n === "string");
   const winners = names.length
     ? `<div class="p-winner">${names.length > 1 ? "Winners" : "Winner"}: ${names.map(esc).join(", ")}</div>`
@@ -123,9 +123,9 @@ function results(view) {
   const longest = r.longestWord
     ? `<p class="p-longest">Longest word: <strong>${esc(r.longestWord.word)}</strong> by ${esc(r.longestWord.nickname)}</p>`
     : "";
-  const ghosts = r.ghostBoard.length
-    ? `<h2>Ghost leaderboard</h2><ol class="p-ghosts">${r.ghostBoard
-        .map((/** @type {any} */ g) => `<li>${esc(g.nickname)}: ${esc(g.ghostPoints)}</li>`)
+  const ghosts = r.ghostRanking.length
+    ? `<h2>Best ghosts</h2><ol class="p-ghosts">${r.ghostRanking
+        .map((/** @type {any} */ g) => `<li>${esc(g.nickname)}</li>`)
         .join("")}</ol>`
     : "";
   return `<main class="p-results"><h1>Game over</h1>${winners}${longest}${ghosts}</main>`;

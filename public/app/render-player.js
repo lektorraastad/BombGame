@@ -208,7 +208,7 @@ ${resultLine(ui.lastResult, prompt)}
 
 /** @param {any} view */
 function results(view) {
-  const r = view.results ?? { winners: [], ghostBoard: [], longestWord: null };
+  const r = view.results ?? { winners: [], ghostRanking: [], longestWord: null };
   const names = r.winners
     .map((/** @type {string} */ id) => view.players.find((/** @type {any} */ p) => p.id === id)?.nickname)
     .filter((/** @type {unknown} */ n) => typeof n === "string");
@@ -217,8 +217,8 @@ function results(view) {
   const longest = r.longestWord
     ? `<p>Longest word: <strong>${esc(r.longestWord.word)}</strong> by ${esc(r.longestWord.nickname)}</p>`
     : "";
-  const ghosts = r.ghostBoard.length
-    ? `<h2>Ghost points</h2><ol>${r.ghostBoard.slice(0, 3).map((/** @type {any} */ g) => `<li>${esc(g.nickname)}: ${esc(g.ghostPoints)}</li>`).join("")}</ol>`
+  const ghosts = r.ghostRanking.length
+    ? `<h2>Best ghosts</h2><ol>${r.ghostRanking.slice(0, 3).map((/** @type {any} */ g) => `<li>${esc(g.nickname)}</li>`).join("")}</ol>`
     : "";
   return `<main class="results"><h1>Game over</h1>${winners}<p>Your score: ${esc(view.me.score)}</p>${longest}${ghosts}<p class="hint">Waiting for the host to play again...</p></main>`;
 }

@@ -5,6 +5,7 @@ import type { PlayerId } from "../../src/engine/room.ts";
 import { everyoneMode } from "../../src/engine/modes/everyone.ts";
 import { createPromptBank } from "../../src/engine/prompts.ts";
 import type { Prompt } from "../../src/engine/types.ts";
+import { projectorView } from "../../src/engine/views.ts";
 import { makeDeps, makeTestChecker, fixtureBlocked } from "./helpers.ts";
 
 const ST: Prompt = { text: "st", type: "contains", count: 480 };
@@ -259,4 +260,27 @@ test("kicking an answered player after everyone answered does not end the round"
   assert.equal(view(room).round, 1);
   assert.deepEqual(view(room).answered, [ids[1], ids[2]]);
   assert.equal(room.phase, "playing");
+});
+
+test("Everyone: words stay hidden until the round ends", async () => {
+  const { room, ids } = setup(3, { roundTime: 10, startLives: 3 });
+  assert.deepEqual(room.submit(ids[0], "station"), { ok: true, kind: "turn" });
+  assert.deepEqual(room.submit(ids[1], "stone"), { ok: true, kind: "turn" });
+  assert.ok(ids.every((id) => room.lastWordOf(id) === undefined));
+  assert.ok(projectorView(room).players.every((x) => x.lastWord === undefined));
+  await advance(room);
+  assert.deepEqual(room.lastWordOf(ids[0]), { word: "station", prompt: { text: "st", type: "contains" } });
+  assert.equal(room.lastWordOf(ids[1])!.word, "stone");
+  assert.equal(room.lastWordOf(ids[2]), undefined);
+  const shown = projectorView(room).players;
+  assert.equal(shown.find((x) => x.id === ids[0])!.lastWord!.word, "station");
+});
+
+test("Everyone: a player kicked before the reveal loses their pending word", async () => {
+  const { room, ids } = setup(3, { roundTime: 10, startLives: 3 });
+  room.submit(ids[0], "station");
+  room.kick(ids[0]);
+  await advance(room);
+  assert.equal(room.lastWordOf(ids[0]), undefined);
+  assert.ok(!projectorView(room).players.some((x) => x.id === ids[0]));
 });

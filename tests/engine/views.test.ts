@@ -36,6 +36,7 @@ function setup(n: number, settings: Record<string, unknown> = {}) {
 }
 
 const current = (room: Room) => (projectorView(room).mode as { current: PlayerId }).current;
+const avatarOf = (room: Room, id: PlayerId) => room.players().find((x) => x.id === id)!.avatar;
 const others = (room: Room, ids: PlayerId[]) => ids.filter((id) => id !== current(room));
 
 test("registry lists the modes and activities", () => {
@@ -200,12 +201,13 @@ test("results include ghost leaderboard and longest word", () => {
   const nick = (id: PlayerId) => room.players().find((x) => x.id === id)!.nickname;
   assert.deepEqual(v.results, {
     winners: [first],
-    ghostBoard: [
-      { id: g2, nickname: nick(g2), ghostPoints: 2 },
-      { id: g1, nickname: nick(g1), ghostPoints: 1 },
+    ghostRanking: [
+      { id: g2, nickname: nick(g2), avatar: avatarOf(room, g2) },
+      { id: g1, nickname: nick(g1), avatar: avatarOf(room, g1) },
     ],
-    longestWord: { nickname: nick(first), word: "station" },
+    longestWord: { nickname: nick(first), avatar: avatarOf(room, first), word: "station" },
   });
+  assert.ok(!JSON.stringify(v).includes("ghostPoints"), "no ghost points in the projector results");
   assert.ok(!JSON.stringify(v).includes("strong"), "ghost words stay private after the game too");
 });
 
@@ -314,4 +316,64 @@ test("views show each player's avatar and me.id", () => {
   }
   assert.ok(controlView(room).players.every((p) => Number.isInteger(p.avatar)));
   assert.ok(!JSON.stringify(proj).includes("secret-tok"));
+});
+
+test("Classic: a word shows under its player at once, with the prompt it answered", () => {
+  const { room } = setup(3);
+  const on = current(room);
+  assert.equal(room.lastWordOf(on), undefined);
+  assert.deepEqual(room.submit(on, "station"), { ok: true, kind: "turn" });
+  const v = projectorView(room);
+  assert.deepEqual(v.players.find((x) => x.id === on)!.lastWord, { word: "station", prompt: { text: "st", type: "contains" } });
+  assert.ok(v.players.filter((x) => x.id !== on).every((x) => x.lastWord === undefined));
+  assert.deepEqual(room.lastWordOf(on), { word: "station", prompt: { text: "st", type: "contains" } });
+  // The next word replaces it.
+  const rest = ["stone", "story", "stand", "start"];
+  for (let i = 0; current(room) !== on && i < rest.length; i++) assert.deepEqual(room.submit(current(room), rest[i]), { ok: true, kind: "turn" });
+  assert.equal(current(room), on);
+  assert.deepEqual(room.submit(on, "street"), { ok: true, kind: "turn" });
+  assert.equal(projectorView(room).players.find((x) => x.id === on)!.lastWord!.word, "street");
+});
+
+test("silent and ghost words never become last words", () => {
+  const { room, ids } = setup(4);
+  const [ghost, silent] = others(room, ids);
+  room.context().loseLife(ghost);
+  assert.deepEqual(room.submit(ghost, "station"), { ok: true, kind: "ghost" });
+  assert.deepEqual(room.submit(silent, "stone"), { ok: true, kind: "silent" });
+  assert.equal(room.lastWordOf(ghost), undefined);
+  assert.equal(room.lastWordOf(silent), undefined);
+  assert.ok(projectorView(room).players.every((x) => x.lastWord === undefined));
+});
+
+test("a new game starts with no last words", () => {
+  const { room } = setup(3);
+  const on = current(room);
+  room.submit(on, "station");
+  assert.ok(room.lastWordOf(on));
+  room.endGame();
+  assert.ok(room.lastWordOf(on), "still shown on the results");
+  room.playAgain();
+  assert.deepEqual(room.start(), { ok: true });
+  assert.equal(room.lastWordOf(on), undefined);
+  assert.ok(projectorView(room).players.every((x) => x.lastWord === undefined));
+});
+
+test("results have a ghost ranking without points: most first, ties in join order, kicked absent", () => {
+  const { room, ids } = setup(4, { startLives: 1 });
+  const [a, b, c] = others(room, ids);
+  for (const id of [a, b, c]) room.context().loseLife(id);
+  room.submit(b, "strong");
+  room.submit(b, "story");
+  room.submit(c, "stand");
+  room.submit(a, "start");
+  room.context().endGame([]);
+  let r = projectorView(room).results!;
+  assert.deepEqual(r.ghostRanking.map((g) => g.id), [b, ...ids.filter((id) => id === a || id === c)]);
+  assert.ok(!/ghostPoints/.test(JSON.stringify(r)));
+  assert.ok(!/ghostPoints/.test(JSON.stringify(playerView(room, ids[0])!.results)));
+  assert.ok(/ghostPoints/.test(JSON.stringify(controlView(room).players)), "control view keeps points");
+  room.kick(b);
+  r = projectorView(room).results!;
+  assert.ok(!r.ghostRanking.some((g) => g.id === b));
 });

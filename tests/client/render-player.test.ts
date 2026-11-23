@@ -85,12 +85,15 @@ test("everyone mode, paused, results and connection banner", () => {
   const results = renderPlayer(
     view({
       phase: "results", prompt: null,
-      results: { winners: ["p2"], ghostBoard: [], longestWord: { nickname: "Jon", word: "banana" } },
+      results: { winners: ["p2"], ghostRanking: [{ id: "p3", nickname: "Zed", avatar: 3 }, { id: "p1", nickname: "Amy", avatar: 4 }], longestWord: { nickname: "Jon", avatar: 1, word: "banana" } },
     }),
     ui({ countdownMs: null }),
   );
   assert.ok(results.includes("Game over"));
   assert.ok(results.includes("Jon") && results.includes("banana"));
+  assert.ok(results.includes("Best ghosts"));
+  assert.ok(results.indexOf("Zed") < results.indexOf("Amy"), "ranking order kept");
+  assert.ok(!/Zed[^<]*\d|Amy[^<]*\d/.test(results.slice(results.indexOf("Best ghosts"))), "no points after names");
   const lost = renderPlayer(view(), ui({ status: "reconnecting" }));
   assert.ok(lost.includes("Reconnecting"));
   assert.ok(!renderPlayer(view(), ui()).includes("Reconnecting"));
@@ -215,7 +218,7 @@ test("the picker shows in the lobby under You're in! and on the spectator screen
   const playing = renderPlayer(view({ players: withAvatars }, { id: "p1", avatar: 5 }), ui());
   assert.ok(!playing.includes("data-avatar="));
   const results = renderPlayer(
-    view({ phase: "results", prompt: null, players: withAvatars, results: { winners: [], ghostBoard: [], longestWord: null } }, { id: "p1", avatar: 5 }),
+    view({ phase: "results", prompt: null, players: withAvatars, results: { winners: [], ghostRanking: [], longestWord: null } }, { id: "p1", avatar: 5 }),
     ui({ countdownMs: null }),
   );
   assert.ok(!results.includes("data-avatar="));

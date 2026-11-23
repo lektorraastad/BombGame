@@ -46,6 +46,9 @@ export type { SubmitResult };
 
 type Bomb = { handle: unknown; endsAt: number; visible: boolean };
 /** One game's record. A context only acts while its record is the room's current, running game. */
+/** A player's latest accepted real-turn word and the prompt it answered. */
+export type LastWord = { word: string; prompt: { text: string; type: PromptType } };
+
 type Game = {
   mode: GameMode;
   activity: KnockoutActivity;
@@ -57,6 +60,10 @@ type Game = {
   /** Each player's private silent words, so a silent answer can't be repeated for points. */
   silentUsed: Map<PlayerId, Set<string>>;
   typing: Map<PlayerId, string>;
+  /** Shown words, one per player. */
+  lastWords: Map<PlayerId, LastWord>;
+  /** Accepted words not yet shown; they move to lastWords when the next prompt is dealt or the game ends. */
+  pendingWords: Map<PlayerId, LastWord>;
   bomb: Bomb | null;
   pausedRemaining: number | null;
 };
@@ -181,6 +188,8 @@ export class Room {
     if (i < 0) return;
     const [gone] = this.list.splice(i, 1);
     this.bannedTokens.add(gone.token);
+    this.game?.lastWords.delete(gone.id);
+    this.game?.pendingWords.delete(gone.id);
     if (this.game && this.running() && gone.role === "player") {
       this.game.mode.onPlayerGone(this.game.ctx, gone.id);
     }
@@ -271,6 +280,8 @@ export class Room {
       usedByPlayer: new Map(),
       silentUsed: new Map(),
       typing: new Map(),
+      lastWords: new Map(),
+      pendingWords: new Map(),
       bomb: null,
       pausedRemaining: null,
     };
@@ -510,6 +521,7 @@ export class Room {
       if (!g.prompt) throw new Error("newPrompt outside a running game");
       return g.prompt;
     }
+    this.revealWords(g);
     const p = this.bank.next({
       band: this.band(),
       types: this.promptTypes(),
@@ -567,6 +579,7 @@ export class Room {
     if (!p) return;
     this.usedSet(g, pid).add(word);
     this.acceptedWords.push({ pid, word });
+    if (g.prompt) g.pendingWords.set(pid, { word, prompt: { text: g.prompt.text, type: g.prompt.type } });
     p.score += 1;
     if (this.settings.bonusAlphabet !== true) return;
     const letters = this.settings.bonusLetters as string[];
@@ -582,11 +595,24 @@ export class Room {
     return g.mode.usedScope === "room" ? g.usedRoom : setFor(g.usedByPlayer, pid);
   }
 
+  private revealWords(g: Game): void {
+    for (const [pid, w] of g.pendingWords) g.lastWords.set(pid, w);
+    g.pendingWords.clear();
+  }
+
+  /** A player's last shown word this game, if any. Silent and ghost words are never recorded. */
+  lastWordOf(pid: PlayerId): LastWord | undefined {
+    return this.game?.lastWords.get(pid);
+  }
+
   /** Ends the running game; does nothing if it has already ended. */
   private finish(winners: PlayerId[]): void {
     if (!this.running()) return;
     this.clearBomb();
-    if (this.game) this.game.typing.clear();
+    if (this.game) {
+      this.game.typing.clear();
+      this.revealWords(this.game);
+    }
     this.winners = winners;
     this.phase = "results";
     this.changed();

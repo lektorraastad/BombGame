@@ -121,12 +121,15 @@ test("results map winners to nicknames and show the ghost board and longest word
   ];
   const html = renderProjector({
     code: "ABCD", phase: "results", paused: false, locked: false, players, prompt: null, mode: null,
-    results: { winners: ["p1"], ghostBoard: [{ id: "p2", nickname: "<b>Jon</b>", ghostPoints: 4 }], longestWord: { nickname: "Mia", word: "remember" } },
+    results: { winners: ["p1"], ghostRanking: [{ id: "p2", nickname: "<b>Jon</b>", avatar: 1 }, { id: "p1", nickname: "Mia", avatar: 2 }], longestWord: { nickname: "Mia", avatar: 2, word: "remember" } },
   }, ui());
   assert.ok(html.includes("Mia"));
   assert.ok(!html.includes("p1"), "ids are not shown");
   assert.ok(html.includes("remember"));
   assert.ok(html.includes("&lt;b&gt;Jon&lt;/b&gt;") && !html.includes("<b>Jon"));
+  assert.ok(html.includes("Best ghosts"));
+  assert.ok(html.indexOf("Jon") < html.lastIndexOf("Mia"), "ranking order kept");
+  assert.ok(!/Jon<\/b>[^<]*\d|Jon[^<]*: ?\d/.test(html.slice(html.indexOf("Best ghosts"))), "no points after names");
 });
 
 test("the projector bomb is drawn from ui.bomb, without an arrow for now", () => {
