@@ -1,10 +1,12 @@
 // The projector screen as an HTML string. Pure: no DOM access, and every piece of text that came from
 // a player (nicknames, words) goes through esc(). The projector view has no scores, ghost points or
 // tokens to show; the results' ghost leaderboard is the one place ghost points appear.
-import { esc, BOMB_SVG, urgentClass } from "./render-player.js";
+import { esc } from "./render-player.js";
+import { renderBomb } from "./bomb.js";
+import { seatedPlayers } from "./circle-geometry.js";
 
 /**
- * @typedef {{ countdownMs: number | null, credits: string, site?: string }} ProjectorUi
+ * @typedef {{ countdownMs: number | null, credits: string, site?: string, bomb?: import("./bomb.js").BombState }} ProjectorUi
  */
 
 /** @type {Record<string, string>} */
@@ -55,9 +57,9 @@ ${names}
 function promptBlock(view, ui) {
   const p = view.prompt;
   const ask = p ? `<div class="p-word"><div class="p-ask">${ASK[p.type] ?? ""}</div><div class="p-prompt">${esc(p.text.toUpperCase())}</div></div>` : "";
-  const ms = ui.countdownMs;
-  const count = ms === null ? "" : `<span class="bomb-count" data-countdown>${Math.ceil(ms / 1000)}</span>`;
-  return `<div class="p-fuse-row"><div class="p-bomb${urgentClass(ms)}" data-bomb>${BOMB_SVG}${count}</div>${ask}</div>`;
+  // No arrow yet: it comes with the new circle centre.
+  const state = ui.bomb ?? { lit: view.phase === "playing" && !view.paused, arrow: null, countdownMs: ui.countdownMs, fuse: null, explosion: null };
+  return `<div class="p-fuse-row">${renderBomb({ ...state, arrow: null }, "")}${ask}</div>`;
 }
 
 /** @param {any} view */
@@ -69,8 +71,7 @@ function examples(view) {
 /** @param {any} view @param {ProjectorUi} ui */
 function classic(view, ui) {
   const mode = view.mode;
-  /** @type {any[]} */
-  const seated = mode.seats.map((/** @type {string} */ id) => view.players.find((/** @type {any} */ p) => p.id === id)).filter(Boolean);
+  const seated = seatedPlayers(view);
   const n = seated.length;
   const seats = seated
     .map((p, i) => {

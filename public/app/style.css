@@ -119,32 +119,8 @@ button:disabled { cursor: default; }
 .ghostscore { margin-top: 14px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .results h2 { font-size: 24px; margin: 18px 0 6px; }
 
-/* The bomb, inline on the player screen. */
-.bomb { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-weight: 600; }
-.bomb .bomb-svg { width: 1.6em; height: 1.6em; }
-
-/* ---- The bomb (shared) ---- */
-.bomb-svg { display: block; overflow: visible; }
-.bomb-svg .body { fill: var(--bomb); stroke: var(--bomb-rim); stroke-width: 5; }
-.bomb-svg .shine { fill: none; stroke: var(--bomb-rim); stroke-opacity: 0.6; stroke-width: 7; stroke-linecap: round; }
-.bomb-svg .cap { fill: var(--bomb-shade); stroke: var(--bomb-rim); stroke-width: 4; }
-.bomb-svg .fuse { fill: none; stroke: var(--tile); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 7 5; }
-.bomb-svg .spark { fill: var(--spark); stroke: var(--lives); stroke-width: 2; transform-origin: 103px 12px; animation: spark 0.35s steps(2) infinite; }
-.bomb-svg .spark-core { fill: var(--names); }
-.urgent .bomb-svg .spark { fill: var(--lives); stroke: var(--spark); animation-duration: 0.12s; transform: scale(1.5); }
-.urgent .bomb-svg .fuse { stroke: var(--lives); animation: burn 0.3s linear infinite; }
-.urgent .bomb-svg { animation: shake 0.25s linear infinite; }
-.bomb-count { font-variant-numeric: tabular-nums; }
-.urgent .bomb-count { color: var(--lives); }
-
-@keyframes spark { 0% { transform: scale(0.8) rotate(0deg); } 100% { transform: scale(1.15) rotate(22deg); } }
-@keyframes burn { to { stroke-dashoffset: -12; } }
-@keyframes shake {
-  0%, 100% { transform: translate(0, 0) rotate(0deg); }
-  25% { transform: translate(-3%, 1%) rotate(-5deg); }
-  50% { transform: translate(2%, -2%) rotate(4deg); }
-  75% { transform: translate(-1%, 2%) rotate(-3deg); }
-}
+/* The bomb (drawn and animated by bomb.js) beside whose turn it is. */
+.gamepage { --bomb-size: 110px; }
 
 /* ---- Host screen: the projector ---- */
 .hostbody { overflow: hidden; }
@@ -177,19 +153,11 @@ button:disabled { cursor: default; }
 .p-names li { border-width: 0.4vh; padding: 0.5vh 2vh; }
 .p-credits { position: absolute; bottom: 1vh; left: 2vw; right: calc(2vw + 440px); text-align: left; font-size: 1.8vh; color: var(--muted); margin: 0; }
 
-/* The bomb beside the prompt. */
-.p-fuse-row { display: flex; align-items: center; justify-content: center; gap: 4vh; }
+/* The bomb (drawn and animated by bomb.js) beside the prompt. */
+.p-fuse-row { display: flex; align-items: center; justify-content: center; gap: 4vh; --bomb-size: 28vh; }
 .p-word { display: flex; flex-direction: column; align-items: center; }
 .p-ask { font-size: 4vh; font-weight: 600; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 1vh; }
 .p-prompt { font-size: max(12vh, min(16vh, 13cqw)); padding: 0.6vh 3vh 2vh; border-width: 0.8vh; border-radius: 2.4vh; box-shadow: inset 0 -1.2vh 0 var(--tile-edge); }
-.p-bomb { position: relative; width: 22vh; height: 22vh; flex: none; }
-.p-bomb .bomb-svg { width: 100%; height: 100%; }
-.p-bomb .bomb-count {
-  position: absolute; left: 45%; top: 60%; transform: translate(-50%, -50%);
-  font-family: var(--font-display); font-size: 8vh; font-weight: 800; color: var(--names); line-height: 1;
-}
-/* On the bomb itself: spark is at least 3:1 on every bomb (Workshop red included), lives is not. */
-.p-bomb.urgent .bomb-count { color: var(--spark); font-size: 9.5vh; }
 .p-typing { font-size: 5vh; min-height: 1.2em; color: var(--muted); font-weight: 600; letter-spacing: 0.04em; margin-top: 1vh; }
 
 /* Classic: players in a ring around the bomb. */
@@ -313,8 +281,4 @@ button:disabled { cursor: default; }
   .prompt { font-size: 64px; }
   .ctl-buttons { grid-template-columns: repeat(2, 1fr); }
   .ctl th, .ctl td { padding: 5px 2px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .bomb-svg .spark, .urgent .bomb-svg, .urgent .bomb-svg .fuse { animation: none; }
 }

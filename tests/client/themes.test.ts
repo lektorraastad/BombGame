@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { THEME_IDS } from "../../src/engine/settings.ts";
 import { THEME_IDS as THEME_IDS_CLIENT, themeOf } from "../../public/app/theme.js";
+import { BOMB_CSS } from "../../public/app/bomb.js";
 
 const APP = new URL("../../public/app/", import.meta.url);
 const read = (f: string) => readFileSync(new URL(f, APP), "utf8");
@@ -62,10 +63,9 @@ test("readable in every theme", () => {
     // The countdown number on the bomb (large text), calm and urgent.
     ["--names", "--bomb", 3], ["--spark", "--bomb", 3],
   ];
-  // Those are the colours the stylesheet gives the countdown.
-  const css = read("style.css");
-  assert.match(css, /\.p-bomb \.bomb-count \{[^}]*color: var\(--names\)/);
-  assert.match(css, /\.p-bomb\.urgent \.bomb-count \{[^}]*color: var\(--spark\)/);
+  // Those are the colours the bomb file gives the countdown.
+  assert.match(BOMB_CSS, /\.bomb-count \{[^}]*color: var\(--names\)/);
+  assert.match(BOMB_CSS, /\.urgent \.bomb-count \{[^}]*color: var\(--spark\)/);
   for (const [theme, c] of Object.entries(parseThemes())) {
     for (const [fg, bg, min] of PAIRS) {
       const ratio = contrast(c[fg], c[bg]);

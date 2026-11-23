@@ -8,6 +8,8 @@ import { reasonText } from "./render-player.js";
 import { CREDITS } from "./credits.js";
 import { mountPanel } from "./panel-page.js";
 import { themeOf } from "./theme.js";
+import { BOMB_CSS } from "./bomb.js";
+import { createMotion } from "./motion.js";
 
 const HOST_TOKEN = "bomb.hostToken";
 const HOST_CODE = "bomb.hostCode";
@@ -45,6 +47,7 @@ function createErrorText(reason) {
 let code = "";
 let hosting = false;
 const countdown = createCountdown(() => Date.now());
+const motion = createMotion(() => Date.now());
 const sound = createSound(() => new (window.AudioContext ?? /** @type {any} */ (window).webkitAudioContext)());
 const sounds = createSoundDriver(sound, () => Date.now());
 
@@ -127,6 +130,7 @@ function onMessage(msg) {
     view = msg.view;
     document.documentElement.dataset.theme = themeOf(view);
     countdown.update(view);
+    motion.view(view);
     sounds.view(view);
     draw();
   } else if (msg.t === "error") {
@@ -150,7 +154,9 @@ function onStatus(s) {
 
 function draw() {
   if (!view || !hosting) return;
-  $("projector").innerHTML = renderProjector(view, { countdownMs: countdown.remainingMs(), credits: CREDITS, site: location.host });
+  const countdownMs = countdown.remainingMs();
+  const bomb = motion.bombState(countdownMs, view.phase === "playing" && !view.paused);
+  $("projector").innerHTML = renderProjector(view, { countdownMs, credits: CREDITS, site: location.host, bomb });
 }
 
 // ---- the overlay: a control connection of its own, open only while the overlay shows ----
@@ -226,3 +232,19 @@ setInterval(() => {
   for (const el of document.querySelectorAll("#projector [data-countdown]")) el.textContent = String(Math.ceil(ms / 1000));
   for (const el of document.querySelectorAll("#projector [data-bomb]")) el.classList.toggle("urgent", ms <= URGENT_MS);
 }, 50);
+
+// The bomb's styles, once. They live in bomb.js so a new bomb design is one file.
+{
+  const style = document.createElement("style");
+  style.textContent = BOMB_CSS;
+  document.head.append(style);
+}
+
+// While the arrow swings, the bomb explodes or a player pops in, redraw about every 100 ms (each
+// draw picks the animation up where it is), and once more when it has finished.
+let animating = false;
+setInterval(() => {
+  const busy = motion.busy();
+  if (busy || animating) draw();
+  animating = busy;
+}, 100);

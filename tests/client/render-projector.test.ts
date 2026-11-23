@@ -127,3 +127,20 @@ test("results map winners to nicknames and show the ghost board and longest word
   assert.ok(html.includes("remember"));
   assert.ok(html.includes("&lt;b&gt;Jon&lt;/b&gt;") && !html.includes("<b>Jon"));
 });
+
+test("the projector bomb is drawn from ui.bomb, without an arrow for now", () => {
+  const c = game({ mode: "classic", timerStyle: "visible", turnTime: 12 });
+  assert.ok(!draw(c.room).includes("data-bomb"), "no bomb in the lobby yet");
+  assert.deepEqual(c.room.start(), { ok: true });
+  const bomb = { lit: true, arrow: { from: 0, to: 120, elapsedMs: 100 }, countdownMs: 12_000, fuse: { totalMs: 12_000, elapsedMs: 0 }, explosion: { elapsedMs: 200 } };
+  const html = draw(c.room, { countdownMs: 12_000, bomb });
+  assert.match(html, /class="bomb[^"]*"[^>]* data-bomb/);
+  assert.match(html, /data-countdown>12</);
+  assert.ok(html.includes("bomb-burst"), "the explosion from the motion tracker");
+  assert.ok(html.includes("bomb-fuse burning"), "the fuse burns");
+  assert.ok(!html.includes("bomb-arrow"), "the arrow comes with the new circle");
+  // Without ui.bomb: a lit bomb while playing, unlit while paused.
+  assert.match(draw(c.room), /class="[^"]*\bflame\b/);
+  c.room.pause();
+  assert.ok(!/flame/.test(draw(c.room)));
+});

@@ -1,11 +1,11 @@
 // The player screen as an HTML string. Pure: no DOM access, and every piece of text that came from
 // a player (nicknames, words) goes through esc().
-import { URGENT_MS } from "./countdown.js";
+import { renderBomb } from "./bomb.js";
 
 /**
  * @typedef {{ text: string, type: "contains" | "starts" | "ends" }} PromptInfo
  * @typedef {{ ok: boolean, kind?: string, reason?: string }} ResultInfo
- * @typedef {{ countdownMs: number | null, lastResult?: ResultInfo, status: string }} PlayerUi
+ * @typedef {{ countdownMs: number | null, lastResult?: ResultInfo, status: string, bomb?: import("./bomb.js").BombState }} PlayerUi
  */
 
 /** @param {unknown} s */
@@ -82,29 +82,16 @@ function resultLine(r, prompt) {
   return `<div class="result bad" aria-live="polite">✗ ${esc(reasonText(r.reason, prompt))}</div>`;
 }
 
-/** The spark at the fuse's tip: an 8-pointed star around (103, 12). */
-const SPARK = Array.from({ length: 16 }, (_, i) => {
-  const r = i % 2 === 0 ? 13 : 5;
-  const a = (Math.PI * i) / 8;
-  return `${(103 + r * Math.cos(a)).toFixed(1)},${(12 + r * Math.sin(a)).toFixed(1)}`;
-}).join(" ");
-
-/** A cartoon bomb as inline SVG; the page's countdown loop adds the "urgent" class in the last 3 s. */
-export const BOMB_SVG = `<svg class="bomb-svg" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
-<path class="fuse" d="M78 32 C 84 16, 96 26, 101 14"/>
-<polygon class="spark" points="${SPARK}"/><circle class="spark-core" cx="103" cy="12" r="4"/>
-<rect class="cap" x="62" y="25" width="26" height="17" rx="4" transform="rotate(40 75 33.5)"/>
-<circle class="body" cx="54" cy="72" r="42"/>
-<path class="shine" d="M28 62 a 28 28 0 0 1 22 -22"/>
-</svg>`;
-
-/** @param {number | null} ms */
-export const urgentClass = (ms) => (ms !== null && ms <= URGENT_MS ? " urgent" : "");
-
-/** @param {number | null} ms */
-function bomb(ms) {
-  if (ms === null) return "";
-  return `<span class="bomb${urgentClass(ms)}" data-bomb>${BOMB_SVG}<span class="bomb-count" data-countdown>${Math.ceil(ms / 1000)}</span></span>`;
+/**
+ * The bomb beside whose turn it is, while a visible timer counts down. No arrow here yet: it comes
+ * with the circle on student screens.
+ * @param {PlayerUi} ui
+ * @param {any} view
+ */
+function bomb(ui, view) {
+  if (ui.countdownMs === null) return "";
+  const state = ui.bomb ?? { lit: view.phase === "playing" && !view.paused, arrow: null, countdownMs: ui.countdownMs, fuse: null, explosion: null };
+  return renderBomb({ ...state, arrow: null }, "");
 }
 
 /** @param {any} view */
@@ -164,7 +151,7 @@ function screen(view, ui) {
       ? `Comeback: ${esc(a.streak)} of ${esc(a.comebackStreak)}`
       : "Comeback: not available";
     return `<main class="ghost">${paused}<h1>YOU'RE OUT — keep playing as a ghost</h1>
-<div class="promptrow"><span class="label">Prompt:</span> <span class="prompt">${prompt ? esc(prompt.text.toUpperCase()) : ""}</span> <span class="turn">${whoseTurn(view)} ${bomb(ui.countdownMs)}</span></div>
+<div class="promptrow"><span class="label">Prompt:</span> <span class="prompt">${prompt ? esc(prompt.text.toUpperCase()) : ""}</span> <span class="turn">${whoseTurn(view)} ${bomb(ui, view)}</span></div>
 ${wordBox(false)}
 ${resultLine(ui.lastResult, prompt)}
 <div class="ghostscore">Ghost points: ${esc(a.ghostPoints)} <span class="comeback">${comeback}</span></div></main>`;
@@ -183,9 +170,9 @@ ${resultLine(ui.lastResult, prompt)}
     : "";
 
   if (me.isOn) {
-    return `<main class="turn-on">${paused}${hearts_}<div class="yourturn">Your turn! ${bomb(ui.countdownMs)}</div>${promptBlock}${wordBox(true)}${resultLine(ui.lastResult, prompt)}${letters}${last}</main>`;
+    return `<main class="turn-on">${paused}${hearts_}<div class="yourturn">Your turn! ${bomb(ui, view)}</div>${promptBlock}${wordBox(true)}${resultLine(ui.lastResult, prompt)}${letters}${last}</main>`;
   }
-  return `<main class="waiting">${paused}${hearts_}<div class="yourturn">${whoseTurn(view)} ${bomb(ui.countdownMs)}</div>${promptBlock}<p class="hint">${me.canAnswerSilently ? "Answer silently for points" : "Wait for your turn"}</p>${wordBox(false)}${resultLine(ui.lastResult, prompt)}${letters}${last}</main>`;
+  return `<main class="waiting">${paused}${hearts_}<div class="yourturn">${whoseTurn(view)} ${bomb(ui, view)}</div>${promptBlock}<p class="hint">${me.canAnswerSilently ? "Answer silently for points" : "Wait for your turn"}</p>${wordBox(false)}${resultLine(ui.lastResult, prompt)}${letters}${last}</main>`;
 }
 
 /** @param {any} view */

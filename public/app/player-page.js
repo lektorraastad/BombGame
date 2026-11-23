@@ -3,6 +3,8 @@ import { createConnection } from "./net.js";
 import { createCountdown, URGENT_MS } from "./countdown.js";
 import { renderPlayer, reasonText } from "./render-player.js";
 import { themeOf } from "./theme.js";
+import { BOMB_CSS } from "./bomb.js";
+import { createMotion } from "./motion.js";
 import { initialJoin, saveJoin, clearJoin, terminalError, joinStatusText, submitOutcome, rememberKick, wasKicked, KICKED_TEXT } from "./session.js";
 
 const TYPING_GAP_MS = 100; // at most 10 typing messages a second
@@ -37,6 +39,7 @@ let status = "connecting";
 let joined = false;
 /** @type {ReturnType<typeof createConnection> | null} */ let conn = null;
 const countdown = createCountdown(() => Date.now());
+const motion = createMotion(() => Date.now());
 
 /** @param {string} text */
 function joinError(text) {
@@ -89,6 +92,7 @@ function onMessage(msg) {
     view = msg.view;
     document.documentElement.dataset.theme = themeOf(view);
     countdown.update(view);
+    motion.view(view);
     const text = view.prompt ? view.prompt.text : "";
     if (text !== lastPromptText) lastResult = undefined;
     lastPromptText = text;
@@ -142,7 +146,9 @@ function draw() {
   const root = $("game");
   const old = /** @type {HTMLInputElement | null} */ (root.querySelector("#word"));
   const text = old ? old.value : "";
-  root.innerHTML = renderPlayer(view, { countdownMs: countdown.remainingMs(), lastResult, status });
+  const countdownMs = countdown.remainingMs();
+  const bomb = motion.bombState(countdownMs, view.phase === "playing" && !view.paused);
+  root.innerHTML = renderPlayer(view, { countdownMs, lastResult, status, bomb });
   const box = /** @type {HTMLInputElement | null} */ (root.querySelector("#word"));
   if (box) {
     box.value = text;
@@ -194,3 +200,19 @@ setInterval(() => {
   for (const el of document.querySelectorAll("[data-countdown]")) el.textContent = String(Math.ceil(ms / 1000));
   for (const el of document.querySelectorAll("[data-bomb]")) el.classList.toggle("urgent", ms <= URGENT_MS);
 }, 200);
+
+// The bomb's styles, once. They live in bomb.js so a new bomb design is one file.
+{
+  const style = document.createElement("style");
+  style.textContent = BOMB_CSS;
+  document.head.append(style);
+}
+
+// While the arrow swings, the bomb explodes or a player pops in, redraw about every 100 ms (each
+// draw picks the animation up where it is), and once more when it has finished.
+let animating = false;
+setInterval(() => {
+  const busy = motion.busy();
+  if (busy || animating) draw();
+  animating = busy;
+}, 100);

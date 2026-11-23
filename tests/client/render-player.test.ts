@@ -126,3 +126,25 @@ test("reasons are in plain English", () => {
   assert.equal(reasonText("doesnt-match", { text: "st", type: "starts" }), "Doesn't start with ST");
   assert.equal(reasonText("doesnt-match", { text: "ing", type: "ends" }), "Doesn't end with ING");
 });
+
+const bomb = (over: Record<string, unknown> = {}): any =>
+  ({ lit: true, arrow: null, countdownMs: 5000, fuse: null, explosion: null, ...over });
+
+test("the bomb on the player screen is drawn from ui.bomb, without an arrow for now", async () => {
+  const html = renderPlayer(view(), ui({ bomb: bomb({ explosion: { elapsedMs: 100 }, arrow: { from: 0, to: 90, elapsedMs: 50 } }) }));
+  assert.match(html, /data-bomb/);
+  assert.match(html, /data-countdown>5</);
+  assert.ok(html.includes("bomb-burst"), "the explosion from the motion tracker");
+  assert.ok(!html.includes("bomb-arrow"), "no arrow on student screens yet");
+  const waiting = renderPlayer(view({ mode: { seats: ["p1", "p2"], current: "p2", lastWord: null } }, { isOn: false }), ui({ bomb: bomb() }));
+  assert.match(waiting, /class="[^"]*\bflame\b/, "a lit bomb");
+  // As before: no bomb without a visible timer, and none in the lobby.
+  assert.ok(!renderPlayer(view(), ui({ countdownMs: null, bomb: bomb({ countdownMs: null }) })).includes("data-bomb"));
+  assert.ok(!renderPlayer(view({ phase: "lobby", prompt: null, mode: null }), ui({ countdownMs: null })).includes("data-bomb"));
+  // Without ui.bomb, a still lit bomb with the number.
+  const plain = renderPlayer(view(), ui());
+  assert.match(plain, /data-bomb/);
+  assert.match(plain, /data-countdown>5</);
+  const mod: Record<string, unknown> = await import("../../public/app/render-player.js");
+  assert.equal("BOMB_SVG" in mod, false, "the old bomb drawing is gone");
+});
