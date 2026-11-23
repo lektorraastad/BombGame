@@ -83,8 +83,12 @@ function bombOf(view, ui) {
   return ui.bomb ?? { lit: view.phase === "playing" && !view.paused, arrow: null, countdownMs: ui.countdownMs, fuse: null, explosion: null };
 }
 
-/** What sits on the bomb: the prompt type, then the prompt on tiles. @param {any} view */
-function onBomb(view) {
+/**
+ * What sits on the bomb: the prompt type, then the prompt on tiles. Shared with the student screens.
+ * @param {any} view a projector or player view
+ * @returns {string}
+ */
+export function onBomb(view) {
   const p = view.prompt;
   if (!p || typeof p.text !== "string") return "";
   return `<div class="p-ask">${ASK[p.type] ?? ""}</div><div class="p-prompt">${tiles(p.text.toUpperCase())}</div>`;
@@ -115,8 +119,13 @@ ${examples(view)}
 </main>`;
 }
 
-/** @param {any} view */
-function results(view) {
+/**
+ * The results' parts: the winners' podium, the longest word, and the best ghosts in order without
+ * points. Shared with the student screens, which add the student's own score.
+ * @param {any} view a projector or player view in the results phase
+ * @returns {{ podium: string, longest: string, ghosts: string }}
+ */
+export function resultParts(view) {
   const r = view.results ?? {};
   const winners = (Array.isArray(r.winners) ? r.winners : [])
     .map((/** @type {string} */ id) => playerOf(view, id))
@@ -134,5 +143,11 @@ function results(view) {
         .map((/** @type {any} */ g, /** @type {number} */ i) => `<li><span class="rank">${i + 1}.</span>${avatarImg(g.avatar)}<span class="who">${esc(g.nickname)}</span></li>`)
         .join("")}</ol>`
     : "";
+  return { podium, longest, ghosts };
+}
+
+/** @param {any} view */
+function results(view) {
+  const { podium, longest, ghosts } = resultParts(view);
   return `<main class="p-results"><h1>Game over</h1><div class="p-podium">${podium}</div>${longest}${ghosts}</main>`;
 }

@@ -114,35 +114,81 @@ button:disabled { cursor: default; }
   content: ""; position: absolute; left: 8%; right: 8%; top: 50%; border-top: 3px solid var(--muted); transform: rotate(-45deg);
 }
 .lives { font-size: 34px; color: var(--lives); letter-spacing: 4px; line-height: 1.1; }
-.ask { font-size: 22px; margin-top: 10px; color: var(--muted); }
-/* The prompt: ink letters on a letter tile. */
-.prompt {
-  display: inline-block; font-family: var(--font-display); font-weight: 800; letter-spacing: 0.08em; line-height: 1;
-  background: var(--tile); color: var(--tile-ink); border: 5px solid var(--tile-edge); border-radius: 14px;
-  box-shadow: inset 0 -8px 0 var(--tile-edge);
-}
-.prompt { font-size: 88px; padding: 6px 22px 14px; margin: 8px 0 6px; align-self: flex-start; }
-.yourturn { font-size: 28px; font-family: var(--font-display); font-weight: 800; margin: 6px 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-/* Your turn: a tile ringed in the turn colour, not colour alone. */
-.turn-on .yourturn {
-  align-self: flex-start; background: var(--tile); color: var(--tile-ink); border: 5px solid var(--turn);
-  border-radius: 12px; padding: 2px 14px;
-}
-.turn-on, .waiting { display: flex; flex-direction: column; }
-.word { margin-top: 16px; }
-.word.my-turn { border-color: var(--turn); box-shadow: 0 0 0 5px var(--turn); }
 .result { min-height: 1.6em; margin-top: 12px; font-size: 26px; font-weight: 600; }
 .result.good { color: var(--answered); }
 .result.bad { color: var(--refusal); }
-.hint, .letters, .last { color: var(--muted); margin: 8px 0 0; }
-.ghost h1 { font-size: 26px; color: var(--muted); }
-.ghost .prompt { font-size: 64px; }
-.promptrow { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-.ghostscore { margin-top: 14px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.results h2 { font-size: 24px; margin: 18px 0 6px; }
+.hint, .letters { color: var(--muted); margin: 8px 0 0; }
 
-/* The bomb (drawn and animated by bomb.js) beside whose turn it is. */
-.gamepage { --bomb-size: 110px; }
+/* While a game runs (on turn, waiting, ghost) the screen is exactly one window tall, so the text box
+   is never scrolled away: the circle gets whatever height is left over, and the rest keep theirs. */
+.gamepage:has(> main.turn-on, > main.waiting, > main.ghost) {
+  max-width: 1100px; height: 100vh; height: 100dvh; display: flex; flex-direction: column; padding: 8px 16px 10px;
+}
+.gamepage:has(> main.turn-on, > main.waiting, > main.ghost) > .top { flex: none; margin-bottom: 2px; }
+.gamepage:has(> main.turn-on, > main.waiting, > main.ghost) > .banner { flex: none; }
+main.turn-on, main.waiting, main.ghost {
+  position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; text-align: center;
+}
+/* The circle's box: as big a square as the space allows. */
+.arena { flex: 1 1 0; min-height: 140px; width: 100%; container-type: size; display: flex; align-items: center; justify-content: center; }
+.arena .circle { --circle-size: min(100cqw, 100cqh); }
+
+/* The student's own hearts and score, in the top corner, out of the circle's way. */
+.corner {
+  position: absolute; top: 0; right: 0; z-index: 3; display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+  pointer-events: none; text-align: right;
+}
+.corner .lives { font-size: 28px; }
+.corner .score { font-family: var(--font-display); font-weight: 800; font-size: 20px; color: var(--names); }
+
+/* The status line under the circle: whose turn, and what to do. */
+.status { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px 16px; min-height: 42px; margin-top: 4px; }
+.status .hint { margin: 0; }
+.yourturn { font-size: 26px; font-family: var(--font-display); font-weight: 800; line-height: 1.15; }
+/* Your turn: a tile ringed in the turn colour, not colour alone. */
+.turn-on .yourturn {
+  background: var(--tile); color: var(--tile-ink); border: 4px solid var(--turn); border-radius: 12px; padding: 2px 14px;
+}
+.ghost .status h1 { font-size: 22px; margin: 0; color: var(--muted); }
+.status .turn { font-family: var(--font-display); font-weight: 800; font-size: 22px; }
+
+/* The text box, along the bottom. The real input is on top, its text see-through; under it the
+   page draws the typed letters as tiles (wordTiles), with a steady caret where the cursor is. */
+.wordbox { position: relative; width: 100%; max-width: 680px; margin-top: 6px; border-radius: 12px; background: var(--panel); }
+.word-tiles {
+  position: absolute; inset: 0; z-index: 0; display: flex; align-items: center; padding: 0 18px; overflow: hidden;
+  pointer-events: none; font-size: 30px; white-space: nowrap;
+}
+.word-tiles .tiles { flex-wrap: nowrap; max-width: none; }
+.word-tiles .caret { flex: none; height: 1.1em; }
+.wordbox:not(:focus-within) .word-tiles .caret { visibility: hidden; }
+#word {
+  position: relative; z-index: 1; display: block; height: 62px; background: transparent; color: transparent; caret-color: transparent;
+}
+#word::placeholder { color: var(--muted); opacity: 1; }
+.word.my-turn { border-color: var(--turn); box-shadow: 0 0 0 5px var(--turn); }
+main.turn-on .result, main.waiting .result, main.ghost .result { min-height: 1.4em; margin-top: 6px; font-size: 22px; }
+main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
+.ghost h1 { font-size: 26px; color: var(--muted); }
+.ghostscore { margin-top: 4px; display: flex; justify-content: center; gap: 6px 18px; flex-wrap: wrap; }
+
+/* The circle on a student screen: seats bigger for a few players, as on the projector. The prompt
+   type and the countdown on the smaller bomb are scaled up to stay readable. */
+.arena .circle:not(:has(> .seat:nth-child(11))) { --seat-size: max(12px, 3.1cqw); }
+.arena .circle:has(> .seat:nth-child(11)):not(:has(> .seat:nth-child(21))) { --seat-size: max(11px, 2.7cqw); }
+.arena .circle-centre { --bomb-size: 40cqw; }
+.arena .circle:has(.seat.small) .circle-centre { --bomb-size: 30cqw; }
+.circle.compact .p-ask { font-size: 8cqw; }
+.circle.compact .p-prompt { font-size: 20cqw; }
+.circle.compact:has(.seat.small) .p-ask { font-size: 9cqw; }
+.circle.compact:has(.seat.small) .p-prompt { font-size: 22cqw; }
+/* With the countdown the stack is taller than the bomb's body: the label moves up over the top rim
+   (it is on its own dark label) and the tiles shrink a little, so the number sits on the body, clear
+   of the light rim. */
+.circle.compact .circle-centre:has([data-countdown]) .p-ask { font-size: 7.5cqw; margin-top: -9cqw; }
+.circle.compact .circle-centre:has([data-countdown]) .p-prompt { font-size: 19cqw; }
+.circle.compact:has(.seat.small) .circle-centre:has([data-countdown]) .p-ask { font-size: 8cqw; margin-top: -9cqw; }
+.circle.compact:has(.seat.small) .circle-centre:has([data-countdown]) .p-prompt { font-size: 21cqw; }
 
 /* ---- Letter tiles (tiles.js): words, names and the prompt as a row of chunky tiles ---- */
 /* Sized in em, so a row takes the size of wherever it sits. Light tiles with a dark outline. */
@@ -341,6 +387,19 @@ button:disabled { cursor: default; }
 .p-ghosts .rank { color: var(--muted); font-weight: 600; }
 .p-ghosts .who { font-family: var(--font-display); font-weight: 800; }
 
+/* Results on a student screen: the projector's podium, longest word and ghosts, compact. */
+main.results { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; }
+main.results h1 { color: var(--muted); margin: 4px 0 0; }
+.results .p-podium .trophy { width: 56px; height: 56px; }
+.results .p-winner { font-size: 40px; }
+.results .p-winner .avatar { width: 96px; height: 96px; }
+.results .p-nowinner { font-size: 36px; margin: 6px 0; }
+.results .p-longest { font-size: 22px; }
+.results h2 { font-size: 24px; margin: 8px 0 0; }
+.results .p-ghosts { font-size: 22px; gap: 6px 20px; max-width: 100%; }
+.results .youwon { margin: 0; color: var(--spark); font-family: var(--font-display); font-weight: 800; }
+.results .myscore { margin: 0; font-size: 22px; font-weight: 600; }
+
 .netstatus {
   position: fixed; top: 1vh; left: 50%; transform: translateX(-50%); z-index: 6;
   background: var(--refusal); color: var(--tile-ink); font-weight: 600; padding: 6px 14px; border-radius: 10px;
@@ -410,7 +469,6 @@ button:disabled { cursor: default; }
 
 @media (max-width: 480px) {
   .joinpage h1 { font-size: 44px; }
-  .prompt { font-size: 64px; }
   .ctl-buttons { grid-template-columns: repeat(2, 1fr); }
   .ctl th, .ctl td { padding: 5px 2px; }
 }

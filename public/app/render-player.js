@@ -1,8 +1,13 @@
 // The player screen as an HTML string. Pure: no DOM access, and every piece of text that came from
-// a player (nicknames, words) goes through esc().
-import { renderBomb } from "./bomb.js";
+// a player (nicknames, words) goes through esc(), here or in tiles.js and render-circle.js.
+// While a game runs, the student sees the same circle, bomb and arrow as the projector, smaller, with
+// their own text box along the bottom and their own hearts and score in the corner. A student's
+// screen shows only their own score.
 import { AVATARS, avatarImg } from "./avatars.js";
 import { esc } from "./escape.js";
+import { renderCircle } from "./render-circle.js";
+import { onBomb, resultParts } from "./render-projector.js";
+import { tiles } from "./tiles.js";
 
 /**
  * @typedef {{ text: string, type: "contains" | "starts" | "ends" }} PromptInfo
@@ -13,11 +18,11 @@ import { esc } from "./escape.js";
 // esc lives in escape.js; it is re-exported here so older imports keep working.
 export { esc };
 
-/** @type {Record<string, { ask: string, no: string }>} */
+/** How a refused word missed the prompt. (The prompt type itself is on the bomb.) @type {Record<string, { no: string }>} */
 const PROMPT_WORDING = {
-  contains: { ask: "Type a word that CONTAINS:", no: "Doesn't contain" },
-  starts: { ask: "Type a word that STARTS WITH:", no: "Doesn't start with" },
-  ends: { ask: "Type a word that ENDS WITH:", no: "Doesn't end with" },
+  contains: { no: "Doesn't contain" },
+  starts: { no: "Doesn't start with" },
+  ends: { no: "Doesn't end with" },
 };
 
 /** @type {Record<string, string>} */
@@ -89,15 +94,16 @@ function resultLine(r, prompt) {
 }
 
 /**
- * The bomb beside whose turn it is, while a visible timer counts down. No arrow here yet: it comes
- * with the circle on student screens.
- * @param {PlayerUi} ui
+ * The circle with the bomb in the middle and the prompt on it, as on the projector. The bomb comes
+ * from the motion tracker (player-page.js), or without one (as in tests) a plain bomb, lit while
+ * playing. Nobody is on in Everyone at once, so there is never an arrow then.
  * @param {any} view
+ * @param {PlayerUi} ui
  */
-function bomb(ui, view) {
-  if (ui.countdownMs === null) return "";
-  const state = ui.bomb ?? { lit: view.phase === "playing" && !view.paused, arrow: null, countdownMs: ui.countdownMs, fuse: null, explosion: null };
-  return renderBomb({ ...state, arrow: null }, "");
+function arena(view, ui) {
+  const bomb = ui.bomb ?? { lit: view.phase === "playing" && !view.paused, arrow: null, countdownMs: ui.countdownMs, fuse: null, explosion: null };
+  const nobodyOn = typeof view.mode?.current !== "string";
+  return `<div class="arena">${renderCircle(view, { compact: true, bomb: nobodyOn ? { ...bomb, arrow: null } : bomb, centre: onBomb(view) })}</div>`;
 }
 
 /** @param {any} view */
@@ -113,8 +119,32 @@ function whoseTurn(view) {
 const WORD_BOX =
   `<input id="word" class="word{cls}" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="40" placeholder="type a word..." aria-label="Your word">`;
 
-/** @param {boolean} mine */
-const wordBox = (mine) => WORD_BOX.replace("{cls}", mine ? " my-turn" : "");
+/**
+ * The text box: the real input on top, its text see-through, over a mirror the page fills with the
+ * typed letters as tiles (wordTiles) on every keystroke.
+ * @param {boolean} mine
+ */
+const wordBox = (mine) =>
+  `<div class="wordbox"><div id="word-tiles" class="word-tiles" aria-hidden="true"></div>${WORD_BOX.replace("{cls}", mine ? " my-turn" : "")}</div>`;
+
+/**
+ * What the text box shows: the typed letters as tiles, with a steady caret where the cursor is.
+ * The cursor position is an input's selectionStart (UTF-16 units); a letter made of two units (an
+ * emoji) is never split, and a junk position puts the caret at the end.
+ * @param {string} value
+ * @param {number} caret
+ * @returns {string}
+ */
+export function wordTiles(value, caret) {
+  const chars = Array.from(String(value));
+  const units = chars.reduce((n, c) => n + c.length, 0);
+  const at = Number.isInteger(caret) && caret >= 0 && caret <= units ? caret : units;
+  let split = 0;
+  for (let used = 0; split < chars.length && used < at; split++) used += chars[split].length;
+  const before = chars.slice(0, split).join("");
+  const after = chars.slice(split).join("");
+  return `${before ? tiles(before) : ""}<span class="caret"></span>${after ? tiles(after) : ""}`;
+}
 
 /**
  * @param {any} view a playerView from the server
@@ -151,11 +181,23 @@ export function renderPicker(view) {
 /** A player's emoji and nickname, for the lobby list. @param {any} p */
 const nameChip = (p) => `<li>${avatarImg(p.avatar)}<span>${esc(p.nickname)}</span></li>`;
 
+/**
+ * The student's own hearts (when they have any left to show) and score, for the top corner.
+ * @param {any} me @param {boolean} withHearts
+ */
+function corner(me, withHearts) {
+  const lives = withHearts ? `<div class="lives" aria-label="${esc(me.lives)} lives">${hearts(me.lives)}</div>` : "";
+  return `<div class="corner">${lives}<div class="score">Score: ${esc(me.score)}</div></div>`;
+}
+
+/** @param {any} view @param {any} p */
+const isMe = (view, p) => (typeof view.me?.id === "string" ? p.id === view.me.id : p.nickname === view.me?.nickname);
+
 /** @param {any} view @param {PlayerUi} ui */
 function screen(view, ui) {
   const me = view.me;
   const prompt = view.prompt;
-  const mine = view.players.find((/** @type {any} */ p) => p.nickname === me.nickname);
+  const mine = view.players.find((/** @type {any} */ p) => isMe(view, p));
 
   if (view.phase === "lobby") {
     const names = view.players.map(nameChip).join("");
@@ -170,7 +212,6 @@ function screen(view, ui) {
     return `<main class="watching">${paused}<h1>You'll join the next game</h1><p>For now, watch the screen at the front.</p>${renderPicker(view)}${resultLine(ui.lastResult, null)}</main>`;
   }
 
-  const hearts_ = `<div class="lives" aria-label="${me.lives} lives">${hearts(me.lives)}</div>`;
   const letters = me.bonusLeft.length
     ? `<div class="letters">Letters left: ${me.bonusLeft.map((/** @type {string} */ l) => esc(l.toUpperCase())).join(" ")}</div>`
     : "";
@@ -180,44 +221,36 @@ function screen(view, ui) {
     const comeback = a.comebackAvailable
       ? `Comeback: ${esc(a.streak)} of ${esc(a.comebackStreak)}`
       : "Comeback: not available";
-    return `<main class="ghost">${paused}<h1>YOU'RE OUT — keep playing as a ghost</h1>
-<div class="promptrow"><span class="label">Prompt:</span> <span class="prompt">${prompt ? esc(prompt.text.toUpperCase()) : ""}</span> <span class="turn">${whoseTurn(view)} ${bomb(ui, view)}</span></div>
-${wordBox(false)}
-${resultLine(ui.lastResult, prompt)}
-<div class="ghostscore">Ghost points: ${esc(a.ghostPoints)} <span class="comeback">${comeback}</span></div></main>`;
+    return `<main class="ghost">${paused}${corner(me, false)}${arena(view, ui)}`
+      + `<div class="status"><h1>YOU'RE OUT — keep playing as a ghost</h1><span class="turn">${whoseTurn(view)}</span></div>`
+      + `${wordBox(false)}${resultLine(ui.lastResult, prompt)}`
+      + `<div class="ghostscore">Ghost points: ${esc(a.ghostPoints)} <span class="comeback">${comeback}</span></div></main>`;
   }
 
   if (!me.alive) {
     return `<main class="watching">${paused}<h1>You're out</h1><p>Watch the rest of the game on the screen.</p></main>`;
   }
 
-  const wording = prompt ? PROMPT_WORDING[prompt.type] : null;
-  const promptBlock = prompt && wording
-    ? `<div class="ask">${wording.ask}</div><div class="prompt">${esc(prompt.text.toUpperCase())}</div>`
-    : "";
-  const last = view.mode?.lastWord
-    ? `<div class="last">Last word: ${esc(view.mode.lastWord.word)}</div>`
-    : "";
-
   if (me.isOn) {
-    return `<main class="turn-on">${paused}${hearts_}<div class="yourturn">Your turn! ${bomb(ui, view)}</div>${promptBlock}${wordBox(true)}${resultLine(ui.lastResult, prompt)}${letters}${last}</main>`;
+    return `<main class="turn-on">${paused}${corner(me, true)}${arena(view, ui)}`
+      + `<div class="status"><div class="yourturn">Your turn!</div></div>`
+      + `${wordBox(true)}${resultLine(ui.lastResult, prompt)}${letters}</main>`;
   }
-  return `<main class="waiting">${paused}${hearts_}<div class="yourturn">${whoseTurn(view)} ${bomb(ui, view)}</div>${promptBlock}<p class="hint">${me.canAnswerSilently ? "Answer silently for points" : "Wait for your turn"}</p>${wordBox(false)}${resultLine(ui.lastResult, prompt)}${letters}${last}</main>`;
+  const hint = me.canAnswerSilently ? "Answer silently for points" : "Wait for your turn";
+  return `<main class="waiting">${paused}${corner(me, true)}${arena(view, ui)}`
+    + `<div class="status"><div class="yourturn">${whoseTurn(view)}</div><p class="hint">${hint}</p></div>`
+    + `${wordBox(false)}${resultLine(ui.lastResult, prompt)}${letters}</main>`;
 }
 
-/** @param {any} view */
+/**
+ * The projector's results, compact, plus the student's own score.
+ * @param {any} view
+ */
 function results(view) {
-  const r = view.results ?? { winners: [], ghostRanking: [], longestWord: null };
-  const names = r.winners
-    .map((/** @type {string} */ id) => view.players.find((/** @type {any} */ p) => p.id === id)?.nickname)
-    .filter((/** @type {unknown} */ n) => typeof n === "string");
-  const won = names.includes(view.me.nickname);
-  const winners = names.length ? `<p class="big">${won ? "You won! " : ""}Winner: ${names.map(esc).join(", ")}</p>` : "";
-  const longest = r.longestWord
-    ? `<p>Longest word: <strong>${esc(r.longestWord.word)}</strong> by ${esc(r.longestWord.nickname)}</p>`
-    : "";
-  const ghosts = r.ghostRanking.length
-    ? `<h2>Best ghosts</h2><ol>${r.ghostRanking.slice(0, 3).map((/** @type {any} */ g) => `<li>${esc(g.nickname)}</li>`).join("")}</ol>`
-    : "";
-  return `<main class="results"><h1>Game over</h1>${winners}<p>Your score: ${esc(view.me.score)}</p>${longest}${ghosts}<p class="hint">Waiting for the host to play again...</p></main>`;
+  const { podium, longest, ghosts } = resultParts(view);
+  const winners = Array.isArray(view.results?.winners) ? view.results.winners : [];
+  const won = view.players.some((/** @type {any} */ p) => isMe(view, p) && winners.includes(p.id));
+  return `<main class="results"><h1>Game over</h1><div class="p-podium">${podium}</div>`
+    + `${won ? `<p class="big youwon">You won!</p>` : ""}<p class="myscore">Your score: ${esc(view.me.score)}</p>`
+    + `${longest}${ghosts}<p class="hint">Waiting for the host to play again...</p></main>`;
 }

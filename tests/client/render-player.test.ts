@@ -1,7 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { renderPlayer, reasonText, renderPicker } from "../../public/app/render-player.js";
-import { AVATARS } from "../../public/app/avatars.js";
+import { readFileSync } from "node:fs";
+import { renderPlayer, reasonText, renderPicker, wordTiles } from "../../public/app/render-player.js";
+import { AVATARS, avatarImg, trophyImg } from "../../public/app/avatars.js";
+import { tiles, matchedTiles } from "../../public/app/tiles.js";
+
+const CSS = readFileSync(new URL("../../public/app/style.css", import.meta.url), "utf8");
 
 const players = [
   { id: "p1", nickname: "Mia", lives: 3, alive: true, connected: true, spectator: false },
@@ -24,12 +28,22 @@ test("render escapes nicknames and words", () => {
   assert.ok(!lobby.includes("<img src=x"), "no raw tag");
   assert.ok(lobby.includes("&lt;img src=x onerror=alert(1)&gt;"));
   const playing = renderPlayer(
-    view({ mode: { seats: ["p1", "p2"], current: "p2", lastWord: { pid: "p2", word: evil } } }, { isOn: false }),
+    view(
+      {
+        players: [{ ...players[0], lastWord: { word: evil, prompt: { text: "an", type: "contains" } } }, { ...players[1], nickname: evil }],
+        mode: { seats: ["p1", "p2"], current: "p2", lastWord: null },
+        typing: evil,
+      },
+      { isOn: false },
+    ),
     ui(),
   );
-  assert.ok(!playing.includes("<img"));
-  assert.ok(playing.includes("&lt;img"));
-  assert.ok(playing.includes("Last word"));
+  assert.ok(!playing.includes("<img src=x"));
+  assert.ok(playing.includes("&lt;"));
+  // The last word sits under the player's name on the circle, as tiles; the current player's typing too.
+  assert.ok(playing.includes(`<span class="last-word">${matchedTiles(evil, { text: "an", type: "contains" })}</span>`));
+  assert.ok(playing.includes(`<span class="typing">${tiles(evil)}<span class="caret"></span></span>`));
+  assert.ok(playing.includes("&lt;img src=x onerror=alert(1)&gt;'s turn"));
 });
 
 test("lobby lists names and credits-free waiting text", () => {
@@ -40,8 +54,8 @@ test("lobby lists names and credits-free waiting text", () => {
 
 test("my turn vs waiting vs ghost vs spectator states", () => {
   const mine = renderPlayer(view(), ui());
-  assert.ok(mine.includes("Type a word that CONTAINS"));
-  assert.ok(mine.includes(">AN<"));
+  assert.ok(mine.includes('<div class="p-ask">CONTAINS</div>'));
+  assert.ok(mine.includes(`<div class="p-prompt">${tiles("AN")}</div>`));
   assert.ok(mine.includes("my-turn"));
   assert.ok(mine.includes("❤❤❤") || mine.includes("♥♥♥"));
 
@@ -90,7 +104,7 @@ test("everyone mode, paused, results and connection banner", () => {
     ui({ countdownMs: null }),
   );
   assert.ok(results.includes("Game over"));
-  assert.ok(results.includes("Jon") && results.includes("banana"));
+  assert.ok(results.includes(tiles("Jon")) && results.includes(tiles("banana")));
   assert.ok(results.includes("Best ghosts"));
   assert.ok(results.indexOf("Zed") < results.indexOf("Amy"), "ranking order kept");
   assert.ok(!/Zed[^<]*\d|Amy[^<]*\d/.test(results.slice(results.indexOf("Best ghosts"))), "no points after names");
@@ -135,21 +149,27 @@ test("reasons are in plain English", () => {
 const bomb = (over: Record<string, unknown> = {}): any =>
   ({ lit: true, arrow: null, countdownMs: 5000, fuse: null, explosion: null, ...over });
 
-test("the bomb on the player screen is drawn from ui.bomb, without an arrow for now", async () => {
+test("the bomb on the player screen is the circle's bomb, drawn from ui.bomb with the arrow", async () => {
   const html = renderPlayer(view(), ui({ bomb: bomb({ explosion: { elapsedMs: 100 }, arrow: { from: 0, to: 90, elapsedMs: 50 } }) }));
   assert.match(html, /data-bomb/);
   assert.match(html, /data-countdown>5</);
   assert.ok(html.includes("bomb-burst"), "the explosion from the motion tracker");
-  assert.ok(!html.includes("bomb-arrow"), "no arrow on student screens yet");
+  assert.ok(html.includes("--from:0deg;--to:90deg;"), "the arrow swings to the current player");
+  assert.equal(html.match(/data-bomb/g)?.length, 1, "one bomb, in the middle of the circle");
   const waiting = renderPlayer(view({ mode: { seats: ["p1", "p2"], current: "p2", lastWord: null } }, { isOn: false }), ui({ bomb: bomb() }));
   assert.match(waiting, /class="[^"]*\bflame\b/, "a lit bomb");
-  // As before: no bomb without a visible timer, and none in the lobby.
-  assert.ok(!renderPlayer(view(), ui({ countdownMs: null, bomb: bomb({ countdownMs: null }) })).includes("data-bomb"));
+  // A hidden fuse: the bomb, but no number. No bomb in the lobby.
+  const hidden = renderPlayer(view(), ui({ countdownMs: null, bomb: bomb({ countdownMs: null }) }));
+  assert.match(hidden, /data-bomb/);
+  assert.ok(!hidden.includes("data-countdown"));
   assert.ok(!renderPlayer(view({ phase: "lobby", prompt: null, mode: null }), ui({ countdownMs: null })).includes("data-bomb"));
   // Without ui.bomb, a still lit bomb with the number.
   const plain = renderPlayer(view(), ui());
   assert.match(plain, /data-bomb/);
   assert.match(plain, /data-countdown>5</);
+  // Everyone at once: never an arrow, even if the tracker sends one.
+  const every = renderPlayer(view({ mode: { round: 1, answered: [] } }, { isOn: false }), ui({ bomb: bomb({ arrow: { from: 0, to: 90, elapsedMs: 700 } }) }));
+  assert.ok(!every.includes("bomb-arrow"));
   const mod: Record<string, unknown> = await import("../../public/app/render-player.js");
   assert.equal("BOMB_SVG" in mod, false, "the old bomb drawing is gone");
 });
@@ -235,4 +255,150 @@ test("the lobby list shows each player's emoji, and the picker's answer shows in
   assert.equal(reasonText("avatar-taken"), "Taken, pick another");
   assert.equal(reasonText("avatar-locked"), "You can change your emoji in the lobby");
   assert.equal(reasonText("bad-avatar"), "Something went wrong. Try again");
+});
+
+// ---- the student screens: the circle, the tile text box, the corner, the results ----
+
+const withIds = [
+  { ...players[0], avatar: 5 },
+  { ...players[1], avatar: 7 },
+];
+const onTurn = () => view({ players: withIds }, { id: "p1", avatar: 5, score: 4 });
+const waitingView = (over: Record<string, unknown> = {}, me: Record<string, unknown> = {}) =>
+  view({ players: withIds, mode: { seats: ["p1", "p2"], current: "p2", lastWord: null }, ...over }, { id: "p1", avatar: 5, isOn: false, ...me });
+const ghostView = () =>
+  view(
+    { players: [{ ...withIds[0], alive: false, lives: 0 }, withIds[1]], mode: { seats: ["p1", "p2"], current: "p2", lastWord: null } },
+    { id: "p1", avatar: 5, alive: false, lives: 0, isOn: false, activity: { ghostPoints: 2, streak: 0, comebackAvailable: false, comebackStreak: 3 } },
+  );
+const everyoneView = () => view({ players: withIds, mode: { round: 2, answered: [] } }, { id: "p1", avatar: 5, isOn: false });
+
+/** The <main> element's opening tag. */
+const mainTag = (html: string) => html.match(/<main class="[^"]*"[^>]*>/)?.[0] ?? "";
+
+test("every playing screen has the compact circle, with the prompt on its bomb", () => {
+  const screens: [string, string][] = [
+    ["turn-on", renderPlayer(onTurn(), ui())],
+    ["waiting", renderPlayer(waitingView(), ui())],
+    ["waiting", renderPlayer(everyoneView(), ui())],
+    ["ghost", renderPlayer(ghostView(), ui())],
+  ];
+  for (const [cls, html] of screens) {
+    assert.match(mainTag(html), new RegExp(`class="${cls}\\b`), cls);
+    assert.equal(html.match(/<div class="circle compact">/g)?.length, 1, cls);
+    const face = html.slice(html.indexOf('<div class="bomb-face">'));
+    assert.ok(face.indexOf('<div class="p-ask">CONTAINS</div>') >= 0 && face.indexOf(tiles("AN")) >= 0, `${cls}: the prompt on the bomb`);
+    // Everyone is seated, with their emoji.
+    assert.ok(html.includes(avatarImg(5)) && html.includes(avatarImg(7)), cls);
+  }
+  // The lobby, the results and the watching screens have no circle.
+  assert.ok(!renderPlayer(view({ phase: "lobby", prompt: null, mode: null }), ui({ countdownMs: null })).includes('class="circle'));
+  const out = renderPlayer(view({}, { alive: false, lives: 0, isOn: false }), ui());
+  assert.match(mainTag(out), /class="watching"/);
+  assert.ok(!out.includes('class="circle'));
+});
+
+test("the circle comes first, then the status line, the text box, the result line and the letters", () => {
+  const html = renderPlayer(view({ players: withIds }, { id: "p1", bonusLeft: ["x", "z"] }), ui({ lastResult: { ok: false, reason: "used" } }));
+  const at = (s: string) => {
+    const i = html.indexOf(s);
+    assert.ok(i >= 0, s);
+    return i;
+  };
+  const order = [at('<div class="circle compact">'), at("Your turn!"), at('id="word-tiles"'), at('id="word"'), at("✗ Already used"), at("Letters left: X Z")];
+  assert.deepEqual([...order].sort((a, b) => a - b), order);
+  assert.ok(!html.includes("Type a word that"), "the prompt type is on the bomb now");
+});
+
+test("the status lines keep their wording", () => {
+  assert.match(renderPlayer(onTurn(), ui()), /<div class="yourturn">Your turn!<\/div>/);
+  const waiting = renderPlayer(waitingView(), ui());
+  assert.match(waiting, /<div class="yourturn">Jon&#39;s turn<\/div>|<div class="yourturn">Jon's turn<\/div>/);
+  assert.ok(waiting.includes("Wait for your turn"));
+  assert.ok(renderPlayer(waitingView({}, { canAnswerSilently: true }), ui()).includes("Answer silently for points"));
+  assert.match(renderPlayer(everyoneView(), ui()), /<div class="yourturn">Everyone answers<\/div>/);
+  const ghost = renderPlayer(ghostView(), ui());
+  assert.ok(ghost.includes("<h1>YOU'RE OUT — keep playing as a ghost</h1>"));
+  assert.ok(ghost.includes("Jon's turn"));
+  assert.ok(ghost.includes('<div class="ghostscore">Ghost points: 2'));
+  assert.ok(ghost.includes("Comeback: not available"));
+});
+
+test("the waiting screen shows the current player's typing on their seat", () => {
+  const html = renderPlayer(waitingView({ typing: "ban" }), ui());
+  const seat = html.match(/<div class="seat on[^"]*"[^>]*>.*?<\/div>(?=<div class="(?:seat|circle-centre))/s)?.[0] ?? "";
+  assert.ok(seat.includes(">Jon<"), "Jon's seat is the current one");
+  assert.ok(seat.includes(`<span class="typing">${tiles("ban")}<span class="caret"></span></span>`));
+});
+
+test("own hearts and score sit in the corner; nobody else's score is shown", () => {
+  const html = renderPlayer(onTurn(), ui());
+  const corner = html.match(/<div class="corner">.*?<\/div><\/div>/s)?.[0] ?? "";
+  assert.ok(corner.includes('<div class="lives" aria-label="3 lives">❤❤❤</div>'), corner);
+  assert.ok(corner.includes('<div class="score">Score: 4</div>'), corner);
+  assert.equal(html.match(/Score:/g)?.length, 1);
+  // The corner comes before the circle, so it sits at the top.
+  assert.ok(html.indexOf('<div class="corner">') < html.indexOf('<div class="circle compact">'));
+  const waiting = renderPlayer(waitingView({}, { lives: 2, score: 9 }), ui());
+  assert.ok(waiting.includes('<div class="lives" aria-label="2 lives">❤❤</div>') && waiting.includes("Score: 9"));
+  // A ghost has no hearts left: the corner keeps the score only.
+  const ghost = renderPlayer(ghostView(), ui());
+  assert.ok(ghost.includes('<div class="corner"><div class="score">Score: 0</div></div>'));
+});
+
+test("the text box is still the same input, with a tile mirror behind it", () => {
+  for (const [html, mine] of [[renderPlayer(onTurn(), ui()), true], [renderPlayer(waitingView(), ui()), false], [renderPlayer(ghostView(), ui()), false]] as const) {
+    const box = html.match(/<div class="wordbox">.*?<\/div><input[^>]*><\/div>/s)?.[0] ?? "";
+    assert.ok(box.startsWith('<div class="wordbox"><div id="word-tiles" class="word-tiles" aria-hidden="true"></div><input id="word"'), box);
+    const input = html.match(/<input id="word"[^>]*>/)?.[0] ?? "";
+    for (const attr of ['type="text"', 'autocomplete="off"', 'autocapitalize="off"', 'autocorrect="off"', 'spellcheck="false"', 'maxlength="40"', 'placeholder="type a word..."', 'aria-label="Your word"']) {
+      assert.ok(input.includes(attr), attr);
+    }
+    assert.equal(/class="word my-turn"/.test(input), mine);
+  }
+});
+
+test("wordTiles: the typed letters as tiles with the caret where the cursor is, escaped and whole", () => {
+  assert.equal(wordTiles("", 0), '<span class="caret"></span>');
+  assert.equal(wordTiles("sing", 4), `${tiles("sing")}<span class="caret"></span>`);
+  assert.equal(wordTiles("sing", 2), `${tiles("si")}<span class="caret"></span>${tiles("ng")}`);
+  // Junk caret positions: at the end.
+  for (const bad of [-1, 99, Number.NaN, 1.5]) assert.equal(wordTiles("ab", bad), `${tiles("ab")}<span class="caret"></span>`, String(bad));
+  const evil = wordTiles("<b>&", 3);
+  assert.ok(!evil.includes("<b>") && evil.includes("&lt;") && evil.includes("&amp;"));
+  // The caret index is in UTF-16 units (as an input's selectionStart); a letter is never split.
+  const emoji = wordTiles("a😀b", 3);
+  assert.equal(emoji, `${tiles("a😀")}<span class="caret"></span>${tiles("b")}`);
+  assert.equal(wordTiles("a😀b", 2), `${tiles("a😀")}<span class="caret"></span>${tiles("b")}`, "inside a pair: after it");
+  assert.equal(wordTiles("æøå", 1), `${tiles("æ")}<span class="caret"></span>${tiles("øå")}`);
+});
+
+test("results on a student screen: the projector's podium, longest word and ghosts, plus my score", () => {
+  const r = { winners: ["p2"], ghostRanking: [{ id: "p3", nickname: "<b>Zed</b>", avatar: 3 }, { id: "p1", nickname: "Mia", avatar: 5 }], longestWord: { nickname: "Jon", avatar: 7, word: "banana" } };
+  const html = renderPlayer(view({ phase: "results", prompt: null, players: withIds, results: r }, { id: "p1", score: 6 }), ui({ countdownMs: null }));
+  assert.match(mainTag(html), /class="results"/);
+  assert.ok(html.includes(trophyImg()));
+  assert.ok(html.includes(`<div class="p-winner">${avatarImg(7, "big")}${tiles("Jon")}</div>`));
+  assert.ok(html.includes(`Longest word: ${tiles("banana")} <span class="by">(Jon)</span>`));
+  assert.ok(html.includes("<h2>Best ghosts</h2>"));
+  assert.ok(html.includes(`<li><span class="rank">1.</span>${avatarImg(3)}<span class="who">&lt;b&gt;Zed&lt;/b&gt;</span></li>`));
+  assert.ok(html.includes(`<li><span class="rank">2.</span>${avatarImg(5)}<span class="who">Mia</span></li>`));
+  assert.ok(!/point/i.test(html), "no points in the ranking");
+  assert.ok(html.includes("Your score: 6"));
+  assert.ok(!html.includes("You won"));
+  assert.ok(html.includes("Waiting for the host to play again"));
+  assert.ok(!html.includes("data-bomb") && !html.includes('class="circle'));
+  const won = renderPlayer(view({ phase: "results", prompt: null, players: withIds, results: r }, { id: "p2", nickname: "Jon" }), ui({ countdownMs: null }));
+  assert.ok(won.includes("You won!"));
+  const none = renderPlayer(view({ phase: "results", prompt: null, players: withIds, results: { winners: [], ghostRanking: [], longestWord: null } }, { id: "p1" }), ui({ countdownMs: null }));
+  assert.ok(none.includes("No winner this time") && !none.includes("Best ghosts"));
+});
+
+test("style.css: the student circle is square and fills the space; the text box text is see-through over its tiles", () => {
+  const rule = (sel: string) => CSS.match(new RegExp(`\\n${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\{([^}]*)\\}`))?.[1] ?? "";
+  assert.match(rule(".arena"), /container-type:\s*size/);
+  assert.match(rule(".arena .circle"), /--circle-size:\s*min\(100cqw, 100cqh\)/);
+  assert.match(rule("#word"), /color:\s*transparent/);
+  assert.match(rule("#word"), /caret-color:\s*transparent/);
+  assert.match(rule(".word-tiles"), /pointer-events:\s*none/);
 });

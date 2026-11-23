@@ -1,7 +1,7 @@
 // DOM wiring for the join page and the player screen. All logic lives in the other modules.
 import { createConnection } from "./net.js";
 import { createCountdown, URGENT_MS } from "./countdown.js";
-import { renderPlayer, reasonText } from "./render-player.js";
+import { renderPlayer, reasonText, wordTiles } from "./render-player.js";
 import { themeOf } from "./theme.js";
 import { BOMB_CSS } from "./bomb.js";
 import { createMotion } from "./motion.js";
@@ -141,11 +141,26 @@ function showEnd(text) {
   }
 }
 
+/**
+ * Draws the typed letters as tiles under the see-through text box, with the caret where the cursor
+ * is, and keeps the caret in view when the word is longer than the box.
+ */
+function paintWord() {
+  const box = document.getElementById("word");
+  const mirror = document.getElementById("word-tiles");
+  if (!(box instanceof HTMLInputElement) || !mirror) return;
+  mirror.innerHTML = wordTiles(box.value, box.selectionStart ?? box.value.length);
+  const caret = /** @type {HTMLElement | null} */ (mirror.querySelector(".caret"));
+  mirror.scrollLeft = caret ? Math.max(0, caret.offsetLeft - mirror.clientWidth + 40) : 0;
+}
+
 function draw() {
   if (!view || status === "kicked" || status === "ended") return;
   const root = $("game");
   const old = /** @type {HTMLInputElement | null} */ (root.querySelector("#word"));
   const text = old ? old.value : "";
+  const selStart = old?.selectionStart ?? text.length;
+  const selEnd = old?.selectionEnd ?? text.length;
   // A keyboard user moving around the emoji picker keeps their place when the screen is redrawn.
   const active = document.activeElement;
   const pickFocus = active instanceof HTMLElement && root.contains(active) ? active.dataset.avatar : undefined;
@@ -156,7 +171,9 @@ function draw() {
   if (box) {
     box.value = text;
     box.focus();
-    box.setSelectionRange(text.length, text.length);
+    // Where the cursor was (a redraw keeps it), and the typed letters on their tiles straight away.
+    box.setSelectionRange(Math.min(selStart, text.length), Math.min(selEnd, text.length));
+    paintWord();
   } else if (pickFocus !== undefined) {
     /** @type {HTMLElement | null} */ (root.querySelector(`button[data-avatar="${Number(pickFocus)}"]`))?.focus();
   }
@@ -178,6 +195,7 @@ let lastTypingAt = 0;
 $("game").addEventListener("input", (ev) => {
   const box = /** @type {HTMLInputElement} */ (ev.target);
   if (box.id !== "word") return;
+  paintWord();
   const wait = lastTypingAt + TYPING_GAP_MS - Date.now();
   const send = () => {
     typingTimer = null;
@@ -195,12 +213,21 @@ $("game").addEventListener("keydown", (ev) => {
   const word = box.value.trim();
   if (!word) return;
   const out = submitOutcome(conn ? conn.send({ t: "submit", word }) : false);
-  if (out.clear) box.value = "";
-  else {
+  if (out.clear) {
+    box.value = "";
+    paintWord();
+  } else {
     lastResult = { ok: false, reason: "not-sent" };
     draw();
   }
 });
+
+// The cursor moved without typing (arrow keys, Home, End, a click in the box): move the tile caret.
+for (const type of ["keyup", "select", "pointerup", "focusin"]) {
+  $("game").addEventListener(type, (ev) => {
+    if (ev.target instanceof HTMLInputElement && ev.target.id === "word") paintWord();
+  });
+}
 
 // Keep the box focused, even after a click elsewhere.
 document.addEventListener("click", () => {

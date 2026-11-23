@@ -65,8 +65,8 @@ async function hostRoom(): Promise<{ host: any; code: string }> {
   return { host, code };
 }
 
-async function joinPlayer(code: string, nickname: string): Promise<any> {
-  const page = await newPage("/");
+async function joinPlayer(code: string, nickname: string, viewport?: { width: number; height: number }): Promise<any> {
+  const page = await newPage("/", viewport);
   await page.fill("#code", code);
   await page.fill("#nick", nickname);
   await page.click("#joinbtn");
@@ -198,7 +198,8 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     await host.locator(".seat .last-word", { hasText: word }).waitFor({ timeout: WAIT });
     await other.locator("main.turn-on").waitFor({ timeout: WAIT });
     await on.locator("main.waiting").waitFor({ timeout: WAIT });
-    assert.match(await on.locator(".last").textContent(), new RegExp(`Last word: ${word}`));
+    // The last word sits under the player's name on their own circle too.
+    await on.locator(".seat .last-word", { hasText: word }).waitFor({ timeout: WAIT });
   });
 
   test("explosion costs a life and shows example answers", async () => {
@@ -208,10 +209,11 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     await startFromOverlay(host);
 
     const on = await playerOnTurn(players);
-    assert.equal(await on.locator(".lives").textContent(), "❤❤");
+    // Their own hearts, in the corner (the seats on the circle have hearts too).
+    assert.equal(await on.locator(".corner .lives").textContent(), "❤❤");
     // Nobody answers: the 5 s bomb goes off.
     await host.locator(".p-examples", { hasText: "Could have said:" }).waitFor({ timeout: WAIT });
-    await on.locator(".lives", { hasText: /^❤$/ }).waitFor({ timeout: WAIT });
+    await on.locator(".corner .lives", { hasText: /^❤$/ }).waitFor({ timeout: WAIT });
   });
 
   test("ghost: knocked-out player sees the ghost panel", async () => {
@@ -239,6 +241,49 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     await out.press("#word", "Enter");
     await out.locator(".result.good", { hasText: "+1 ghost point" }).waitFor({ timeout: WAIT });
     await out.locator(".ghostscore", { hasText: "Ghost points: 1" }).waitFor({ timeout: WAIT });
+  });
+
+  test("student laptop (1366×768): the picker in view in the lobby; the circle and the text box without scrolling", async () => {
+    const LAPTOP = { width: 1366, height: 768 };
+    /**
+     * The element is wholly inside the window, and the page isn't scrolled. Found and measured in one
+     * step: the screen is redrawn often (each view, and while a player's pop runs), so an element
+     * found earlier may already have been replaced.
+     */
+    const inView = (page: any, sel: string) =>
+      page.evaluate((s: string) => {
+        const el = document.querySelector(s);
+        const r = el?.getBoundingClientRect();
+        return !!r && r.width > 0 && r.top >= 0 && r.left >= 0 && r.bottom <= innerHeight && r.right <= innerWidth && scrollY === 0;
+      }, sel);
+    const { host, code } = await hostRoom();
+    const players = [await joinPlayer(code, "Ann", LAPTOP), await joinPlayer(code, "Ben", LAPTOP), await joinPlayer(code, "Cat", LAPTOP)];
+    for (const p of players) {
+      assert.equal(await inView(p, "main.lobby h1"), true, "You're in!");
+      assert.equal(await inView(p, ".picker-grid"), true, "the whole picker");
+    }
+    await settings(host, code, { mode: "classic", timerStyle: "visible", turnTime: 60, liveTyping: true });
+    await startFromOverlay(host);
+
+    const on = await playerOnTurn(players);
+    for (const p of players) {
+      await p.locator("main .circle.compact .seat").nth(2).waitFor({ timeout: WAIT });
+      assert.equal(await inView(p, "#word"), true, "the text box");
+      assert.equal(await inView(p, ".circle.compact"), true, "the circle");
+      assert.equal(await p.evaluate(() => document.documentElement.scrollHeight <= innerHeight), true, "nothing to scroll");
+    }
+
+    // Typed letters show as tiles in the box, which keeps the focus, and on the others' circles.
+    await on.locator("#word").pressSequentially("qz");
+    await on.locator("#word-tiles .tile").nth(1).waitFor({ timeout: WAIT });
+    assert.equal(await on.locator("#word-tiles").textContent(), "qz");
+    assert.equal(await on.evaluate(() => document.activeElement?.id), "word");
+    const other = players.find((p) => p !== on);
+    await other.locator(".seat.on .typing", { hasText: "qz" }).waitFor({ timeout: WAIT });
+    // After the views that typing brings (each one redraws the screen), the box still shows the letters.
+    await on.waitForTimeout(300);
+    assert.equal(await on.locator("#word").inputValue(), "qz");
+    assert.equal(await on.locator("#word-tiles").textContent(), "qz");
   });
 
   test("kick: kicked player sees the removed message and cannot rejoin", async () => {
