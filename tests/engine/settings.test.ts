@@ -22,7 +22,7 @@ test("numbers are clamped and stepped", () => {
 });
 
 test("wrong types fall back to default", () => {
-  assert.equal(resolveSettings(CORE_SETTINGS, { liveTyping: "yes" }).liveTyping, false);
+  assert.equal(resolveSettings(CORE_SETTINGS, { liveTyping: "yes" }).liveTyping, true);
   assert.equal(resolveSettings(CORE_SETTINGS, { band: "extreme" }).band, "mixed");
   assert.equal(resolveSettings(CORE_SETTINGS, { startLives: "3" }).startLives, 2);
   assert.equal(resolveSettings(CORE_SETTINGS, { startLives: NaN }).startLives, 2);

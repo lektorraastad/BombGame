@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalise, isBlockedName } from "../../src/engine/words.ts";
+import { normalise, isBlockedName, maskBlocked } from "../../src/engine/words.ts";
 import { makeTestChecker, fixtureWords, fixtureBlocked } from "./helpers.ts";
 
 test("normalise rejects and cleans input", () => {
@@ -52,4 +52,12 @@ test("isBlockedName keeps Norwegian letters", () => {
   assert.equal(isBlockedName("Jævla123", list), true);
   assert.equal(isBlockedName("Åse", list), false);
   assert.equal(isBlockedName("aæss", list), false);
+});
+
+test("maskBlocked masks a whole blocked word only", () => {
+  const isBlocked = (w: string) => w === "ass";
+  assert.equal(maskBlocked("ASS ", isBlocked), "★★★★");
+  assert.equal(maskBlocked("as", isBlocked), "as");
+  assert.equal(maskBlocked("class", isBlocked), "class");
+  assert.equal(maskBlocked("  ", isBlocked), "  ");
 });

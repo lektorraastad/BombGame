@@ -100,7 +100,7 @@ test("everyone mode: projector shows ticks, not words", () => {
 });
 
 test("typing appears only when liveTyping is on", () => {
-  const off = setup(3);
+  const off = setup(3, { liveTyping: false });
   off.room.typing(current(off.room), "sta");
   assert.equal("typing" in projectorView(off.room), false);
 
@@ -376,4 +376,24 @@ test("results have a ghost ranking without points: most first, ties in join orde
   room.kick(b);
   r = projectorView(room).results!;
   assert.ok(!r.ghostRanking.some((g) => g.id === b));
+});
+
+test("live typing is on by default and masked in views", () => {
+  const { room, ids } = setup(3);
+  assert.equal(room.settings.liveTyping, true);
+  const on = current(room);
+  room.typing(on, "Damn");
+  assert.equal(projectorView(room).typing, "★★★★");
+  assert.equal(playerView(room, others(room, ids)[0])!.typing, "★★★★");
+  room.typing(on, "dam");
+  assert.equal(projectorView(room).typing, "dam", "half-typed words are not masked");
+  room.typing(on, "stone");
+  assert.equal(projectorView(room).typing, "stone");
+});
+
+test("typing is never shown in Everyone at once", () => {
+  const { room, ids } = setup(3, { mode: "everyone" });
+  for (const id of ids) room.typing(id, "sta");
+  assert.equal("typing" in projectorView(room), false);
+  for (const id of ids) assert.equal("typing" in playerView(room, id)!, false);
 });

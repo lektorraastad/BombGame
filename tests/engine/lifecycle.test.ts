@@ -331,6 +331,7 @@ test("playAgain returns to lobby with same players", () => {
 
 test("typing ignored unless liveTyping", () => {
   const { room } = setup();
+  room.updateSettings({ liveTyping: false });
   const [a] = joinAll(room, "Ann", "Ben");
   room.start();
   room.typing(a, "sto");

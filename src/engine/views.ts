@@ -6,6 +6,7 @@
 import type { LastWord, Phase, Player, PlayerId, Room } from "./room.ts";
 import type { PromptType, SettingDecl, Settings } from "./types.ts";
 import { settingsFor } from "./registry.ts";
+import { maskBlocked } from "./words.ts";
 
 export type ProjectorPlayer = {
   id: PlayerId;
@@ -103,7 +104,7 @@ export function projectorView(room: Room): ProjectorView {
   // Live typing: only the one player who is on (the mode's `current`), only while a game runs.
   if (room.settings.liveTyping === true && running(room) && typeof mode?.current === "string") {
     const text = room.typingOf(mode.current);
-    if (text) view.typing = text;
+    if (text) view.typing = maskBlocked(text, (w) => room.checker.isBlocked(w));
   }
 
   if (room.phase === "results") view.results = results(room);
