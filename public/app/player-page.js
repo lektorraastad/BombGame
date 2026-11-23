@@ -146,6 +146,9 @@ function draw() {
   const root = $("game");
   const old = /** @type {HTMLInputElement | null} */ (root.querySelector("#word"));
   const text = old ? old.value : "";
+  // A keyboard user moving around the emoji picker keeps their place when the screen is redrawn.
+  const active = document.activeElement;
+  const pickFocus = active instanceof HTMLElement && root.contains(active) ? active.dataset.avatar : undefined;
   const countdownMs = countdown.remainingMs();
   const bomb = motion.bombState(countdownMs, view.phase === "playing" && !view.paused);
   root.innerHTML = renderPlayer(view, { countdownMs, lastResult, status, bomb });
@@ -154,8 +157,20 @@ function draw() {
     box.value = text;
     box.focus();
     box.setSelectionRange(text.length, text.length);
+  } else if (pickFocus !== undefined) {
+    /** @type {HTMLElement | null} */ (root.querySelector(`button[data-avatar="${Number(pickFocus)}"]`))?.focus();
   }
 }
+
+// The emoji picker is replaced on every view too. If a redraw lands between the press and the
+// release of a click, the button under the pointer is the new one.
+$("game").addEventListener("click", (ev) => {
+  const at = ev.detail > 0 ? document.elementFromPoint(ev.clientX, ev.clientY) : null;
+  const hit = ev.target instanceof Element ? ev.target.closest("button[data-avatar]") : null;
+  const btn = /** @type {HTMLButtonElement | null} */ (hit ?? at?.closest("button[data-avatar]") ?? null);
+  if (!btn || btn.disabled || !$("game").contains(btn)) return;
+  conn?.send({ t: "avatar", avatar: Number(btn.dataset.avatar) });
+});
 
 // The text box is replaced on every view, so listen on the container.
 let lastTypingAt = 0;

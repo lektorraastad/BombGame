@@ -1,6 +1,7 @@
 // The player screen as an HTML string. Pure: no DOM access, and every piece of text that came from
 // a player (nicknames, words) goes through esc().
 import { renderBomb } from "./bomb.js";
+import { AVATARS, avatarImg } from "./avatars.js";
 
 /**
  * @typedef {{ text: string, type: "contains" | "starts" | "ends" }} PromptInfo
@@ -55,6 +56,10 @@ const REASONS = {
   "unknown-mode": "Unknown game mode",
   "not-sent": "Reconnecting… your word wasn't sent",
   "game-running": "You can't change that during a game",
+  // The emoji picker's reasons.
+  "avatar-taken": "Taken, pick another",
+  "avatar-locked": "You can change your emoji in the lobby",
+  "bad-avatar": "Something went wrong. Try again",
 };
 
 /**
@@ -76,6 +81,8 @@ const hearts = (n) => "❤".repeat(Math.max(0, Math.min(n, 10)));
 function resultLine(r, prompt) {
   if (!r) return `<div class="result" aria-live="polite"></div>`;
   if (r.ok) {
+    // A new emoji shows in the picker itself, so it needs no message.
+    if (r.kind === "avatar") return `<div class="result good" aria-live="polite"></div>`;
     const text = r.kind === "ghost" ? "✓ +1 ghost point" : "✓ +1";
     return `<div class="result good" aria-live="polite">${text}</div>`;
   }
@@ -121,6 +128,30 @@ export function renderPlayer(view, ui) {
   return `${banner}<header class="top"><span class="who">${esc(view.me.nickname)}</span><span class="room">Room ${esc(view.code)}</span></header>${body}`;
 }
 
+/**
+ * The emoji picker: one button per avatar. The player's own is pressed; ones other players have are
+ * disabled and marked taken.
+ * @param {any} view a playerView from the server
+ * @returns {string}
+ */
+export function renderPicker(view) {
+  const me = view.me ?? {};
+  const taken = new Set(
+    (Array.isArray(view.players) ? view.players : [])
+      .filter((/** @type {any} */ p) => p.id !== me.id)
+      .map((/** @type {any} */ p) => p.avatar),
+  );
+  const buttons = AVATARS.map((a, i) => {
+    const mine = me.avatar === i;
+    const off = !mine && taken.has(i);
+    return `<button type="button" class="pick${off ? " taken" : ""}" data-avatar="${i}" aria-label="${esc(a.label)}" aria-pressed="${mine}"${off ? " disabled" : ""}>${avatarImg(i)}</button>`;
+  }).join("");
+  return `<section class="picker" aria-labelledby="pickhead"><h2 id="pickhead">Pick your emoji</h2><div class="picker-grid">${buttons}</div></section>`;
+}
+
+/** A player's emoji and nickname, for the lobby list. @param {any} p */
+const nameChip = (p) => `<li>${avatarImg(p.avatar)}<span>${esc(p.nickname)}</span></li>`;
+
 /** @param {any} view @param {PlayerUi} ui */
 function screen(view, ui) {
   const me = view.me;
@@ -128,8 +159,8 @@ function screen(view, ui) {
   const mine = view.players.find((/** @type {any} */ p) => p.nickname === me.nickname);
 
   if (view.phase === "lobby") {
-    const names = view.players.map((/** @type {any} */ p) => `<li>${esc(p.nickname)}</li>`).join("");
-    return `<main class="lobby"><h1>You're in!</h1><p class="big">Waiting for the host to start the game...</p><ul class="names">${names}</ul></main>`;
+    const names = view.players.map(nameChip).join("");
+    return `<main class="lobby"><h1>You're in!</h1><p class="big">Waiting for the host to start the game...</p>${renderPicker(view)}${resultLine(ui.lastResult, null)}<ul class="names">${names}</ul></main>`;
   }
 
   if (view.phase === "results") return results(view);
@@ -137,7 +168,7 @@ function screen(view, ui) {
   const paused = view.paused ? `<div class="banner">Paused by the host</div>` : "";
 
   if (mine?.spectator) {
-    return `<main class="watching">${paused}<h1>You'll join the next game</h1><p>For now, watch the screen at the front.</p></main>`;
+    return `<main class="watching">${paused}<h1>You'll join the next game</h1><p>For now, watch the screen at the front.</p>${renderPicker(view)}${resultLine(ui.lastResult, null)}</main>`;
   }
 
   const hearts_ = `<div class="lives" aria-label="${me.lives} lives">${hearts(me.lives)}</div>`;

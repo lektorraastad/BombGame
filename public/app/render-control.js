@@ -2,6 +2,7 @@
 // every piece of text that came from a player goes through esc(). In overlay mode (shown on the
 // projector, which the class may see) there are no score or ghost-point columns.
 import { esc } from "./render-player.js";
+import { avatarImg } from "./avatars.js";
 
 /** Fewer prompts than this for a band and type, and the panel warns that they will repeat. */
 export const FEW_PROMPTS = 15;
@@ -99,7 +100,7 @@ function players(view, ui) {
       const armed = ui.confirmKick === p.id;
       const kick = `<button type="button" class="small kick${armed ? " armed" : ""}" data-action="kick" data-pid="${id}">${armed ? "Really kick?" : "Kick"}</button>`;
       const cols = priv ? `<td>${esc(p.score)}</td><td>${esc(p.ghostPoints)}</td>` : "";
-      return `<tr><td class="name">${name}</td><td>${esc(p.lives)}</td>${cols}<td class="state">${state}</td><td>${kick}</td></tr>`;
+      return `<tr><td class="name">${avatarImg(p.avatar)} ${name}</td><td>${esc(p.lives)}</td>${cols}<td class="state">${state}</td><td>${kick}</td></tr>`;
     })
     .join("");
   const list = view.players.length ? `<table>${head}${rows}</table>` : `<p>No players yet.</p>`;

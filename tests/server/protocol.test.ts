@@ -66,3 +66,14 @@ test("a host hello with neither a host token nor a passcode is valid, so the hub
     { t: "host", code: "ABCD", token: "t", hostToken: "ht" });
   assert.equal(validate(JSON.stringify({ t: "host", code: "ABCD", token: "t", passcode: "a".repeat(201) })), null);
 });
+
+test("the avatar message takes a whole number from 0 to 59, nothing else", () => {
+  ok({ t: "avatar", avatar: 3 });
+  ok({ t: "avatar", avatar: 0 });
+  ok({ t: "avatar", avatar: 59 });
+  for (const avatar of ["3", -1, 60, 2.5, null, true, [3], { n: 3 }]) bad(JSON.stringify({ t: "avatar", avatar }));
+  bad(JSON.stringify({ t: "avatar" }));
+  // NaN and Infinity become null in JSON; a raw NaN isn't JSON at all.
+  bad('{"t":"avatar","avatar":NaN}');
+  bad('{"t":"avatar","avatar":1e400}');
+});

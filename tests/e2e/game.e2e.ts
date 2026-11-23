@@ -155,6 +155,34 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     assert.match(await host.locator(".p-count").textContent(), /3 joined/);
   });
 
+  test("emoji picker: another student's emoji is taken, a free one shows on the projector", async () => {
+    const { host, code } = await hostRoom();
+    const ann = await joinPlayer(code, "Ann");
+    const ben = await joinPlayer(code, "Ben");
+    const annsPick = ann.locator('.picker button[aria-pressed="true"]');
+    await annsPick.waitFor({ timeout: WAIT });
+    const annAvatar = await annsPick.getAttribute("data-avatar");
+    assert.ok(annAvatar !== null);
+
+    // Ben's picker shows Ann's emoji as taken.
+    const taken = ben.locator(`.picker button[data-avatar="${annAvatar}"]`);
+    await taken.waitFor({ timeout: WAIT });
+    assert.equal(await taken.isDisabled(), true);
+    assert.match((await taken.getAttribute("class")) ?? "", /\btaken\b/);
+    assert.equal(await ben.locator(".picker button[disabled]").count(), 1);
+
+    // Ben picks a free one: his picker and the projector's lobby show it.
+    const free = ben.locator('.picker button:not([disabled])[aria-pressed="false"]').first();
+    const freeAvatar = await free.getAttribute("data-avatar");
+    const label = await free.getAttribute("aria-label");
+    await free.click();
+    await ben.locator(`.picker button[data-avatar="${freeAvatar}"][aria-pressed="true"]`).waitFor({ timeout: WAIT });
+    await host.locator(".p-names li", { hasText: "Ben" }).locator(`img[alt="${label}"]`).waitFor({ timeout: WAIT });
+    // And Ann's picker now shows Ben's new emoji as taken.
+    await ann.locator(`.picker button[data-avatar="${freeAvatar}"][disabled]`).waitFor({ timeout: WAIT });
+    assert.deepEqual(await host.locator(".p-names li").allTextContents(), ["Ann", "Ben"]);
+  });
+
   test("classic: valid word passes the turn and shows Last word", async () => {
     const { host, code } = await hostRoom();
     const players = [await joinPlayer(code, "Ann"), await joinPlayer(code, "Ben")];

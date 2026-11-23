@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { AVATARS, AVATAR_COUNT, avatarImg, EMOJI_CREDIT } from "../../public/app/avatars.js";
+import { AVATAR_COUNT as SERVER_AVATAR_COUNT } from "../../src/engine/avatars.ts";
 
 test("exactly 60 avatars, unique files and labels, all files present", () => {
   assert.equal(AVATAR_COUNT, 60);
@@ -35,4 +36,9 @@ test("avatarImg", () => {
     assert.equal(h, '<span class="avatar"></span>');
   }
   assert.equal(EMOJI_CREDIT, "Emoji: Twemoji (CC BY 4.0)");
+});
+
+test("the client and the server agree on how many avatars there are", () => {
+  assert.equal(AVATAR_COUNT, SERVER_AVATAR_COUNT);
+  assert.equal(AVATARS.length, SERVER_AVATAR_COUNT);
 });

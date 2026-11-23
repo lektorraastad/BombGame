@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { renderPlayer, reasonText } from "../../public/app/render-player.js";
+import { renderPlayer, reasonText, renderPicker } from "../../public/app/render-player.js";
+import { AVATARS } from "../../public/app/avatars.js";
 
 const players = [
   { id: "p1", nickname: "Mia", lives: 3, alive: true, connected: true, spectator: false },
@@ -20,7 +21,7 @@ const ui = (over: Record<string, unknown> = {}): any => ({ countdownMs: 5000, st
 test("render escapes nicknames and words", () => {
   const evil = "<img src=x onerror=alert(1)>";
   const lobby = renderPlayer(view({ phase: "lobby", prompt: null, mode: null, players: [{ ...players[0], nickname: evil }] }), ui());
-  assert.ok(!lobby.includes("<img"), "no raw tag");
+  assert.ok(!lobby.includes("<img src=x"), "no raw tag");
   assert.ok(lobby.includes("&lt;img src=x onerror=alert(1)&gt;"));
   const playing = renderPlayer(
     view({ mode: { seats: ["p1", "p2"], current: "p2", lastWord: { pid: "p2", word: evil } } }, { isOn: false }),
@@ -112,6 +113,7 @@ test("reasons are in plain English", () => {
     "bad-message", "no-passcode-set", "wrong-passcode", "too-many-attempts", "server-full", "no-room",
     "not-host", "already-joined", "not-player", "locked", "full", "kicked", "name-length", "name-blocked",
     "not-found", "need-2-players", "no-prompts", "already-running", "unknown-mode", "game-running",
+    "avatar-taken", "avatar-locked", "bad-avatar",
   ];
   for (const r of [...engine, ...hub, "something-new"]) {
     const t = reasonText(r);
@@ -147,4 +149,87 @@ test("the bomb on the player screen is drawn from ui.bomb, without an arrow for 
   assert.match(plain, /data-countdown>5</);
   const mod: Record<string, unknown> = await import("../../public/app/render-player.js");
   assert.equal("BOMB_SVG" in mod, false, "the old bomb drawing is gone");
+});
+
+// ---- the emoji picker ----
+
+const withAvatars = [
+  { ...players[0], avatar: 5 },
+  { ...players[1], avatar: 7 },
+];
+const lobbyView = (over: Record<string, unknown> = {}) =>
+  view({ phase: "lobby", prompt: null, mode: null, players: withAvatars, ...over }, { id: "p1", avatar: 5 });
+
+/** The opening tag of the picker button for avatar `i`. */
+function pickBtn(html: string, i: number): string {
+  const m = html.match(new RegExp(`<button[^>]*data-avatar="${i}"[^>]*>`));
+  assert.ok(m, `a button for avatar ${i}`);
+  return m[0];
+}
+
+test("the picker has 60 buttons: mine pressed, others' taken and disabled, the rest free", () => {
+  const html = renderPicker(lobbyView());
+  assert.equal(html.match(/<button /g)?.length, 60);
+  for (let i = 0; i < 60; i++) {
+    const b = pickBtn(html, i);
+    assert.ok(b.includes('type="button"'), String(i));
+    assert.ok(b.includes(`aria-label="${AVATARS[i].label}"`), String(i));
+  }
+  const mine = pickBtn(html, 5);
+  assert.ok(mine.includes('aria-pressed="true"'));
+  assert.ok(!mine.includes("disabled") && !mine.includes("taken"));
+  const taken = pickBtn(html, 7);
+  assert.ok(/\bdisabled\b/.test(taken) && /class="[^"]*\btaken\b/.test(taken));
+  assert.ok(taken.includes('aria-pressed="false"'));
+  const free = pickBtn(html, 0);
+  assert.ok(!/\bdisabled\b/.test(free) && !/\btaken\b/.test(free));
+  assert.ok(free.includes('aria-pressed="false"'));
+  assert.equal(html.match(/aria-pressed="true"/g)?.length, 1);
+  assert.equal(html.match(/\bdisabled\b/g)?.length, 1);
+});
+
+test("the picker escapes the avatar label", () => {
+  const saved = AVATARS[0].label;
+  AVATARS[0].label = `<b onclick="x">'`;
+  try {
+    const html = renderPicker(lobbyView());
+    assert.ok(!html.includes("<b onclick"));
+    assert.ok(html.includes("&lt;b onclick=&quot;x&quot;&gt;&#39;"));
+  } finally {
+    AVATARS[0].label = saved;
+  }
+});
+
+test("the picker shows in the lobby under You're in! and on the spectator screen, nowhere else", () => {
+  const lobby = renderPlayer(lobbyView(), ui({ countdownMs: null }));
+  assert.ok(lobby.includes("data-avatar="));
+  assert.ok(lobby.indexOf("You're in!") < lobby.indexOf("data-avatar="));
+  const spectating = renderPlayer(
+    view({ players: [withAvatars[0], { ...withAvatars[1], spectator: true }] }, { id: "p2", nickname: "Jon", avatar: 7, isOn: false }),
+    ui(),
+  );
+  assert.ok(spectating.includes("You'll join the next game"));
+  assert.ok(spectating.includes("data-avatar="));
+  assert.ok(pickBtn(spectating, 7).includes('aria-pressed="true"'));
+  assert.ok(/\bdisabled\b/.test(pickBtn(spectating, 5)));
+  const playing = renderPlayer(view({ players: withAvatars }, { id: "p1", avatar: 5 }), ui());
+  assert.ok(!playing.includes("data-avatar="));
+  const results = renderPlayer(
+    view({ phase: "results", prompt: null, players: withAvatars, results: { winners: [], ghostBoard: [], longestWord: null } }, { id: "p1", avatar: 5 }),
+    ui({ countdownMs: null }),
+  );
+  assert.ok(!results.includes("data-avatar="));
+});
+
+test("the lobby list shows each player's emoji, and the picker's answer shows in the result line", () => {
+  const lobby = renderPlayer(lobbyView(), ui({ countdownMs: null }));
+  const names = lobby.match(/<ul class="names">.*?<\/ul>/s)?.[0] ?? "";
+  assert.ok(names.includes(`alt="${AVATARS[5].label}"`) && names.includes(`alt="${AVATARS[7].label}"`));
+  const taken = renderPlayer(lobbyView(), ui({ countdownMs: null, lastResult: { ok: false, reason: "avatar-taken" } }));
+  assert.ok(taken.includes("✗ Taken, pick another"));
+  const done = renderPlayer(lobbyView(), ui({ countdownMs: null, lastResult: { ok: true, kind: "avatar" } }));
+  assert.ok(!done.includes("+1"), "picking an emoji scores nothing");
+  assert.equal(reasonText("avatar-taken"), "Taken, pick another");
+  assert.equal(reasonText("avatar-locked"), "You can change your emoji in the lobby");
+  assert.equal(reasonText("bad-avatar"), "Something went wrong. Try again");
 });

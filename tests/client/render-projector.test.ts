@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { renderProjector } from "../../public/app/render-projector.js";
 import { WORD_LIST_CREDITS } from "../../src/words/credits.ts";
 import { CREDITS } from "../../public/app/credits.js";
+import { AVATARS, EMOJI_CREDIT } from "../../public/app/avatars.js";
 import { createRoom } from "../../src/engine/registry.ts";
 import { createPromptBank } from "../../src/engine/prompts.ts";
 import { projectorView } from "../../src/engine/views.ts";
@@ -143,4 +144,17 @@ test("the projector bomb is drawn from ui.bomb, without an arrow for now", () =>
   assert.match(draw(c.room), /class="[^"]*\bflame\b/);
   c.room.pause();
   assert.ok(!/flame/.test(draw(c.room)));
+});
+
+test("the lobby shows each player's emoji beside their name, and credits the emoji", () => {
+  const { room } = game({});
+  const v = projectorView(room);
+  const html = draw(room);
+  const names = html.match(/<ul class="p-names">.*?<\/ul>/s)?.[0] ?? "";
+  for (const p of v.players) {
+    assert.ok(names.includes(`alt="${AVATARS[p.avatar].label}"`), p.nickname);
+  }
+  assert.deepEqual(names.replace(/<[^>]+>/g, "|").split("|").filter(Boolean), ["Mia", "Jon", "Ola"]);
+  const credits = html.match(/<p class="p-credits">(.*?)<\/p>/s)?.[1] ?? "";
+  assert.equal(credits, `${CREDITS} · ${EMOJI_CREDIT}`.replace(/&/g, "&amp;"));
 });

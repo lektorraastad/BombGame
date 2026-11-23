@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { renderControl, kickClick, promptWarnings } from "../../public/app/render-control.js";
+import { AVATARS } from "../../public/app/avatars.js";
 import { createRoom, settingsFor } from "../../src/engine/registry.ts";
 import { createPromptBank } from "../../src/engine/prompts.ts";
 import { controlView } from "../../src/engine/views.ts";
@@ -120,7 +121,7 @@ test("rename is an inline field, and names are escaped", () => {
   const html = renderControl(v, ui({ renaming: id }));
   assert.ok(html.includes(`<input class="rename" data-pid="${id}"`));
   assert.ok(html.includes(`value="Mia"`));
-  assert.ok(!html.includes("<img") && html.includes("&lt;img src=x&gt;"));
+  assert.ok(!html.includes("<img src=x") && html.includes("&lt;img src=x&gt;"));
 });
 
 test("game buttons follow the phase", () => {
@@ -151,6 +152,17 @@ test("theme picker sits outside the locked settings, in overlay mode too", () =>
       assert.ok(!locked.includes(`name="theme"`), "not in the settings fieldset");
       assert.equal(html.match(/name="theme"/g)?.length, 1, "only once");
       assert.ok(!/<fieldset class="look"[^>]*disabled/.test(html), "never disabled");
+    }
+  }
+});
+
+test("each player row shows the player's emoji, in overlay mode too", () => {
+  for (const overlay of [false, true]) {
+    const v = view();
+    const html = renderControl(v, ui({ overlay }));
+    for (const p of v.players) {
+      const row = html.split("<tr>").find((r) => r.includes(`data-pid="${p.id}"`)) ?? "";
+      assert.ok(row.includes(`<img class="avatar`) && row.includes(`alt="${AVATARS[p.avatar].label}"`), `${p.nickname} overlay=${overlay}`);
     }
   }
 });

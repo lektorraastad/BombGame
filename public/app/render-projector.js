@@ -4,6 +4,7 @@
 import { esc } from "./render-player.js";
 import { renderBomb } from "./bomb.js";
 import { seatedPlayers } from "./circle-geometry.js";
+import { avatarImg, EMOJI_CREDIT } from "./avatars.js";
 
 /**
  * @typedef {{ countdownMs: number | null, credits: string, site?: string, bomb?: import("./bomb.js").BombState }} ProjectorUi
@@ -41,7 +42,7 @@ function screen(view, ui) {
 function lobby(view, ui) {
   const site = ui.site ? esc(ui.site) : "this website";
   const names = view.players.length
-    ? `<ul class="p-names">${view.players.map((/** @type {any} */ p) => `<li>${esc(p.nickname)}</li>`).join("")}</ul>`
+    ? `<ul class="p-names">${view.players.map((/** @type {any} */ p) => `<li>${avatarImg(p.avatar)}<span>${esc(p.nickname)}</span></li>`).join("")}</ul>`
     : `<p class="p-wait">Waiting for players…</p>`;
   const locked = view.locked ? `<p class="p-locked">The game is locked: nobody new can join</p>` : "";
   return `<main class="p-lobby">
@@ -49,7 +50,7 @@ function lobby(view, ui) {
 <div class="p-code">${esc(view.code)}</div>
 ${locked}<p class="p-count">${view.players.length} joined</p>
 ${names}
-<p class="p-credits">${esc(ui.credits)}</p>
+<p class="p-credits">${esc(`${ui.credits} · ${EMOJI_CREDIT}`)}</p>
 </main>`;
 }
 

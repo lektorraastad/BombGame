@@ -1,5 +1,6 @@
 // The game socket's messages, and the one function that checks what a client sent.
 // Nothing here throws: anything that isn't exactly a known message becomes null.
+import { AVATAR_COUNT } from "../engine/avatars.ts";
 
 export const MAX_MESSAGE_BYTES = 2000;
 
@@ -19,6 +20,8 @@ export type ClientMsg =
   | { t: "join"; code: string; token: string; nickname: string }
   | { t: "submit"; word: string }
   | { t: "typing"; text: string }
+  /** A student picks their emoji: a whole number from 0 to AVATAR_COUNT - 1. */
+  | { t: "avatar"; avatar: number }
   | { t: "cmd"; cmd: SimpleCommand }
   | { t: "cmd"; cmd: "kick"; pid: string }
   | { t: "cmd"; cmd: "rename"; pid: string; nickname: string }
@@ -94,6 +97,10 @@ function check(m: Obj): ClientMsg | null {
       return str(m.word, WORD_MAX) ? { t: "submit", word: m.word } : null;
     case "typing":
       return str(m.text, TEXT_MAX) ? { t: "typing", text: m.text } : null;
+    case "avatar": {
+      const a = m.avatar;
+      return typeof a === "number" && Number.isInteger(a) && a >= 0 && a < AVATAR_COUNT ? { t: "avatar", avatar: a } : null;
+    }
     case "leave":
       return { t: "leave" };
     case "cmd":
