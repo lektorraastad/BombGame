@@ -59,7 +59,13 @@ test("readable in every theme", () => {
     ["--spark", "--stage", 3], ["--tile", "--stage", 3], ["--bomb-rim", "--stage", 3],
     // Banners and answered ticks put tile ink on these.
     ["--tile-ink", "--refusal", 4.5], ["--tile-ink", "--answered", 4.5],
+    // The countdown number on the bomb (large text), calm and urgent.
+    ["--names", "--bomb", 3], ["--spark", "--bomb", 3],
   ];
+  // Those are the colours the stylesheet gives the countdown.
+  const css = read("style.css");
+  assert.match(css, /\.p-bomb \.bomb-count \{[^}]*color: var\(--names\)/);
+  assert.match(css, /\.p-bomb\.urgent \.bomb-count \{[^}]*color: var\(--spark\)/);
   for (const [theme, c] of Object.entries(parseThemes())) {
     for (const [fg, bg, min] of PAIRS) {
       const ratio = contrast(c[fg], c[bg]);
