@@ -1,6 +1,6 @@
 # Bomb game: redesign
 
-Status: draft for Roy's approval, 2026-11-23. Nothing is built until Roy approves.
+Status: approved by Roy, 2026-11-23.
 
 This builds on `docs/design-principles.md` (the agreed look: "letter tiles and a lit fuse", the Workshop theme, two typefaces, readability rules) and on the original design in `2026-11-21-bomb-game-design.md`. Read both first. This document doesn't repeat them; it says what the redesign changes and decides what they left open.
 
