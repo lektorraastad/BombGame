@@ -31,6 +31,8 @@ export type ProjectorView = {
   phase: Phase;
   paused: boolean;
   locked: boolean;
+  /** The colour theme chosen by the host; changeable at any time. */
+  theme: string;
   players: ProjectorPlayer[];
   prompt: { text: string; type: PromptType } | null;
   /** The mode's own view data, or null before the first game. */
@@ -77,6 +79,7 @@ export function projectorView(room: Room): ProjectorView {
     phase: room.phase,
     paused: room.phase === "paused",
     locked: room.locked,
+    theme: String(room.settings.theme),
     players: room.players().map((p) => {
       const out: ProjectorPlayer = { id: p.id, nickname: p.nickname, lives: p.lives, alive: p.alive, connected: p.connected, spectator: p.role === "spectator" };
       if (answered && running(room)) out.answered = answered.includes(p.id);

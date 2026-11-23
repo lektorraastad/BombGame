@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CORE_SETTINGS, resolveSettings, withChoices } from "../../src/engine/settings.ts";
+import { CORE_SETTINGS, THEME_IDS, resolveSettings, withChoices } from "../../src/engine/settings.ts";
 import type { SettingDecl } from "../../src/engine/types.ts";
 
 test("defaults fill missing keys", () => {
@@ -69,4 +69,14 @@ test("withChoices fills mode and knockout options from the lists given", () => {
   assert.deepEqual(resolveSettings(out, { mode: "m1" }).mode, "m1");
   const core = CORE_SETTINGS.find((x) => x.key === "mode")!;
   assert.ok(core.kind === "choice" && core.options.length === 0, "CORE_SETTINGS is not changed");
+});
+
+test("theme setting is a choice over THEME_IDS, default workshop", () => {
+  assert.deepEqual([...THEME_IDS], ["workshop", "enamel", "night-fuse"]);
+  const d = CORE_SETTINGS.find((x) => x.key === "theme");
+  assert.ok(d && d.kind === "choice");
+  assert.equal(d.default, "workshop");
+  assert.deepEqual(d.options.map((o) => o.value), [...THEME_IDS]);
+  assert.equal(resolveSettings(CORE_SETTINGS, { theme: "nope" }).theme, "workshop");
+  assert.equal(resolveSettings(CORE_SETTINGS, { theme: "night-fuse" }).theme, "night-fuse");
 });

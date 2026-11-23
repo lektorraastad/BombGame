@@ -62,6 +62,8 @@ const MIN_PLAYERS = 2;
 const AVOID_RECENT = 10;
 const EXAMPLE_COUNT = 3;
 const MAX_TYPING = 30;
+/** Settings the host may change while a game runs. */
+const LIVE_SETTINGS = new Set(["theme"]);
 
 function setFor(map: Map<PlayerId, Set<string>>, pid: PlayerId): Set<string> {
   let s = map.get(pid);
@@ -207,7 +209,7 @@ export class Room {
   }
 
   updateSettings(input: Record<string, unknown>): { ok: boolean; reason?: "game-running" } {
-    if (this.running()) return { ok: false, reason: "game-running" };
+    if (this.running() && !Object.keys(input).every((k) => LIVE_SETTINGS.has(k))) return { ok: false, reason: "game-running" };
     this.settings = this.resolve({ ...this.settings, ...input });
     this.changed();
     return { ok: true };

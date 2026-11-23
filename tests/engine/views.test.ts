@@ -271,3 +271,33 @@ test("me.canAnswerSilently: alive, not on, playing, and silentAnswers on", () =>
   const waiting = off.ids.find((p) => p !== current(off.room))!;
   assert.equal(playerView(off.room, waiting)!.me.canAnswerSilently, false, "setting off");
 });
+
+test("theme defaults to workshop and is in every view", () => {
+  const { room, ids } = setup(2);
+  assert.equal(projectorView(room).theme, "workshop");
+  assert.equal(playerView(room, ids[0])!.theme, "workshop");
+  assert.equal(controlView(room).theme, "workshop");
+});
+
+test("theme can change during a game; other settings can't", () => {
+  const { room } = setup(2);
+  assert.deepEqual(room.updateSettings({ theme: "enamel" }), { ok: true });
+  assert.equal(projectorView(room).theme, "enamel");
+  assert.deepEqual(room.updateSettings({ theme: "workshop", startLives: 3 }), { ok: false, reason: "game-running" });
+  assert.equal(projectorView(room).theme, "enamel");
+});
+
+test("an unknown theme falls back to the default", () => {
+  const { deps } = makeDeps(11);
+  const room = createRoom({
+    code: "ABCD",
+    deps,
+    checker: makeTestChecker(),
+    bank: createPromptBank([ST]),
+    blockedNames: fixtureBlocked,
+  });
+  room.updateSettings({ theme: "enamel" });
+  assert.equal(projectorView(room).theme, "enamel");
+  room.updateSettings({ theme: "<b>x</b>" });
+  assert.equal(projectorView(room).theme, "workshop");
+});
