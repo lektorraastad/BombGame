@@ -85,6 +85,7 @@ Then try the game once yourself: open `/host` in one tab and `/` in two other ta
 In the control panel you can:
 
 - **Change the settings** before a game: the mode (**Classic**, where the bomb is passed around, or **Everyone at once**), the difficulty, the timer, the number of lives, and what knocked-out players do. Settings are locked while a game is running, except the **Theme** (the colours for every screen), which you can change at any time.
+- **Live typing** is on by default: in Classic, everyone can watch the current player's letters appear on the projector and on the laptops (rude words show as stars). To switch it off, untick **Live typing** in the settings.
 - **Start**, **Pause** and **Resume**, **Skip** a prompt nobody can answer, and **End** the game early.
 - **Play again** after a game. The same players stay in the room.
 - **Lock** the room so nobody new can join.

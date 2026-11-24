@@ -10,7 +10,7 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
   - `docs/superpowers/specs/2026-11-23-redesign-design.md` is the redesign, approved by Roy, and `docs/superpowers/plans/2026-11-23-redesign.md` is its plan.
   - `docs/design-principles.md` holds the **visual design principles and the chosen "Workshop" theme**. Read it before any visual work.
   - `docs/superpowers/plans/` has the five implementation plans already built: connection test, engine, word lists, playable game and the redesign.
-  - `docs/EXTENDING.md` explains how to add game modes, knocked-out activities, settings and prompt types.
+  - `docs/EXTENDING.md` explains how to add game modes, knocked-out activities, settings, prompt types and themes, and how to swap the bomb.
   - `README.md` is Roy's setup guide and how to run a lesson.
 - **Code:**
   - `src/engine/` is the pure game engine (rooms, Classic, Everyone at once, ghost mode, views). It has no network code.

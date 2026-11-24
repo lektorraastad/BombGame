@@ -45,10 +45,10 @@ Run both `npm test` and the type check after every change. Both must pass before
 These come from the game's design. The tests in `tests/engine/views.test.ts` check most of them.
 
 - **Privacy.** Nothing is saved to disk and nicknames are never logged. Screens never get a player's `token` (their secret rejoin key).
-- **The projector** never shows ghost words, silent answers, ghost points or scores.
-- **Student screens** never show other players' scores, ghost points or words. Each student sees only their own score, and a ghost sees only their own ghost points and streak (in `me.activity`).
+- **The projector** never shows ghost words, silent answers, ghost points or scores. The only words it shows are real-turn words (each player's last one, and the longest word in the results) and live typing.
+- **Student screens** get the projector's view plus their own `me` data. So they show other players' last real-turn words and the live typing, but never other players' scores, ghost points, silent answers or ghost words. Each student sees only their own score, and a ghost sees only their own ghost points and streak (in `me.activity`).
 - Otherwise, ghost points appear only on the teacher's control screen. The results rank the best ghosts without points.
-- **Live typing** is on by default. When it is on, the projector shows only the text of the one player who is on (Classic's current player), and never during the results. Typed text is cleared every time a new prompt is dealt, so a half-typed (or silent) word never shows for the next turn.
+- **Live typing** is on by default. When it is on, every screen (projector, student screens and control screen) shows only the current Classic player's text, with blocked words masked as stars, and only while a game is running: never in Everyone at once and never during the results. The room stores typing only for that one player, so anyone else's keystrokes change nothing and send nothing. Typed text is cleared every time a new prompt is dealt, so a half-typed (or silent) word never shows for the next turn.
 - **Views only read.** Code in `src/engine/views.ts` must never change the room. It uses read-only methods on `Room` such as `prompt()`, `modeView()`, `activityView(pid)`, `isOn(pid)`, `bombRemaining()` and `typingOf(pid)`. It must not use `room.context()`, which can change the game. Tests may use `room.context()`.
 - **Paused timer.** While paused, screens use `bombRemainingMs` (which stops counting) rather than the mode's `bombEndsAt` (a clock time, which is wrong after a pause). Hidden fuses never send either.
 
