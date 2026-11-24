@@ -190,7 +190,7 @@ test("on an oval (aspect given), the arrow is turned to where the current seat r
   const inner = seatPosition(1, 30);
   const two = draw(classic(many, "p1"), { bomb: { ...BOMB, arrow: { from: inner.angle, to: inner.angle, elapsedMs: 600 } }, aspect: 16 / 9 });
   assert.ok(two.includes(`--to:${deg(screenAngle(inner.angle, 16 / 9, 1))}"`));
-  // No aspect (the student's square circle): the arrow as the tracker gave it.
+  // No aspect (not measured yet, or a test): the arrow as the tracker gave it.
   assert.ok(draw(classic(ps, "p1"), { bomb }).includes("--from:0deg;--to:45deg;"));
   for (const bad of [Number.NaN, -1, 0, "2"]) assert.ok(draw(classic(ps, "p1"), { bomb, aspect: bad }).includes("--from:0deg;--to:45deg;"), String(bad));
 });

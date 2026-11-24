@@ -236,19 +236,20 @@ async function countdownClearance(page: any, root: string): Promise<{ clear: num
 }
 
 /**
- * How far the projector's arrow is off the current seat, in degrees: the direction from the bomb's
- * middle to the arrow's middle against the direction to the middle of the current seat.
+ * How far the arrow is off the current seat, in degrees: the direction from the bomb's middle to the
+ * arrow's middle against the direction to the middle of the current seat. On the projector, or on a
+ * student screen with root "main".
  */
-async function arrowError(host: any): Promise<number> {
-  return host.evaluate(() => {
-    const bomb = document.querySelector("#projector [data-bomb]")!.getBoundingClientRect();
-    const arrow = document.querySelector("#projector .bomb-arrow polygon")!.getBoundingClientRect();
-    const seat = document.querySelector("#projector .seat.on")!.getBoundingClientRect();
+async function arrowError(page: any, root = "#projector"): Promise<number> {
+  return page.evaluate((sel: string) => {
+    const bomb = document.querySelector(`${sel} [data-bomb]`)!.getBoundingClientRect();
+    const arrow = document.querySelector(`${sel} .bomb-arrow polygon`)!.getBoundingClientRect();
+    const seat = document.querySelector(`${sel} .seat.on`)!.getBoundingClientRect();
     const [cx, cy] = [bomb.left + bomb.width / 2, bomb.top + bomb.height / 2];
     const a = Math.atan2(arrow.left + arrow.width / 2 - cx, cy - (arrow.top + arrow.height / 2));
     const b = Math.atan2(seat.left + seat.width / 2 - cx, cy - (seat.top + seat.height / 2));
     return Math.abs(((((a - b) * 180) / Math.PI + 540) % 360) - 180);
-  });
+  }, root);
 }
 
 /** Words of seat names (names with a space) that are split across two lines, measured in one step. */
@@ -424,7 +425,9 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
       assert.equal(await inView(p, "main.lobby h1"), true, "You're in!");
       assert.equal(await inView(p, ".picker-grid"), true, "the whole picker");
     }
-    await settings(host, code, { mode: "classic", timerStyle: "visible", turnTime: 60, liveTyping: true });
+    // Easy "contains" prompts only: each has a known word of 11 letters or more, for the long-word
+    // check below. (Some harder prompts, or "starts"/"ends" ones, have none longer than 9 or 10.)
+    await settings(host, code, { mode: "classic", timerStyle: "visible", turnTime: 60, liveTyping: true, band: "easy", promptTypes: ["contains"] });
     await startFromOverlay(host);
 
     const on = await playerOnTurn(players);
@@ -614,7 +617,9 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     await startFromOverlay(host);
 
     // One lap: everyone plays a word, so every seat carries one. Most are 4 to 10 letters; the first
-    // two players whose prompt allows it play a long word, of 12 or 13 letters.
+    // two players whose prompt allows it play a long word, of 12 or 13 letters. Not 14: with two
+    // 14-letter words, two seats' boxes can touch at their empty corners (nothing drawn is covered),
+    // which this box check would count as an overlap.
     const used = new Set<string>();
     let longLeft = 2;
     const pick = (p: Prompt) => {
@@ -706,7 +711,7 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     await startFromOverlay(host);
     // The seats at the top and the bottom don't move when the oval changes shape: make it a side seat's turn.
     let on = await playerOnTurn(players);
-    if ((await host.locator("#projector .seat").first().getAttribute("class")).includes(" on")) {
+    if (await host.locator("#projector .seat").first().evaluate((el: Element) => el.classList.contains("on"))) {
       const word = wordFor(await projectorPrompt(host));
       await on.fill("#word", word);
       await on.press("#word", "Enter");
@@ -723,5 +728,36 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     await host.click("#overlayclose");
     await host.waitForTimeout(300);
     assert.ok((await arrowError(host)) < 3, `after closing it: ${await arrowError(host)}`);
+  });
+
+  test("student laptop (1366×768): the circle is a wide oval, and the arrow points at the current seat, also after a resize", async () => {
+    const LAPTOP = { width: 1366, height: 768 };
+    const { host, code } = await hostRoom();
+    const players = [await joinPlayer(code, "Ann", LAPTOP), await joinPlayer(code, "Ben", LAPTOP), await joinPlayer(code, "Cat", LAPTOP)];
+    await settings(host, code, { mode: "classic", timerStyle: "visible", turnTime: 60, promptTypes: ["contains"] });
+    await startFromOverlay(host);
+    // The seats at the top and the bottom don't move when the circle is an oval: make it a side seat's turn.
+    let on = await playerOnTurn(players);
+    if (await host.locator("#projector .seat").first().evaluate((el: Element) => el.classList.contains("on"))) {
+      const word = wordFor(await projectorPrompt(host));
+      await on.fill("#word", word);
+      await on.press("#word", "Enter");
+      await host.locator(".seat .last-word", { hasText: word }).waitFor({ timeout: WAIT });
+      on = await playerOnTurn(players);
+    }
+    for (const p of players) await p.locator("main .seat.on").waitFor({ timeout: WAIT });
+    await host.waitForTimeout(800); // the arrow's swing is over
+    for (const [i, p] of players.entries()) {
+      const box = await p.locator("main .circle.compact").boundingBox();
+      assert.ok(box.width / box.height > 1.5, `student ${i}: the circle is ${box.width}×${box.height}`);
+      const err = await arrowError(p, "main");
+      assert.ok(err < 3, `student ${i}: the arrow is ${err.toFixed(1)}° off the seat`);
+    }
+    // The window snapped to half the screen: the oval is much rounder, with no new view. The arrow
+    // turns with it (a side seat moves about 9° round the bomb).
+    await players[0].setViewportSize({ width: 683, height: 768 });
+    await players[0].waitForTimeout(300);
+    const err = await arrowError(players[0], "main");
+    assert.ok(err < 3, `after the resize: the arrow is ${err.toFixed(1)}° off the seat`);
   });
 });

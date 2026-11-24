@@ -12,7 +12,13 @@ import { tiles } from "./tiles.js";
 /**
  * @typedef {{ text: string, type: "contains" | "starts" | "ends" }} PromptInfo
  * @typedef {{ ok: boolean, kind?: string, reason?: string }} ResultInfo
- * @typedef {{ countdownMs: number | null, lastResult?: ResultInfo, status: string, bomb?: import("./bomb.js").BombState }} PlayerUi
+ * @typedef {{
+ *   countdownMs: number | null,
+ *   lastResult?: ResultInfo,
+ *   status: string,
+ *   bomb?: import("./bomb.js").BombState,
+ *   ringAspect?: number,   // the circle's width / height, measured by the page: the arrow turns to the seat
+ * }} PlayerUi
  */
 
 // esc lives in escape.js; it is re-exported here so older imports keep working.
@@ -94,7 +100,8 @@ function resultLine(r, prompt) {
 }
 
 /**
- * The circle with the bomb in the middle and the prompt on it, as on the projector. The bomb comes
+ * The circle with the bomb in the middle and the prompt on it, as on the projector: an oval as wide
+ * as the space allows, whose measured shape (ui.ringAspect) turns the arrow to the seat. The bomb comes
  * from the motion tracker (player-page.js), or without one (as in tests) a plain bomb, lit while
  * playing. Nobody is on in Everyone at once, so there is never an arrow then.
  * @param {any} view
@@ -103,7 +110,7 @@ function resultLine(r, prompt) {
 function arena(view, ui) {
   const bomb = ui.bomb ?? { lit: view.phase === "playing" && !view.paused, arrow: null, countdownMs: ui.countdownMs, fuse: null, explosion: null };
   const nobodyOn = typeof view.mode?.current !== "string";
-  return `<div class="arena">${renderCircle(view, { compact: true, bomb: nobodyOn ? { ...bomb, arrow: null } : bomb, centre: onBomb(view) })}</div>`;
+  return `<div class="arena">${renderCircle(view, { compact: true, bomb: nobodyOn ? { ...bomb, arrow: null } : bomb, centre: onBomb(view), aspect: ui.ringAspect })}</div>`;
 }
 
 /** @param {any} view */

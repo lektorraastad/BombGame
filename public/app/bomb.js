@@ -64,7 +64,8 @@ const BODY = `<circle class="bomb-shell" cx="60" cy="60" r="${R_BODY}"/>
 const FLAME = `<path class="bomb-flame-out" transform="translate(${f1(TIP.x)} ${f1(TIP.y)})" d="M0 3C-7 3-9-4-6-10C-4-14-1-16-1-24C4-19 9-13 8-5C7 0 4 3 0 3Z"/>
 <path class="bomb-flame-in" transform="translate(${f1(TIP.x)} ${f1(TIP.y)})" d="M0 2C-4 2-5-3-3-7C-2-10 0-11 0-15C3-11 5-7 4-3C4 0 2 2 0 2Z"/>`;
 
-/** The turn arrow, pointing up before it is turned. It starts 50 units out, clear of the prompt's
+/** The turn arrow, pointing up before it is turned. It starts at least 52.8 units
+ * out (its base corners; the notch between them is 56 out), clear of the prompt's
  * tiles and label (they sit above the drawing and would hide its base when it points sideways), and
  * its tip stops 72 units out, short of the inner ring's seats. It is drawn after the fuse and the
  * flame, so it stays on top where it crosses them. */

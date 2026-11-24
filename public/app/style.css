@@ -129,9 +129,13 @@ button:disabled { cursor: default; }
 main.turn-on, main.waiting, main.ghost {
   position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; text-align: center;
 }
-/* The circle's box: as big a square as the space allows. */
+/* The circle's box: an oval as wide as the space allows (up to about 2:1) and as tall, but never
+   taller than wide, like the projector's. Sizes inside are in cqh, a share of its height. The page
+   measures its shape (ui.ringAspect) so the arrow still points at the seat. */
 .arena { flex: 1 1 0; min-height: 140px; width: 100%; container-type: size; display: flex; align-items: center; justify-content: center; }
-.arena .circle { --circle-size: min(100cqw, 100cqh); }
+.arena .circle {
+  aspect-ratio: auto; width: min(100cqw, 210cqh); height: min(100cqh, 100cqw); max-width: none; container-type: size;
+}
 
 /* The student's own hearts and score, in the top corner, out of the circle's way. */
 .corner {
@@ -172,12 +176,14 @@ main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
 .ghost h1 { font-size: 26px; color: var(--muted); }
 .ghostscore { margin-top: 4px; display: flex; justify-content: center; gap: 6px 18px; flex-wrap: wrap; }
 
-/* The circle on a student screen: seats bigger for a few players, as on the projector. The prompt
-   type and the countdown on the smaller bomb are scaled up to stay readable. */
-.arena .circle:not(:has(> .seat:nth-child(11))) { --seat-size: max(12px, 3.1cqw); }
-.arena .circle:has(> .seat:nth-child(11)):not(:has(> .seat:nth-child(21))) { --seat-size: max(11px, 2.7cqw); }
-.arena .circle-centre { --bomb-size: 40cqw; }
-.arena .circle:has(.seat.small) .circle-centre { --bomb-size: 27cqw; }
+/* The circle on a student screen: seats bigger for a few players, as on the projector. At 1366x768
+   (a 1068x544 oval) names are 18.5px up to 10 seats, 14.7px on one full ring (11 to 20) and 13px
+   on two rings (x0.8 there, as on the projector). The prompt type and the countdown on the smaller
+   bomb are scaled up to stay readable. */
+.arena .circle.compact:not(:has(> .seat:nth-child(11))) { --seat-size: max(12px, 3.4cqh); }
+.arena .circle.compact:has(> .seat:nth-child(11)):not(:has(> .seat:nth-child(21))) { --seat-size: max(11px, 2.7cqh); }
+.arena .circle-centre { --bomb-size: 44cqh; }
+.arena .circle:has(.seat.small) .circle-centre { --bomb-size: 37cqh; }
 /* A last word is one row of tiles, never split mid-word (as on the projector): the seat grows to fit. */
 .circle.compact .seat { max-width: none; }
 .circle.compact .seat .last-word { max-width: none; }
@@ -186,7 +192,7 @@ main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
    projector. The student's own box, the prompt and the current player's typing matter most here. */
 .circle.compact .seat.small .last-word { display: none; }
 /* There the seats are narrow columns: the emoji above the name and hearts. Beside the name they made
-   seats as wide as the gap between the two rings on the small square circle. */
+   seats as wide as the gap between the two rings. */
 .circle.compact .seat.small > .avatar, .circle.compact .seat.small > .name,
 .circle.compact .seat.small > .lives, .circle.compact .seat.small > .away { grid-column: 2 / 4; justify-self: center; }
 .circle.compact .seat.small > .avatar { grid-row: 1; width: 1.7em; height: 1.7em; }
@@ -198,7 +204,7 @@ main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
 /* And a little narrower still: a slimmer name label (it still fits "Mohammed" or "Christoffer" whole),
    and the current seat no bigger than the rest (the turn ring, the arrow and "Ola's turn" below show
    whose turn it is), so the typing under it clears the next seat. */
-.arena .circle.compact:has(.seat.small) { --seat-size: max(10px, 2.35cqw); }
+.arena .circle.compact:has(.seat.small) { --seat-size: max(10px, 3cqh); }
 .circle.compact .seat.small .name { max-width: 6.5em; padding-left: 0.2em; padding-right: 0.2em; }
 .circle.compact .seat.small.on { font-size: calc(var(--seat-size) * 0.8); }
 .circle.compact .p-ask { font-size: 8cqw; }
@@ -230,17 +236,15 @@ main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
 .gap { display: inline-block; width: 0.4em; }
 
 /* ---- The circle (render-circle.js): everyone's seat round the bomb, on every screen ---- */
-/* The box is square (aspect-ratio: 1), so a seat's angle round the centre is the angle the arrow
-   points at: circle-geometry.js puts seats on a 42% x 43% ellipse of this box (the inner ring
-   30% x 29%), about 1 degree from round at most. Its width comes from the page (--circle-size);
-   every size inside is in cqw, a share of the box, so the same markup fits the projector and the
-   compact student circle. */
+/* On its own the box is square (aspect-ratio: 1), so a seat's angle round the centre is the angle
+   the arrow points at: circle-geometry.js puts seats on a 42% x 43% ellipse of this box (the inner
+   ring 30% x 29%), about 1 degree from round at most. The projector and the student screen make it
+   an oval as wide as their space (below and above); their pages measure its shape, and
+   screenAngle turns the arrow to where the seat really is. */
 .circle {
   position: relative; width: var(--circle-size, 100%); max-width: 100%; aspect-ratio: 1; margin: 0 auto;
   container-type: inline-size; --seat-size: 2.2cqw;
 }
-/* On a laptop the box is small: a floor keeps names readable. */
-.circle.compact { --seat-size: max(10px, 2.5cqw); }
 .circle-centre { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); --bomb-size: 36cqw; }
 /* Two rings: a smaller bomb, so its flame stays clear of the inner ring. */
 .circle:has(.seat.small) .circle-centre { --bomb-size: 28cqw; }
@@ -331,7 +335,7 @@ main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
    as the screen (the seats stay inside it: the outer ring leaves room for a side seat's long word).
    The ring box is a size container, and so is the oval, so every size inside is in cqh of the oval:
    the height sets how big things can be read. The page measures the oval's shape (ui.ringAspect)
-   so the arrow still points at the seat. The student screen keeps the square circle. */
+   so the arrow still points at the seat. The student screen does the same (.arena .circle). */
 .p-ring { flex: 1; min-height: 0; width: 100%; container-type: size; display: flex; align-items: center; justify-content: center; }
 .p-ring .circle {
   aspect-ratio: auto; width: min(100cqw, 250cqh); height: 100cqh; max-width: none; container-type: size; --seat-size: 3.2cqh;

@@ -154,7 +154,10 @@ function paintWord() {
   mirror.scrollLeft = caret ? Math.max(0, caret.offsetLeft - mirror.clientWidth + 40) : 0;
 }
 
-function draw() {
+/** The circle's shape on screen (width / height), measured after each draw, so the arrow points at the seat. */
+let ringAspect = 1;
+
+function draw(again = true) {
   if (!view || status === "kicked" || status === "ended") return;
   const root = $("game");
   const old = /** @type {HTMLInputElement | null} */ (root.querySelector("#word"));
@@ -166,7 +169,7 @@ function draw() {
   const pickFocus = active instanceof HTMLElement && root.contains(active) ? active.dataset.avatar : undefined;
   const countdownMs = countdown.remainingMs();
   const bomb = motion.bombState(countdownMs, view.phase === "playing" && !view.paused);
-  root.innerHTML = renderPlayer(view, { countdownMs, lastResult, status, bomb });
+  root.innerHTML = renderPlayer(view, { countdownMs, lastResult, status, bomb, ringAspect });
   const box = /** @type {HTMLInputElement | null} */ (root.querySelector("#word"));
   if (box) {
     box.value = text;
@@ -177,7 +180,17 @@ function draw() {
   } else if (pickFocus !== undefined) {
     /** @type {HTMLElement | null} */ (root.querySelector(`button[data-avatar="${Number(pickFocus)}"]`))?.focus();
   }
+  // A new screen or window size can change the oval's shape: then draw once more with the real one.
+  const ring = root.querySelector(".arena .circle")?.getBoundingClientRect();
+  if (ring && ring.width > 0 && ring.height > 0 && Math.abs(ring.width / ring.height - ringAspect) > 0.005) {
+    ringAspect = ring.width / ring.height;
+    if (again) draw(false);
+  }
 }
+
+// Redraw when the game area changes size (the window is resized, or a screen with more or fewer
+// lines comes): the oval's shape may change with no new view, and the arrow must turn with it.
+new ResizeObserver(() => draw()).observe($("game"));
 
 // The emoji picker is replaced on every view too. If a redraw lands between the press and the
 // release of a click, the button under the pointer is the new one.

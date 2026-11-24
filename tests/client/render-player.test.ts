@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { renderPlayer, reasonText, renderPicker, wordTiles } from "../../public/app/render-player.js";
 import { AVATARS, avatarImg, trophyImg } from "../../public/app/avatars.js";
 import { tiles, matchedTiles } from "../../public/app/tiles.js";
+import { screenAngle } from "../../public/app/circle-geometry.js";
 
 const CSS = readFileSync(new URL("../../public/app/style.css", import.meta.url), "utf8");
 
@@ -172,6 +173,16 @@ test("the bomb on the player screen is the circle's bomb, drawn from ui.bomb wit
   assert.ok(!every.includes("bomb-arrow"));
   const mod: Record<string, unknown> = await import("../../public/app/render-player.js");
   assert.equal("BOMB_SVG" in mod, false, "the old bomb drawing is gone");
+});
+
+test("the student's arrow follows the circle's real shape from ui.ringAspect", () => {
+  const three = [...players, { id: "p3", nickname: "Ola", lives: 3, alive: true, connected: true, spectator: false }];
+  const v = view({ players: three, mode: { seats: ["p1", "p2", "p3"], current: "p2", lastWord: null } }, { isOn: false });
+  const b = bomb({ arrow: { from: 0, to: 120, elapsedMs: 700 } });
+  const html = renderPlayer(v, ui({ bomb: b, ringAspect: 1.96 }));
+  assert.ok(html.includes(`--to:${Math.round(screenAngle(120, 1.96) * 10) / 10}deg"`), html.match(/--to:[^"]*/)?.[0]);
+  assert.ok(renderPlayer(v, ui({ bomb: b })).includes('--to:120deg"'), "no aspect: as given");
+  assert.ok(renderPlayer(v, ui({ bomb: b, ringAspect: Number.NaN })).includes('--to:120deg"'), "junk aspect: as given");
 });
 
 // ---- the emoji picker ----
@@ -394,10 +405,21 @@ test("results on a student screen: the projector's podium, longest word and ghos
   assert.ok(none.includes("No winner this time") && !none.includes("Best ghosts"));
 });
 
-test("style.css: the student circle is square and fills the space; the text box text is see-through over its tiles", () => {
+test("style.css: the student circle is an oval filling the space, sized by its height; the text box text is see-through over its tiles", () => {
   const rule = (sel: string) => CSS.match(new RegExp(`\\n${sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\{([^}]*)\\}`))?.[1] ?? "";
   assert.match(rule(".arena"), /container-type:\s*size/);
-  assert.match(rule(".arena .circle"), /--circle-size:\s*min\(100cqw, 100cqh\)/);
+  // As wide as the space allows (up to about 2:1) and as tall, but never taller than wide: the page
+  // measures its shape (ui.ringAspect) so the arrow still points at the seat, as on the projector.
+  const circle = rule(".arena .circle");
+  assert.match(circle, /aspect-ratio:\s*auto/);
+  assert.match(circle, /width:\s*min\(100cqw, 210cqh\)/);
+  assert.match(circle, /height:\s*min\(100cqh, 100cqw\)/);
+  assert.match(circle, /container-type:\s*size/);
+  assert.doesNotMatch(circle, /--circle-size/);
+  // Inside it, sizes are shares of its height (cqh), so wider never means bigger than it can hold.
+  const sizes = [...CSS.matchAll(/\n(\.arena [^{]*|\.circle\.compact[^{]*)\{([^}]*)\}/g)].filter((m) => /--(seat|bomb)-size/.test(m[2]));
+  assert.ok(sizes.length >= 3, "student seat and bomb sizes");
+  for (const [, sel, body] of sizes) assert.doesNotMatch(body, /--(seat|bomb)-size:[^;]*cqw/, sel);
   assert.match(rule("#word"), /color:\s*transparent/);
   assert.match(rule("#word"), /caret-color:\s*transparent/);
   assert.match(rule(".word-tiles"), /pointer-events:\s*none/);

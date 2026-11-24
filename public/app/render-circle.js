@@ -14,7 +14,7 @@ import { tiles, matchedTiles } from "./tiles.js";
  *   bomb: import("./bomb.js").BombState,
  *   centre: string,                                // trusted HTML on the bomb (the caller escapes its text)
  *   popElapsed?: (pid: string) => number | null,   // ms since this player joined, while their pop runs
- *   aspect?: number,                               // the box's width / height when it is an oval (projector)
+ *   aspect?: number,                               // the box's width / height, measured by the page (the oval on both screens)
  * }} CircleOptions
  */
 
@@ -70,7 +70,7 @@ export function renderCircle(view, opts) {
 /**
  * The motion tracker's arrow angles are angles round the ring. On an oval box they are turned to
  * where the seats really are on screen: the target by the current seat's ring, the start by the
- * outer ring. Without an aspect (the square student circle) the bomb is passed on as it is.
+ * outer ring. Without an aspect (as in tests) the bomb is passed on as it is.
  * @param {CircleOptions} opts @param {any[]} seated @param {unknown} current
  * @returns {import("./bomb.js").BombState}
  */
