@@ -4,6 +4,7 @@ import { Room } from "../../src/engine/room.ts";
 import type { PlayerId } from "../../src/engine/room.ts";
 import type { GameMode, ModeContext } from "../../src/engine/modes/mode.ts";
 import type { KnockoutActivity } from "../../src/engine/knockout/activity.ts";
+import { classicMode } from "../../src/engine/modes/classic.ts";
 import { createPromptBank } from "../../src/engine/prompts.ts";
 import { createWordChecker } from "../../src/engine/words.ts";
 import type { Prompt } from "../../src/engine/types.ts";
@@ -330,18 +331,20 @@ test("playAgain returns to lobby with same players", () => {
 });
 
 test("typing ignored unless liveTyping", () => {
-  const { room } = setup();
+  // Real Classic: typing is only ever stored for the mode's current player.
+  const { room } = setup({ modes: [classicMode] });
   room.updateSettings({ liveTyping: false });
-  const [a] = joinAll(room, "Ann", "Ben");
+  joinAll(room, "Ann", "Ben");
+  const current = () => (room.modeView() as { current: PlayerId }).current;
   room.start();
-  room.typing(a, "sto");
-  assert.equal(room.typingOf(a), undefined);
+  room.typing(current(), "sto");
+  assert.equal(room.typingOf(current()), undefined);
   room.endGame();
   room.playAgain();
   room.updateSettings({ liveTyping: true });
   room.start();
-  room.typing(a, "sto");
-  assert.equal(room.typingOf(a), "sto");
+  room.typing(current(), "sto");
+  assert.equal(room.typingOf(current()), "sto");
 });
 
 test("kicking a player mid-game tells the mode", () => {

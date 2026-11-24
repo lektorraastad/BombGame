@@ -577,6 +577,21 @@ test("rate limit drops floods", async () => {
   assert.equal(p.msgs.filter((m) => m.t === "result").length, 1, "typing beyond 10 is dropped, other messages still pass");
 });
 
+test("typing in Everyone at once sends nothing to anyone", async () => {
+  const { hub } = makeHub();
+  const { host, code, ola, kari } = await playingRoom(hub);
+  const nora = await joinPlayer(hub, code, "Nora"); // joins mid-game as a watcher; still a connection
+  await tick();
+  const all = [host, ola, kari, nora];
+  for (const c of all) c.clear();
+  for (let i = 1; i <= 5; i++) {
+    ola.send({ t: "typing", text: "st".repeat(i) });
+    kari.send({ t: "typing", text: "a".repeat(i) });
+  }
+  await tick();
+  for (const c of all) assert.equal(c.msgs.length, 0, "no view is broadcast for Everyone-at-once typing");
+});
+
 test("idle room is cleaned up and connections closed with 4004", async () => {
   const { hub, clock } = makeHub();
   const { host, code } = await hostRoom(hub);

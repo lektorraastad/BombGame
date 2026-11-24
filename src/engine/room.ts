@@ -45,10 +45,10 @@ export type StartResult =
 export type { SubmitResult };
 
 type Bomb = { handle: unknown; endsAt: number; visible: boolean };
-/** One game's record. A context only acts while its record is the room's current, running game. */
 /** A player's latest accepted real-turn word and the prompt it answered. */
 export type LastWord = { word: string; prompt: { text: string; type: PromptType } };
 
+/** One game's record. A context only acts while its record is the room's current, running game. */
 type Game = {
   mode: GameMode;
   activity: KnockoutActivity;
@@ -388,10 +388,14 @@ export class Room {
     return result;
   }
 
-  /** Live text from a player's box; stored only when liveTyping is on. */
+  /**
+   * Live text from a player's box; stored only when liveTyping is on and only for the
+   * player a view can show (the mode's `current`). Everyone at once has no `current`,
+   * so its keystrokes store nothing and broadcast nothing.
+   */
   typing(pid: PlayerId, text: string): void {
     if (typeof text !== "string" || !this.game || this.settings.liveTyping !== true) return;
-    if (!this.isOn(pid)) return;
+    if (!this.isOn(pid) || this.modeView()?.current !== pid) return;
     this.game.typing.set(pid, text.slice(0, MAX_TYPING));
     this.changed();
   }
