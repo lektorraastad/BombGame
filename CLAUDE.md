@@ -23,6 +23,8 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
   - `npx tsc -p tsconfig.json` runs the type check.
   - `npm run test:e2e` runs the Playwright end-to-end tests.
   - `npm run load-test` runs 32 bots.
+  - `npm run screenshots` refreshes `docs/screenshots/` (every screen in every theme).
+  - Playwright isn't a project dependency. The e2e tests load it from `/opt/npm-tools/node_modules/playwright`, and skip with a message if it isn't there, so check the output says they ran. The screenshot script also tries `/opt/node-tools`.
 
 ## Hosting
 - **Netlify:** GitHub deploys to Netlify. The game server is **Netlify Server** (Early Access) on the free plan, with 1 instance. The Netlify project is called **wordfire** (https://wordfire.netlify.app), with no visitor login, so students can open it.
@@ -36,7 +38,7 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
 ## Rules that must not be broken
 - **No deploys on lesson days.** A deploy restarts the server and ends every game, so use a branch and a Netlify deploy preview for anything Roy wants to try first.
 - **Privacy:** no accounts, no analytics, no cookies, and no logging of nicknames or words. Rooms live in memory only.
-- **The projector and the ⚙ overlay never show** scores, ghost points, tokens or the passcode. The overlay may be on a mirrored screen the class can see.
+- **The projector and the ⚙ overlay never show** scores, ghost points, tokens or the passcode. Ghosts on the results screen are ranked without points. The overlay may be on a mirrored screen the class can see.
 - **Student input is untrusted.** Validate every message, escape all rendered text, and never let one room or one client crash the server.
 - **Design work never changes game logic.** Use themes (named colour lists chosen in settings) and the single swappable bomb file, as described in `docs/design-principles.md`.
 - **Word lists:**
@@ -45,9 +47,7 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
 - **How we've built things so far:** test-first (watch each test fail before writing the code), a written design approved by Roy before any building, then a plan, then implementation with review. Keep that up.
 
 ## What's next
-1. **The redesign.** Roy has chosen it in `docs/design-principles.md`: the "letter tiles and a lit fuse" identity, the Workshop theme, a theme picker in settings, a bomb with an animated flame and a turn arrow in the middle, emoji avatars (a fixed set of 60), the circle shown on student screens too, live typing with rude-word masking, and two rings for large classes. Next step: write the redesign design doc for Roy to approve, then a plan.
-
-   Roy will download the Lexend and Rubik font files when asked.
+1. **The redesign is built** (design: `docs/superpowers/specs/2026-11-23-redesign-design.md`). It's on the branch `claude/compassionate-darwin-r23t2y` and in draft pull request https://github.com/lektorraastad/BombGame/pull/1. It is waiting for Roy to try the deploy preview and approve going live. Nothing goes live before he says so, and never on a lesson day. Screenshots of every screen are in `docs/screenshots/`.
 2. **Later:**
    - the "Slate and violet" theme;
    - the Teams and Class vs the bomb modes;

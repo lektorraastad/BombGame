@@ -1,11 +1,15 @@
 # Extending the game engine
 
-This guide is for anyone changing the game later: a teacher who is new to code, or an AI assistant helping them. It covers the four usual changes:
+This guide is for anyone changing the game later: a teacher who is new to code, or an AI assistant helping them. It covers the six usual changes:
 
 1. [Add a game mode](#1-add-a-game-mode)
 2. [Add a knockout activity](#2-add-a-knockout-activity)
 3. [Add a setting](#3-add-a-setting)
 4. [Add a prompt type](#4-add-a-prompt-type)
+5. [Add a theme](#5-add-a-theme)
+6. [Swap the bomb](#6-swap-the-bomb)
+
+Sections 5 and 6 change only how the game looks. They follow `docs/design-principles.md`, and never touch the game rules.
 
 All the game rules live in `src/engine/`. That code has no network or screen code in it, so it can be tested on its own.
 
@@ -43,8 +47,8 @@ These come from the game's design. The tests in `tests/engine/views.test.ts` che
 - **Privacy.** Nothing is saved to disk and nicknames are never logged. Screens never get a player's `token` (their secret rejoin key).
 - **The projector** never shows ghost words, silent answers, ghost points or scores.
 - **Student screens** never show other players' scores, ghost points or words. Each student sees only their own score, and a ghost sees only their own ghost points and streak (in `me.activity`).
-- Otherwise, ghost points appear only in the results' ghost leaderboard and on the teacher's control screen.
-- **Live typing** is off by default. When it is on, the projector shows only the text of the one player who is on (Classic's current player), and never during the results. Typed text is cleared every time a new prompt is dealt, so a half-typed (or silent) word never shows for the next turn.
+- Otherwise, ghost points appear only on the teacher's control screen. The results rank the best ghosts without points.
+- **Live typing** is on by default. When it is on, the projector shows only the text of the one player who is on (Classic's current player), and never during the results. Typed text is cleared every time a new prompt is dealt, so a half-typed (or silent) word never shows for the next turn.
 - **Views only read.** Code in `src/engine/views.ts` must never change the room. It uses read-only methods on `Room` such as `prompt()`, `modeView()`, `activityView(pid)`, `isOn(pid)`, `bombRemaining()` and `typingOf(pid)`. It must not use `room.context()`, which can change the game. Tests may use `room.context()`.
 - **Paused timer.** While paused, screens use `bombRemainingMs` (which stops counting) rather than the mode's `bombEndsAt` (a clock time, which is wrong after a pause). Hidden fuses never send either.
 
@@ -138,3 +142,31 @@ A prompt type says where the letters must appear in a word. Today there are thre
 6. Run the tests and the type check.
 
 The type check helps here: if you miss a place that has to handle every prompt type, `npx tsc -p tsconfig.json` will usually point to it.
+
+## 5. Add a theme
+
+A theme is one named list of colours. Every screen uses only those names, so a new theme needs no screen code.
+
+1. **The colours.** In `public/app/themes.css`, copy a whole theme block, such as `:root[data-theme="enamel"] { … }`, and give it a new id, for example `data-theme="harbour"`. Change the colour values. Keep all 15 names: the comment at the top of the file says what each one is for. `themes.css` is the only file allowed to contain colour values.
+2. **The id.** Add the id to `THEME_IDS` in **both** `src/engine/settings.ts` and `public/app/theme.js`, in the same order. A screen that gets an id it doesn't know shows Workshop.
+3. **The name in the settings.** In `src/engine/settings.ts`, add `{ value: "harbour", label: "Harbour" }` to the options of the `theme` setting in `CORE_SETTINGS`. That is the name the teacher sees under **Look → Theme**.
+4. **Run the tests.** `tests/client/themes.test.ts` checks that every theme has all 15 colours, that the lists on both sides match, and that the theme is readable: text against its background at 4.5:1 (3:1 for large text), and the bomb's rim at 3:1 against the stage. If a pair is too close, the test names it. Change that colour and run the tests again.
+5. **Look at it.** Run `npm run screenshots` and open the new theme's pictures in `docs/screenshots/`. To see it on the real projector, pick it under **Look → Theme**. The theme can be changed at any time, even during a game.
+
+## 6. Swap the bomb
+
+The bomb (its drawing, the flame, the fuse, the turn arrow and the explosion) is all in one file: `public/app/bomb.js`. A new bomb design means replacing that file. Nothing else has to change, as long as the new file keeps:
+
+- **`renderBomb(state, inner)`**, which returns the bomb as an HTML string. `state` says whether it is lit, where the arrow points, the countdown, how far the fuse has burnt and whether it is exploding (the `BombState` comment at the top of the file). `inner` is the prompt, already escaped, to put on the bomb's body.
+- **`BOMB_CSS`**, every style, `@keyframes` and reduced-motion rule for the bomb, as one string. The pages put it in the page once.
+- **`ARROW_SWING_MS`** and **`EXPLOSION_MS`**, how long the arrow's swing and the explosion take. `public/app/motion.js` uses them to know how long each one runs.
+- **`data-bomb`** on the bomb's outer element. The pages add the class `urgent` to it in the last 3 seconds.
+- **`data-countdown`** on the element with the countdown number. The pages change its text as the time counts down.
+
+Keep to the same rules as the rest of the screens:
+
+- Colours only by their theme names, such as `var(--bomb)` or `var(--spark)`, never a colour value. A test checks this.
+- The bomb is the one place for bold animation. Under `prefers-reduced-motion: reduce`, the flame stands still, the arrow jumps, and the explosion is a short still flash.
+- Every animation must work when the page redraws in the middle of it. The current file starts each one part-way through, with a negative `animation-delay`.
+
+Then run `npm test` (`tests/client/bomb.test.ts` checks the file) and `npm run test:e2e`. One end-to-end test checks that the countdown number sits inside the dark body of the bomb, using the current drawing's sizes (the body's radius of 34 in a 120 box). Update it if the new bomb is a different shape. Finally, run `npm run screenshots` and look at the bomb in every theme.
