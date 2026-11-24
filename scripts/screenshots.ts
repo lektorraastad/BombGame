@@ -7,13 +7,15 @@
 // local server), so the projector shows the real address. Nothing is sent to Netlify.
 // The names are made up; no real student data.
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { THEME_IDS } from "../public/app/theme.js";
 import { startDevServer } from "./dev-server.ts";
+import { findPlaywright, notFound } from "./playwright-path.ts";
 
 /** Playwright isn't a project dependency: the same global install the end-to-end tests use. */
-const PLAYWRIGHT = ["/opt/npm-tools/node_modules/playwright/index.mjs", "/opt/node-tools/node_modules/playwright/index.mjs"].find(existsSync);
+const PLAYWRIGHT = findPlaywright();
 if (!PLAYWRIGHT) {
-  console.error("Playwright not found at /opt/npm-tools or /opt/node-tools: no screenshots taken.");
+  console.error(`${notFound()} No screenshots taken.`);
   process.exit(1);
 }
 
@@ -21,8 +23,8 @@ delete process.env.HOST_PASSCODE; // the dev server then uses "test"
 const PASSCODE = "test";
 const SITE = "https://wordfire.netlify.app";
 const OUT = new URL("../docs/screenshots/", import.meta.url);
-const THEMES = ["workshop", "enamel", "night-fuse"] as const;
-type Theme = (typeof THEMES)[number];
+/** Every theme the game has (a new theme in THEME_IDS gets its pictures too). */
+const THEMES: readonly string[] = THEME_IDS;
 const PROJECTOR = { width: 1920, height: 1080 };
 const LAPTOP = { width: 1366, height: 768 };
 const PHONE = { width: 390, height: 844 };
@@ -216,7 +218,7 @@ async function everyTheme(ctl: Control, shots: [page: any, name: string][]): Pro
   await ctl.settings({ theme: "workshop" });
 }
 
-async function inTheme(ctl: Control, theme: Theme, shots: [page: any, name: string][]): Promise<void> {
+async function inTheme(ctl: Control, theme: string, shots: [page: any, name: string][]): Promise<void> {
   await ctl.settings({ theme });
   for (const [page, name] of shots) {
     await page.waitForFunction((t: string) => document.documentElement.dataset.theme === t, theme, { timeout: WAIT });
@@ -465,22 +467,24 @@ async function classOf30(): Promise<void> {
 async function main(): Promise<void> {
   mkdirSync(OUT, { recursive: true });
   const pw = await import(PLAYWRIGHT!);
-  browser = await pw.chromium.launch();
-  server = await startDevServer(0);
   try {
+    // Inside the try, so a failed start still closes whatever did start.
+    browser = await pw.chromium.launch();
+    server = await startDevServer(0);
     await smallRoom();
     await classOf15();
     await classOf30();
   } finally {
     for (const ws of sockets) ws.close();
     await Promise.all(contexts.map((c) => c.close().catch(() => {})));
-    await browser.close();
-    await server.close();
+    await browser?.close();
+    await server?.close();
   }
   // A screenshot this script wrote on an earlier run under a name it no longer uses is removed.
   // Other files in the folder are left alone.
   const keep = new Set(written);
-  for (const f of readdirSync(OUT)) if (/^(workshop|enamel|night-fuse)-\d\d-[a-z0-9-]+\.png$/.test(f) && !keep.has(f)) rmSync(new URL(f, OUT));
+  const ownName = new RegExp(`^(${THEMES.join("|")})-\\d\\d-[a-z0-9-]+\\.png$`);
+  for (const f of readdirSync(OUT)) if (ownName.test(f) && !keep.has(f)) rmSync(new URL(f, OUT));
   console.log(`${written.length} screenshots in docs/screenshots/${MAGICK ? "" : " (full colour: ImageMagick isn't installed)"}`);
 }
 

@@ -1,13 +1,15 @@
 // End-to-end tests: the real dev server, driven through Chromium with Playwright.
-// Run with `npm run test:e2e`. Skips with a message when Playwright isn't installed.
+// Run with `npm run test:e2e`. Fails with a message when Playwright isn't found (scripts/playwright-path.ts).
 import { test, before, after, afterEach, describe } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { startDevServer } from "../../scripts/dev-server.ts";
+import { findPlaywright, notFound } from "../../scripts/playwright-path.ts";
 
-const PLAYWRIGHT = "/opt/npm-tools/node_modules/playwright/index.mjs";
-const HAVE_PLAYWRIGHT = existsSync(PLAYWRIGHT);
-if (!HAVE_PLAYWRIGHT) console.log(`Skipping the end-to-end tests: Playwright not found at ${PLAYWRIGHT}`);
+const PLAYWRIGHT = findPlaywright();
+const HAVE_PLAYWRIGHT = PLAYWRIGHT !== null;
+// Without Playwright nothing below can run: one failing test says why, so the run never passes empty.
+if (!HAVE_PLAYWRIGHT) test("Playwright is installed", () => assert.fail(notFound()));
 
 delete process.env.HOST_PASSCODE; // the dev server then uses "test"
 const PASSCODE = "test";
@@ -296,7 +298,7 @@ function layoutProblems(l: Layout): string[] {
 
 describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright is not installed" }, () => {
   before(async () => {
-    pw = await import(PLAYWRIGHT);
+    pw = await import(PLAYWRIGHT!);
     browser = await pw.chromium.launch();
     server = await startDevServer(0);
   });

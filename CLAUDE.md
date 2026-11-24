@@ -7,8 +7,9 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
 ## Where things are
 - **Design and plans:**
   - `docs/superpowers/specs/2026-11-21-bomb-game-design.md` is the original design, approved by Roy.
+  - `docs/superpowers/specs/2026-11-23-redesign-design.md` is the redesign, approved by Roy, and `docs/superpowers/plans/2026-11-23-redesign.md` is its plan.
   - `docs/design-principles.md` holds the **visual design principles and the chosen "Workshop" theme**. Read it before any visual work.
-  - `docs/superpowers/plans/` has the four implementation plans already built: connection test, engine, word lists and playable game.
+  - `docs/superpowers/plans/` has the five implementation plans already built: connection test, engine, word lists, playable game and the redesign.
   - `docs/EXTENDING.md` explains how to add game modes, knocked-out activities, settings and prompt types.
   - `README.md` is Roy's setup guide and how to run a lesson.
 - **Code:**
@@ -24,7 +25,7 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
   - `npm run test:e2e` runs the Playwright end-to-end tests.
   - `npm run load-test` runs 32 bots.
   - `npm run screenshots` refreshes `docs/screenshots/` (every screen in every theme).
-  - Playwright isn't a project dependency. The e2e tests load it from `/opt/npm-tools/node_modules/playwright`, and skip with a message if it isn't there, so check the output says they ran. The screenshot script also tries `/opt/node-tools`.
+  - Playwright isn't a project dependency: `scripts/playwright-path.ts` finds it in `/opt/npm-tools` or `/opt/node-tools` (or `PLAYWRIGHT_PATH`), and the e2e tests fail if it's missing.
 
 ## Hosting
 - **Netlify:** GitHub deploys to Netlify. The game server is **Netlify Server** (Early Access) on the free plan, with 1 instance. The Netlify project is called **wordfire** (https://wordfire.netlify.app), with no visitor login, so students can open it.
