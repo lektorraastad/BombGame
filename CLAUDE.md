@@ -48,8 +48,9 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
 - **How we've built things so far:** test-first (watch each test fail before writing the code), a written design approved by Roy before any building, then a plan, then implementation with review. Keep that up.
 
 ## What's next
-1. **The redesign is built** (design: `docs/superpowers/specs/2026-11-23-redesign-design.md`). It's on the branch `claude/compassionate-darwin-r23t2y` and in draft pull request https://github.com/lektorraastad/BombGame/pull/1. It is waiting for Roy to try the deploy preview and approve going live. Nothing goes live before he says so, and never on a lesson day. Screenshots of every screen are in `docs/screenshots/`.
-2. **Later:**
+1. **The redesign is live** (merged on 25 November 2026 at Roy's request; design: `docs/superpowers/specs/2026-11-23-redesign-design.md`). Screenshots of every screen are in `docs/screenshots/`. Things for Roy to watch in the first lesson: the Night fuse theme's red letters on the projector, and typing with a Norwegian keyboard (letters like é) while live typing is on.
+2. **Small follow-ups:** in `docs/EXTENDING.md` privacy rules, say "player words" (the dictionary examples are also shown), and note that the control screen receives typing but doesn't draw it.
+3. **Later:**
    - the "Slate and violet" theme;
    - the Teams and Class vs the bomb modes;
    - adjustments after the first classroom trial.
