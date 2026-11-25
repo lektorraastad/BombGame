@@ -12,6 +12,7 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
   - `docs/superpowers/plans/` has the five implementation plans already built: connection test, engine, word lists, playable game and the redesign.
   - `docs/EXTENDING.md` explains how to add game modes, knocked-out activities, settings, prompt types and themes, and how to swap the bomb.
   - `README.md` is Roy's setup guide and how to run a lesson.
+  - `docs/improvements.md` lists Roy's requested improvements, with leads into the code.
 - **Code:**
   - `src/engine/` is the pure game engine (rooms, Classic, Everyone at once, ghost mode, views). It has no network code.
   - `src/words/` and `scripts/build-words.ts` build `data/generated/` from `data/raw/`. That runs on every Netlify build.
@@ -49,8 +50,14 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
 
 ## What's next
 1. **The redesign is live** (merged on 25 November 2026 at Roy's request; design: `docs/superpowers/specs/2026-11-23-redesign-design.md`). Screenshots of every screen are in `docs/screenshots/`. Things for Roy to watch in the first lesson: the Night fuse theme's red letters on the projector, and typing with a Norwegian keyboard (letters like é) while live typing is on.
-2. **Small follow-ups:** in `docs/EXTENDING.md` privacy rules, say "player words" (the dictionary examples are also shown), and note that the control screen receives typing but doesn't draw it.
-3. **Later:**
+2. **Roy's improvements after testing** (details and code leads in `docs/improvements.md`):
+   - a smaller bomb, so names and typing can be bigger;
+   - more even difficulty for the letters (some are very hard);
+   - a nicer, less annoying ticking sound.
+
+   Each one needs a short design that Roy approves before any building.
+3. **Small follow-ups:** in `docs/EXTENDING.md` privacy rules, say "player words" (the dictionary examples are also shown), and note that the control screen receives typing but doesn't draw it.
+4. **Later:**
    - the "Slate and violet" theme;
    - the Teams and Class vs the bomb modes;
    - adjustments after the first classroom trial.
