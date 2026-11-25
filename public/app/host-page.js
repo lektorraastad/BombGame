@@ -7,6 +7,9 @@ import { renderProjector } from "./render-projector.js";
 import { reasonText } from "./render-player.js";
 import { CREDITS } from "./credits.js";
 import { mountPanel } from "./panel-page.js";
+import { themeOf } from "./theme.js";
+import { BOMB_CSS } from "./bomb.js";
+import { createMotion } from "./motion.js";
 
 const HOST_TOKEN = "bomb.hostToken";
 const HOST_CODE = "bomb.hostCode";
@@ -44,6 +47,7 @@ function createErrorText(reason) {
 let code = "";
 let hosting = false;
 const countdown = createCountdown(() => Date.now());
+const motion = createMotion(() => Date.now());
 const sound = createSound(() => new (window.AudioContext ?? /** @type {any} */ (window).webkitAudioContext)());
 const sounds = createSoundDriver(sound, () => Date.now());
 
@@ -124,7 +128,9 @@ function onMessage(msg) {
     $("toolbar").hidden = false;
   } else if (msg.t === "view") {
     view = msg.view;
+    document.documentElement.dataset.theme = themeOf(view);
     countdown.update(view);
+    motion.view(view);
     sounds.view(view);
     draw();
   } else if (msg.t === "error") {
@@ -146,10 +152,25 @@ function onStatus(s) {
   $("netstatus").textContent = s === "open" ? "" : "Reconnecting…";
 }
 
-function draw() {
+/** The circle's shape on screen (width / height), measured after each draw, so the arrow points at the seat. */
+let ringAspect = 1;
+
+function draw(again = true) {
   if (!view || !hosting) return;
-  $("projector").innerHTML = renderProjector(view, { countdownMs: countdown.remainingMs(), credits: CREDITS, site: location.host });
+  const countdownMs = countdown.remainingMs();
+  const bomb = motion.bombState(countdownMs, view.phase === "playing" && !view.paused);
+  $("projector").innerHTML = renderProjector(view, { countdownMs, credits: CREDITS, site: location.host, bomb, popElapsed: motion.popElapsed, ringAspect });
+  // A new screen or window size can change the oval's shape: then draw once more with the real one.
+  const box = document.querySelector("#projector .circle")?.getBoundingClientRect();
+  if (box && box.width > 0 && box.height > 0 && Math.abs(box.width / box.height - ringAspect) > 0.005) {
+    ringAspect = box.width / box.height;
+    if (again) draw(false);
+  }
 }
+// Redraw whenever the projector's size changes: the window is resized, or the ⚙ overlay opens or
+// closes and the game moves into the space beside it. No new view comes then, but the oval's shape
+// changes, and the arrow must turn with it.
+new ResizeObserver(() => draw()).observe($("projector"));
 
 // ---- the overlay: a control connection of its own, open only while the overlay shows ----
 
@@ -224,3 +245,19 @@ setInterval(() => {
   for (const el of document.querySelectorAll("#projector [data-countdown]")) el.textContent = String(Math.ceil(ms / 1000));
   for (const el of document.querySelectorAll("#projector [data-bomb]")) el.classList.toggle("urgent", ms <= URGENT_MS);
 }, 50);
+
+// The bomb's styles, once. They live in bomb.js so a new bomb design is one file.
+{
+  const style = document.createElement("style");
+  style.textContent = BOMB_CSS;
+  document.head.append(style);
+}
+
+// While the arrow swings, the bomb explodes or a player pops in, redraw about every 100 ms (each
+// draw picks the animation up where it is), and once more when it has finished.
+let animating = false;
+setInterval(() => {
+  const busy = motion.busy();
+  if (busy || animating) draw();
+  animating = busy;
+}, 100);

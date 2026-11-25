@@ -2,6 +2,7 @@
 // Rendering is renderControl's job; this file only handles clicks, changes and focus.
 import { renderControl, kickClick } from "./render-control.js";
 import { reasonText } from "./render-player.js";
+import { themeOf } from "./theme.js";
 
 const KICK_CONFIRM_MS = 3000;
 
@@ -123,6 +124,8 @@ export function mountPanel(root, opts) {
     /** @param {any} v a controlView */
     setView(v) {
       view = v;
+      // The control page follows the theme too. On the projector the overlay's view is the same room.
+      document.documentElement.dataset.theme = themeOf(v);
       if (renaming && !v.players.some((/** @type {any} */ p) => p.id === renaming)) renaming = null;
       draw();
     },

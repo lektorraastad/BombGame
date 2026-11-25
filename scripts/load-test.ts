@@ -1,7 +1,9 @@
 // Load test: 32 bots play Everyone-at-once on the local dev server for 5 rounds, answering with valid
-// words after a random 1–8 s delay. Reports the time from each submit to that bot's next view
-// (median, 95th percentile, maximum) and any errors. `npm run load-test`. Exits 1 on any error, on any
-// refused word, unless exactly BOTS × ROUNDS answers were accepted, or after OVERALL_TIMEOUT_MS.
+// words after a random 1–8 s delay, typing a few letters first. Reports the time from each submit to
+// that bot's next view (median, 95th percentile, maximum), the views each bot received, and any errors.
+// `npm run load-test`. Exits 1 on any error, on any refused word, unless exactly BOTS × ROUNDS answers
+// were accepted, if any bot received more than MAX_VIEWS_PER_BOT views (typing in Everyone at once
+// must not broadcast), or after OVERALL_TIMEOUT_MS.
 import { readFileSync } from "node:fs";
 import { performance } from "node:perf_hooks";
 import { startDevServer } from "./dev-server.ts";
@@ -12,6 +14,12 @@ const ROUND_TIME_S = 10; // longer than the slowest bot (8 s), so nobody should 
 const MIN_DELAY_MS = 1000;
 const MAX_DELAY_MS = 8000;
 const OVERALL_TIMEOUT_MS = 120_000;
+/** Letters each bot types before answering; each one is a `typing` message. */
+const TYPED_LETTERS = 3;
+/** Time between keystrokes, so each `typing` message arrives on its own (MIN_DELAY_MS must exceed TYPED_LETTERS × this). */
+const KEY_GAP_MS = 150;
+/** About one view per accepted answer plus a few per round. If typing broadcast, it would be well over. */
+const MAX_VIEWS_PER_BOT = 2 * BOTS * ROUNDS;
 const PASSCODE = process.env.HOST_PASSCODE || "test";
 
 type Prompt = { text: string; type: "contains" | "starts" | "ends" };
@@ -37,6 +45,8 @@ const errors: string[] = [];
 const latencies: number[] = [];
 let accepted = 0;
 let rejected = 0;
+/** The most views any one bot received. */
+let maxViews = 0;
 /** Why a bot didn't answer a view it might have answered, by reason. */
 const skips = new Map<string, number>();
 const skip = (reason: string): void => {
@@ -84,6 +94,7 @@ class Bot {
   /** The server accepted the word: the next view showing it applied is measured. */
   private awaitingView = false;
   livesLost = 0;
+  views = 0;
   private lastLives: number | null = null;
 
   constructor(readonly name: string) {}
@@ -110,6 +121,7 @@ class Bot {
       }
     }
     if (m.t !== "view") return;
+    this.views++;
 
     const v = m.view;
     // The result comes before the broadcast, so the first view after an accepted result is the one
@@ -134,19 +146,29 @@ class Bot {
     this.answeredKey = key;
 
     const prompt: Prompt = v.prompt;
+    const word = pickWord(prompt, this.used);
+    if (!word) {
+      skip("no known word");
+      return void errors.push(`${this.name}: no known word for ${prompt.type} ${prompt.text}`);
+    }
+    this.used.add(word);
     const delay = MIN_DELAY_MS + Math.random() * (MAX_DELAY_MS - MIN_DELAY_MS);
-    const h = setTimeout(() => {
-      timers.delete(h);
-      if (stopping) return;
-      const word = pickWord(prompt, this.used);
-      if (!word) {
-        skip("no known word");
-        return void errors.push(`${this.name}: no known word for ${prompt.type} ${prompt.text}`);
-      }
-      this.used.add(word);
+    // Type the first letters one keystroke at a time just before answering, like a student would.
+    const letters = Math.min(TYPED_LETTERS, word.length);
+    for (let i = 1; i <= letters; i++) {
+      this.later(delay - (letters - i + 1) * KEY_GAP_MS, () => this.ws.send(JSON.stringify({ t: "typing", text: word.slice(0, i) })));
+    }
+    this.later(delay, () => {
       this.sentAt = performance.now();
       this.ws.send(JSON.stringify({ t: "submit", word }));
-    }, delay);
+    });
+  }
+
+  private later(ms: number, fn: () => void): void {
+    const h = setTimeout(() => {
+      timers.delete(h);
+      if (!stopping) fn();
+    }, ms);
     timers.add(h);
   }
 }
@@ -209,6 +231,7 @@ async function main(): Promise<void> {
     await cmd({ cmd: "end" });
 
     const livesLost = bots.reduce((n, b) => n + b.livesLost, 0);
+    maxViews = Math.max(...bots.map((b) => b.views));
     if (livesLost > 0) errors.push(`${livesLost} lives lost (a bot's answer did not count in time)`);
     for (const b of bots) b.ws.close(1000);
     host.close(1000);
@@ -224,6 +247,7 @@ async function main(): Promise<void> {
   console.log(`Answers accepted: ${accepted} of ${BOTS * ROUNDS} expected, refused: ${rejected}, latencies measured: ${sorted.length}`);
   if (skips.size) console.log(`Skipped answers: ${[...skips].map(([r, n]) => `${r} ${n}`).join(", ")}`);
   console.log(`Submit to next view: median ${ms(percentile(sorted, 0.5))}, 95th percentile ${ms(percentile(sorted, 0.95))}, max ${ms(sorted[sorted.length - 1] ?? NaN)}`);
+  console.log(`Views per bot: at most ${maxViews} (limit ${MAX_VIEWS_PER_BOT})`);
   console.log(`Errors: ${errors.length}`);
   for (const e of errors.slice(0, 20)) console.log(`  ${e}`);
   if (errors.length > 20) console.log(`  … and ${errors.length - 20} more`);
@@ -231,6 +255,7 @@ async function main(): Promise<void> {
   if (accepted !== BOTS * ROUNDS) failures.push(`accepted ${accepted} answers, expected ${BOTS * ROUNDS}`);
   if (rejected > 0) failures.push(`${rejected} words refused`);
   if (sorted.length === 0) failures.push("no latencies measured");
+  if (maxViews > MAX_VIEWS_PER_BOT) failures.push(`a bot received ${maxViews} views, over ${MAX_VIEWS_PER_BOT}: something broadcasts too often`);
   if (failures.length > errors.length) for (const f of failures.slice(errors.length)) console.log(`FAIL: ${f}`);
   process.exitCode = failures.length > 0 ? 1 : 0;
 }

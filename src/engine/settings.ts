@@ -39,6 +39,8 @@ const PROMPT_TYPES = [
 
 const ALPHABET = "abcdefghijklmnopqrstuvwxyz".split("").map((c) => ({ value: c, label: c.toUpperCase() }));
 
+export const THEME_IDS = ["workshop", "enamel", "night-fuse"] as const;
+
 export const CORE_SETTINGS: SettingDecl[] = [
   // Options for "mode" and "knockout" are filled by withChoices (see registry.ts settingsFor).
   { key: "mode", label: "Mode", help: "How the game is played.", kind: "choice", default: "classic", options: [] },
@@ -58,7 +60,11 @@ export const CORE_SETTINGS: SettingDecl[] = [
     default: "abcdefghijklmnoprstuvwy".split(""), options: ALPHABET },
   { key: "knockout", label: "When knocked out", help: "What knocked-out players do.", kind: "choice", default: "ghost", options: [] },
   { key: "exampleAnswers", label: "Example answers", help: "Show example words after each explosion.", kind: "boolean", default: true },
-  { key: "liveTyping", label: "Live typing", help: "Show the current player's typing on the projector.", kind: "boolean", default: false },
+  { key: "liveTyping", label: "Live typing", help: "Show the current player's typing on all screens.", kind: "boolean", default: true },
+  { key: "theme", label: "Theme", help: "Colours for every screen. You can change it at any time.", kind: "choice", default: "workshop",
+    options: [
+      { value: "workshop", label: "Workshop" }, { value: "enamel", label: "Enamel" }, { value: "night-fuse", label: "Night fuse" },
+    ] },
 ];
 
 type Named = { id: string; name: string };

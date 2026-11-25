@@ -1,0 +1,71 @@
+/* Bomb game: the colour themes. The only file with colour values in it.
+   Each theme is one list of the same 15 named colours; style.css uses only these names.
+   The host picks the theme in the settings and the page sets <html data-theme="…">.
+   A new theme is one more block here, plus its id in THEME_IDS (src/engine/settings.ts and
+   public/app/theme.js). tests/client/themes.test.ts checks every theme is readable.
+
+   --stage       the background                 --names     player names and text on the stage
+   --panel       chips, seats and the overlay   --muted     secondary text
+   --tile        letter tiles, the text box     --tile-ink  text on tiles
+   --tile-edge   tile shading and outlines      --spark     highlights: matched letters, the arrow
+   --turn        whose turn it is               --answered  answered, accepted
+   --lives       hearts                         --refusal   errors, refusals, banners
+   --bomb        the bomb                       --bomb-shade  its darker side
+   --bomb-rim    the bomb's outline: at least 3:1 on the stage, so a dark bomb still shows */
+
+/* Workshop: Roy's choice and the default, also used before the first view arrives. */
+:root, :root[data-theme="workshop"] {
+  --stage: #1F2A36;
+  --panel: #17202A;
+  --tile: #E8C48C;
+  --tile-edge: #B48A4E;
+  --tile-ink: #2B1D10;
+  --bomb: #C8243A;
+  --bomb-shade: #8E1626;
+  --bomb-rim: #F2D3A8;
+  --turn: #C8243A;
+  --spark: #FFC93C;
+  --names: #F3EDE2;
+  --muted: #8D9AA8;
+  --lives: #FF6B6B;
+  --answered: #6BD49A;
+  --refusal: #FF8F87;
+}
+
+/* Enamel: white enamel tiles, a dark bomb, a coral turn. */
+:root[data-theme="enamel"] {
+  --stage: #243244;
+  --panel: #1B2634;
+  --tile: #F3F0E8;
+  --tile-edge: #C9C3B4;
+  --tile-ink: #1A2430;
+  --bomb: #1A2430;
+  --bomb-shade: #0F1620;
+  --bomb-rim: #D6DEE8;
+  --turn: #FF5A4E;
+  --spark: #FFD23F;
+  --names: #EEF2F7;
+  --muted: #93A1B3;
+  --lives: #FF7A8C;
+  --answered: #62D6A0;
+  --refusal: #FF9D94;
+}
+
+/* Night fuse: pale tiles, a black bomb, a red spark. */
+:root[data-theme="night-fuse"] {
+  --stage: #16202A;
+  --panel: #0F171E;
+  --tile: #DCE6E1;
+  --tile-edge: #A9BAB2;
+  --tile-ink: #13201B;
+  --bomb: #0E141A;
+  --bomb-shade: #060A0D;
+  --bomb-rim: #C9D6D0;
+  --turn: #FFC23D;
+  --spark: #E8364F;
+  --names: #E8EEF0;
+  --muted: #7F8E99;
+  --lives: #FF7486;
+  --answered: #5ED6A2;
+  --refusal: #FF8C8C;
+}

@@ -7,6 +7,7 @@ import { CORE_SETTINGS, resolveSettings, withChoices } from "./settings.ts";
 import type { GameMode, ModeContext, SubmitResult } from "./modes/mode.ts";
 import type { KnockoutActivity } from "./knockout/activity.ts";
 import { noopActivity } from "./knockout/activity.ts";
+import { AVATAR_COUNT } from "./avatars.ts";
 
 export type PlayerId = string;
 
@@ -14,6 +15,8 @@ export type Player = {
   id: PlayerId;
   token: string;
   nickname: string;
+  /** Index 0 to 59 into the emoji list; unique within the room. */
+  avatar: number;
   connected: boolean;
   role: "player" | "spectator";
   lives: number;
@@ -31,6 +34,10 @@ export type JoinResult =
   | { ok: false; reason: "locked" | "full" | "kicked" | NameFailure };
 export type RenameResult = { ok: true; playerId: PlayerId } | { ok: false; reason: NameFailure | "not-found" };
 
+export type AvatarResult =
+  | { ok: true }
+  | { ok: false; reason: "not-found" | "bad-avatar" | "avatar-taken" | "avatar-locked" };
+
 export type Phase = "lobby" | "playing" | "paused" | "results";
 export type StartResult =
   | { ok: true }
@@ -38,6 +45,9 @@ export type StartResult =
 export type { SubmitResult };
 
 type Bomb = { handle: unknown; endsAt: number; visible: boolean };
+/** A player's latest accepted real-turn word and the prompt it answered. */
+export type LastWord = { word: string; prompt: { text: string; type: PromptType } };
+
 /** One game's record. A context only acts while its record is the room's current, running game. */
 type Game = {
   mode: GameMode;
@@ -50,6 +60,10 @@ type Game = {
   /** Each player's private silent words, so a silent answer can't be repeated for points. */
   silentUsed: Map<PlayerId, Set<string>>;
   typing: Map<PlayerId, string>;
+  /** Shown words, one per player. */
+  lastWords: Map<PlayerId, LastWord>;
+  /** Accepted words not yet shown; they move to lastWords when the next prompt is dealt or the game ends. */
+  pendingWords: Map<PlayerId, LastWord>;
   bomb: Bomb | null;
   pausedRemaining: number | null;
 };
@@ -62,6 +76,8 @@ const MIN_PLAYERS = 2;
 const AVOID_RECENT = 10;
 const EXAMPLE_COUNT = 3;
 const MAX_TYPING = 30;
+/** Settings the host may change while a game runs. */
+const LIVE_SETTINGS = new Set(["theme"]);
 
 function setFor(map: Map<PlayerId, Set<string>>, pid: PlayerId): Set<string> {
   let s = map.get(pid);
@@ -144,6 +160,7 @@ export class Room {
       id: this.newId(),
       token,
       nickname: name.nickname,
+      avatar: this.freeAvatar(),
       connected: true,
       role: inGame ? "spectator" : "player",
       lives: 0,
@@ -171,6 +188,8 @@ export class Room {
     if (i < 0) return;
     const [gone] = this.list.splice(i, 1);
     this.bannedTokens.add(gone.token);
+    this.game?.lastWords.delete(gone.id);
+    this.game?.pendingWords.delete(gone.id);
     if (this.game && this.running() && gone.role === "player") {
       this.game.mode.onPlayerGone(this.game.ctx, gone.id);
     }
@@ -185,6 +204,21 @@ export class Room {
     p.nickname = name.nickname;
     this.changed();
     return { ok: true, playerId };
+  }
+
+  /** Change a player's emoji: only in the lobby (or for a waiting spectator), and never to one in use. */
+  setAvatar(playerId: PlayerId, avatar: number): AvatarResult {
+    const p = this.find(playerId);
+    if (!p) return { ok: false, reason: "not-found" };
+    if (typeof avatar !== "number" || !Number.isInteger(avatar) || avatar < 0 || avatar >= AVATAR_COUNT) {
+      return { ok: false, reason: "bad-avatar" };
+    }
+    if (this.phase !== "lobby" && p.role !== "spectator") return { ok: false, reason: "avatar-locked" };
+    if (p.avatar === avatar) return { ok: true };
+    if (this.list.some((q) => q.avatar === avatar)) return { ok: false, reason: "avatar-taken" };
+    p.avatar = avatar;
+    this.changed();
+    return { ok: true };
   }
 
   setLocked(locked: boolean): void {
@@ -207,7 +241,7 @@ export class Room {
   }
 
   updateSettings(input: Record<string, unknown>): { ok: boolean; reason?: "game-running" } {
-    if (this.running()) return { ok: false, reason: "game-running" };
+    if (this.running() && !Object.keys(input).every((k) => LIVE_SETTINGS.has(k))) return { ok: false, reason: "game-running" };
     this.settings = this.resolve({ ...this.settings, ...input });
     this.changed();
     return { ok: true };
@@ -246,6 +280,8 @@ export class Room {
       usedByPlayer: new Map(),
       silentUsed: new Map(),
       typing: new Map(),
+      lastWords: new Map(),
+      pendingWords: new Map(),
       bomb: null,
       pausedRemaining: null,
     };
@@ -352,10 +388,14 @@ export class Room {
     return result;
   }
 
-  /** Live text from a player's box; stored only when liveTyping is on. */
+  /**
+   * Live text from a player's box; stored only when liveTyping is on and only for the
+   * player a view can show (the mode's `current`). Everyone at once has no `current`,
+   * so its keystrokes store nothing and broadcast nothing.
+   */
   typing(pid: PlayerId, text: string): void {
     if (typeof text !== "string" || !this.game || this.settings.liveTyping !== true) return;
-    if (!this.isOn(pid)) return;
+    if (!this.isOn(pid) || this.modeView()?.current !== pid) return;
     this.game.typing.set(pid, text.slice(0, MAX_TYPING));
     this.changed();
   }
@@ -485,6 +525,7 @@ export class Room {
       if (!g.prompt) throw new Error("newPrompt outside a running game");
       return g.prompt;
     }
+    this.revealWords(g);
     const p = this.bank.next({
       band: this.band(),
       types: this.promptTypes(),
@@ -542,6 +583,7 @@ export class Room {
     if (!p) return;
     this.usedSet(g, pid).add(word);
     this.acceptedWords.push({ pid, word });
+    if (g.prompt) g.pendingWords.set(pid, { word, prompt: { text: g.prompt.text, type: g.prompt.type } });
     p.score += 1;
     if (this.settings.bonusAlphabet !== true) return;
     const letters = this.settings.bonusLetters as string[];
@@ -557,11 +599,24 @@ export class Room {
     return g.mode.usedScope === "room" ? g.usedRoom : setFor(g.usedByPlayer, pid);
   }
 
+  private revealWords(g: Game): void {
+    for (const [pid, w] of g.pendingWords) g.lastWords.set(pid, w);
+    g.pendingWords.clear();
+  }
+
+  /** A player's last shown word this game, if any. Silent and ghost words are never recorded. */
+  lastWordOf(pid: PlayerId): LastWord | undefined {
+    return this.game?.lastWords.get(pid);
+  }
+
   /** Ends the running game; does nothing if it has already ended. */
   private finish(winners: PlayerId[]): void {
     if (!this.running()) return;
     this.clearBomb();
-    if (this.game) this.game.typing.clear();
+    if (this.game) {
+      this.game.typing.clear();
+      this.revealWords(this.game);
+    }
     this.winners = winners;
     this.phase = "results";
     this.changed();
@@ -569,6 +624,14 @@ export class Room {
 
   private find(id: PlayerId): Player | undefined {
     return this.list.find((p) => p.id === id);
+  }
+
+  /** A random avatar nobody in the room has. MAX_PLAYERS is below AVATAR_COUNT, so one is always free. */
+  private freeAvatar(): number {
+    const used = new Set(this.list.map((p) => p.avatar));
+    const free: number[] = [];
+    for (let i = 0; i < AVATAR_COUNT; i++) if (!used.has(i)) free.push(i);
+    return free[Math.min(free.length - 1, Math.floor(this.deps.random() * free.length))];
   }
 
   private newId(): PlayerId {

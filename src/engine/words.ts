@@ -61,3 +61,9 @@ export function isBlockedName(name: string, blocked: Iterable<string>): boolean 
   }
   return false;
 }
+
+/** Live typing: a whole typed word that is on the blocked-answers list shows as stars. Half-typed words are left alone. */
+export function maskBlocked(text: string, isBlocked: (w: string) => boolean): string {
+  const w = text.trim().toLowerCase();
+  return w !== "" && isBlocked(w) ? "★★★★" : text;
+}

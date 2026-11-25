@@ -7,9 +7,10 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
 ## Where things are
 - **Design and plans:**
   - `docs/superpowers/specs/2026-11-21-bomb-game-design.md` is the original design, approved by Roy.
+  - `docs/superpowers/specs/2026-11-23-redesign-design.md` is the redesign, approved by Roy, and `docs/superpowers/plans/2026-11-23-redesign.md` is its plan.
   - `docs/design-principles.md` holds the **visual design principles and the chosen "Workshop" theme**. Read it before any visual work.
-  - `docs/superpowers/plans/` has the four implementation plans already built: connection test, engine, word lists and playable game.
-  - `docs/EXTENDING.md` explains how to add game modes, knocked-out activities, settings and prompt types.
+  - `docs/superpowers/plans/` has the five implementation plans already built: connection test, engine, word lists, playable game and the redesign.
+  - `docs/EXTENDING.md` explains how to add game modes, knocked-out activities, settings, prompt types and themes, and how to swap the bomb.
   - `README.md` is Roy's setup guide and how to run a lesson.
 - **Code:**
   - `src/engine/` is the pure game engine (rooms, Classic, Everyone at once, ghost mode, views). It has no network code.
@@ -23,9 +24,12 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
   - `npx tsc -p tsconfig.json` runs the type check.
   - `npm run test:e2e` runs the Playwright end-to-end tests.
   - `npm run load-test` runs 32 bots.
+  - `npm run screenshots` refreshes `docs/screenshots/` (every screen in every theme).
+  - Playwright isn't a project dependency: `scripts/playwright-path.ts` finds it in `/opt/npm-tools` or `/opt/node-tools` (or `PLAYWRIGHT_PATH`), and the e2e tests fail if it's missing.
 
 ## Hosting
-- **Netlify:** GitHub deploys to Netlify. The game server is **Netlify Server** (Early Access) on the free plan, with 1 instance.
+- **Netlify:** GitHub deploys to Netlify. The game server is **Netlify Server** (Early Access) on the free plan, with 1 instance. The Netlify project is called **wordfire** (https://wordfire.netlify.app), with no visitor login, so students can open it.
+- **Deploy previews:** a draft pull request gets a preview at `https://deploy-preview-<number>--wordfire.netlify.app`. Previews run their own game server and the host passcode works there, and building a preview doesn't restart the live game (both checked 23 November 2026).
 - **Connection limit:** WebSocket connections close after 30 minutes, and clients reconnect automatically.
 - **Passcode:** `HOST_PASSCODE` is a Netlify environment variable. It's never logged, never sent to clients and never stored in the browser.
 - **Health check:** `/api/health` shows word counts. The connection test is at `/check/`.
@@ -35,7 +39,7 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
 ## Rules that must not be broken
 - **No deploys on lesson days.** A deploy restarts the server and ends every game, so use a branch and a Netlify deploy preview for anything Roy wants to try first.
 - **Privacy:** no accounts, no analytics, no cookies, and no logging of nicknames or words. Rooms live in memory only.
-- **The projector and the ⚙ overlay never show** scores, ghost points, tokens or the passcode. The overlay may be on a mirrored screen the class can see.
+- **The projector and the ⚙ overlay never show** scores, ghost points, tokens or the passcode. Ghosts on the results screen are ranked without points. The overlay may be on a mirrored screen the class can see.
 - **Student input is untrusted.** Validate every message, escape all rendered text, and never let one room or one client crash the server.
 - **Design work never changes game logic.** Use themes (named colour lists chosen in settings) and the single swappable bomb file, as described in `docs/design-principles.md`.
 - **Word lists:**
@@ -44,10 +48,9 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
 - **How we've built things so far:** test-first (watch each test fail before writing the code), a written design approved by Roy before any building, then a plan, then implementation with review. Keep that up.
 
 ## What's next
-1. **The redesign.** Roy has chosen it in `docs/design-principles.md`: the "letter tiles and a lit fuse" identity, the Workshop theme, a theme picker in settings, a bomb with an animated flame and a turn arrow in the middle, emoji avatars (a fixed set of 60), the circle shown on student screens too, live typing with rude-word masking, and two rings for large classes. Next step: write the redesign design doc for Roy to approve, then a plan.
-
-   Roy will download the Lexend and Rubik font files when asked.
-2. **Later:**
+1. **The redesign is live** (merged on 25 November 2026 at Roy's request; design: `docs/superpowers/specs/2026-11-23-redesign-design.md`). Screenshots of every screen are in `docs/screenshots/`. Things for Roy to watch in the first lesson: the Night fuse theme's red letters on the projector, and typing with a Norwegian keyboard (letters like é) while live typing is on.
+2. **Small follow-ups:** in `docs/EXTENDING.md` privacy rules, say "player words" (the dictionary examples are also shown), and note that the control screen receives typing but doesn't draw it.
+3. **Later:**
    - the "Slate and violet" theme;
    - the Teams and Class vs the bomb modes;
    - adjustments after the first classroom trial.

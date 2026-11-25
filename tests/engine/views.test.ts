@@ -36,6 +36,7 @@ function setup(n: number, settings: Record<string, unknown> = {}) {
 }
 
 const current = (room: Room) => (projectorView(room).mode as { current: PlayerId }).current;
+const avatarOf = (room: Room, id: PlayerId) => room.players().find((x) => x.id === id)!.avatar;
 const others = (room: Room, ids: PlayerId[]) => ids.filter((id) => id !== current(room));
 
 test("registry lists the modes and activities", () => {
@@ -66,7 +67,7 @@ test("projector view hides tokens, ghost words and silent words", () => {
   assert.equal(pv.phase, "playing");
   assert.equal(pv.locked, false);
   assert.equal(pv.players.length, 4);
-  assert.deepEqual(Object.keys(pv.players[0]).sort(), ["alive", "connected", "id", "lives", "nickname", "spectator"]);
+  assert.deepEqual(Object.keys(pv.players[0]).sort(), ["alive", "avatar", "connected", "id", "lives", "nickname", "spectator"]);
   assert.equal(pv.players.find((x) => x.id === ghost)!.alive, false);
 
   // A player's own view carries only their own score.
@@ -99,7 +100,7 @@ test("everyone mode: projector shows ticks, not words", () => {
 });
 
 test("typing appears only when liveTyping is on", () => {
-  const off = setup(3);
+  const off = setup(3, { liveTyping: false });
   off.room.typing(current(off.room), "sta");
   assert.equal("typing" in projectorView(off.room), false);
 
@@ -200,12 +201,13 @@ test("results include ghost leaderboard and longest word", () => {
   const nick = (id: PlayerId) => room.players().find((x) => x.id === id)!.nickname;
   assert.deepEqual(v.results, {
     winners: [first],
-    ghostBoard: [
-      { id: g2, nickname: nick(g2), ghostPoints: 2 },
-      { id: g1, nickname: nick(g1), ghostPoints: 1 },
+    ghostRanking: [
+      { id: g2, nickname: nick(g2), avatar: avatarOf(room, g2) },
+      { id: g1, nickname: nick(g1), avatar: avatarOf(room, g1) },
     ],
-    longestWord: { nickname: nick(first), word: "station" },
+    longestWord: { nickname: nick(first), avatar: avatarOf(room, first), word: "station" },
   });
+  assert.ok(!JSON.stringify(v).includes("ghostPoints"), "no ghost points in the projector results");
   assert.ok(!JSON.stringify(v).includes("strong"), "ghost words stay private after the game too");
 });
 
@@ -270,4 +272,128 @@ test("me.canAnswerSilently: alive, not on, playing, and silentAnswers on", () =>
   const off = setup(3, { silentAnswers: false });
   const waiting = off.ids.find((p) => p !== current(off.room))!;
   assert.equal(playerView(off.room, waiting)!.me.canAnswerSilently, false, "setting off");
+});
+
+test("theme defaults to workshop and is in every view", () => {
+  const { room, ids } = setup(2);
+  assert.equal(projectorView(room).theme, "workshop");
+  assert.equal(playerView(room, ids[0])!.theme, "workshop");
+  assert.equal(controlView(room).theme, "workshop");
+});
+
+test("theme can change during a game; other settings can't", () => {
+  const { room } = setup(2);
+  assert.deepEqual(room.updateSettings({ theme: "enamel" }), { ok: true });
+  assert.equal(projectorView(room).theme, "enamel");
+  assert.deepEqual(room.updateSettings({ theme: "workshop", startLives: 3 }), { ok: false, reason: "game-running" });
+  assert.equal(projectorView(room).theme, "enamel");
+});
+
+test("an unknown theme falls back to the default", () => {
+  const { deps } = makeDeps(11);
+  const room = createRoom({
+    code: "ABCD",
+    deps,
+    checker: makeTestChecker(),
+    bank: createPromptBank([ST]),
+    blockedNames: fixtureBlocked,
+  });
+  room.updateSettings({ theme: "enamel" });
+  assert.equal(projectorView(room).theme, "enamel");
+  room.updateSettings({ theme: "<b>x</b>" });
+  assert.equal(projectorView(room).theme, "workshop");
+});
+
+test("views show each player's avatar and me.id", () => {
+  const { room, ids } = setup(3);
+  const proj = projectorView(room);
+  for (const id of ids) {
+    const want = room.players().find((p) => p.id === id)!.avatar;
+    assert.equal(proj.players.find((p) => p.id === id)!.avatar, want);
+    const pv = playerView(room, id)!;
+    assert.equal(pv.me.id, id);
+    assert.equal(pv.me.avatar, want);
+  }
+  assert.ok(controlView(room).players.every((p) => Number.isInteger(p.avatar)));
+  assert.ok(!JSON.stringify(proj).includes("secret-tok"));
+});
+
+test("Classic: a word shows under its player at once, with the prompt it answered", () => {
+  const { room } = setup(3);
+  const on = current(room);
+  assert.equal(room.lastWordOf(on), undefined);
+  assert.deepEqual(room.submit(on, "station"), { ok: true, kind: "turn" });
+  const v = projectorView(room);
+  assert.deepEqual(v.players.find((x) => x.id === on)!.lastWord, { word: "station", prompt: { text: "st", type: "contains" } });
+  assert.ok(v.players.filter((x) => x.id !== on).every((x) => x.lastWord === undefined));
+  assert.deepEqual(room.lastWordOf(on), { word: "station", prompt: { text: "st", type: "contains" } });
+  // The next word replaces it.
+  const rest = ["stone", "story", "stand", "start"];
+  for (let i = 0; current(room) !== on && i < rest.length; i++) assert.deepEqual(room.submit(current(room), rest[i]), { ok: true, kind: "turn" });
+  assert.equal(current(room), on);
+  assert.deepEqual(room.submit(on, "street"), { ok: true, kind: "turn" });
+  assert.equal(projectorView(room).players.find((x) => x.id === on)!.lastWord!.word, "street");
+});
+
+test("silent and ghost words never become last words", () => {
+  const { room, ids } = setup(4);
+  const [ghost, silent] = others(room, ids);
+  room.context().loseLife(ghost);
+  assert.deepEqual(room.submit(ghost, "station"), { ok: true, kind: "ghost" });
+  assert.deepEqual(room.submit(silent, "stone"), { ok: true, kind: "silent" });
+  assert.equal(room.lastWordOf(ghost), undefined);
+  assert.equal(room.lastWordOf(silent), undefined);
+  assert.ok(projectorView(room).players.every((x) => x.lastWord === undefined));
+});
+
+test("a new game starts with no last words", () => {
+  const { room } = setup(3);
+  const on = current(room);
+  room.submit(on, "station");
+  assert.ok(room.lastWordOf(on));
+  room.endGame();
+  assert.ok(room.lastWordOf(on), "still shown on the results");
+  room.playAgain();
+  assert.deepEqual(room.start(), { ok: true });
+  assert.equal(room.lastWordOf(on), undefined);
+  assert.ok(projectorView(room).players.every((x) => x.lastWord === undefined));
+});
+
+test("results have a ghost ranking without points: most first, ties in join order, kicked absent", () => {
+  const { room, ids } = setup(4, { startLives: 1 });
+  const [a, b, c] = others(room, ids);
+  for (const id of [a, b, c]) room.context().loseLife(id);
+  room.submit(b, "strong");
+  room.submit(b, "story");
+  room.submit(c, "stand");
+  room.submit(a, "start");
+  room.context().endGame([]);
+  let r = projectorView(room).results!;
+  assert.deepEqual(r.ghostRanking.map((g) => g.id), [b, ...ids.filter((id) => id === a || id === c)]);
+  assert.ok(!/ghostPoints/.test(JSON.stringify(r)));
+  assert.ok(!/ghostPoints/.test(JSON.stringify(playerView(room, ids[0])!.results)));
+  assert.ok(/ghostPoints/.test(JSON.stringify(controlView(room).players)), "control view keeps points");
+  room.kick(b);
+  r = projectorView(room).results!;
+  assert.ok(!r.ghostRanking.some((g) => g.id === b));
+});
+
+test("live typing is on by default and masked in views", () => {
+  const { room, ids } = setup(3);
+  assert.equal(room.settings.liveTyping, true);
+  const on = current(room);
+  room.typing(on, "Damn");
+  assert.equal(projectorView(room).typing, "★★★★");
+  assert.equal(playerView(room, others(room, ids)[0])!.typing, "★★★★");
+  room.typing(on, "dam");
+  assert.equal(projectorView(room).typing, "dam", "half-typed words are not masked");
+  room.typing(on, "stone");
+  assert.equal(projectorView(room).typing, "stone");
+});
+
+test("typing is never shown in Everyone at once", () => {
+  const { room, ids } = setup(3, { mode: "everyone" });
+  for (const id of ids) room.typing(id, "sta");
+  assert.equal("typing" in projectorView(room), false);
+  for (const id of ids) assert.equal("typing" in playerView(room, id)!, false);
 });

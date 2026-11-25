@@ -2,28 +2,33 @@
 // Privacy rules: no tokens anywhere. The projector never shows ghost words, silent words, ghost points
 // or scores. A student's screen shows only their own score, and a ghost sees only their own ghost
 // view (me.activity), never another player's ghost points or words. Otherwise ghost points appear
-// only in the results' ghost board and the control view.
-import type { Phase, Player, PlayerId, Room } from "./room.ts";
+// only in the control view (the results carry a ranking without points).
+import type { LastWord, Phase, Player, PlayerId, Room } from "./room.ts";
 import type { PromptType, SettingDecl, Settings } from "./types.ts";
 import { settingsFor } from "./registry.ts";
+import { maskBlocked } from "./words.ts";
 
 export type ProjectorPlayer = {
   id: PlayerId;
   nickname: string;
+  /** Emoji index 0 to 59. */
+  avatar: number;
   lives: number;
   alive: boolean;
   connected: boolean;
   spectator: boolean;
   /** Present only when the mode reports who has answered (Everyone at once): a tick, never the word. */
   answered?: boolean;
+  /** This player's latest shown word with the prompt it answered; never a silent or ghost word. */
+  lastWord?: LastWord;
 };
 
 export type Results = {
   winners: PlayerId[];
-  /** Players with ghost points, most first. */
-  ghostBoard: { id: PlayerId; nickname: string; ghostPoints: number }[];
+  /** Players with ghost points, most first (ties in join order). The points themselves are never sent. */
+  ghostRanking: { id: PlayerId; nickname: string; avatar: number }[];
   /** The longest real-turn word of the game; the first one wins a tie. */
-  longestWord: { nickname: string; word: string } | null;
+  longestWord: { nickname: string; avatar: number; word: string } | null;
 };
 
 export type ProjectorView = {
@@ -31,6 +36,8 @@ export type ProjectorView = {
   phase: Phase;
   paused: boolean;
   locked: boolean;
+  /** The colour theme chosen by the host; changeable at any time. */
+  theme: string;
   players: ProjectorPlayer[];
   prompt: { text: string; type: PromptType } | null;
   /** The mode's own view data, or null before the first game. */
@@ -44,7 +51,9 @@ export type ProjectorView = {
 
 export type PlayerView = ProjectorView & {
   me: {
+    id: PlayerId;
     nickname: string;
+    avatar: number;
     lives: number;
     alive: boolean;
     score: number;
@@ -77,9 +86,12 @@ export function projectorView(room: Room): ProjectorView {
     phase: room.phase,
     paused: room.phase === "paused",
     locked: room.locked,
+    theme: String(room.settings.theme),
     players: room.players().map((p) => {
-      const out: ProjectorPlayer = { id: p.id, nickname: p.nickname, lives: p.lives, alive: p.alive, connected: p.connected, spectator: p.role === "spectator" };
+      const out: ProjectorPlayer = { id: p.id, nickname: p.nickname, avatar: p.avatar, lives: p.lives, alive: p.alive, connected: p.connected, spectator: p.role === "spectator" };
       if (answered && running(room)) out.answered = answered.includes(p.id);
+      const last = room.lastWordOf(p.id);
+      if (last) out.lastWord = { word: last.word, prompt: { ...last.prompt } };
       return out;
     }),
     prompt: prompt ? { text: prompt.text, type: prompt.type } : null,
@@ -92,7 +104,7 @@ export function projectorView(room: Room): ProjectorView {
   // Live typing: only the one player who is on (the mode's `current`), only while a game runs.
   if (room.settings.liveTyping === true && running(room) && typeof mode?.current === "string") {
     const text = room.typingOf(mode.current);
-    if (text) view.typing = text;
+    if (text) view.typing = maskBlocked(text, (w) => room.checker.isBlocked(w));
   }
 
   if (room.phase === "results") view.results = results(room);
@@ -104,7 +116,9 @@ export function playerView(room: Room, pid: PlayerId): PlayerView | null {
   if (!p) return null;
   const letters = room.settings.bonusAlphabet === true ? (room.settings.bonusLetters as string[]) : [];
   const me: PlayerView["me"] = {
+    id: p.id,
     nickname: p.nickname,
+    avatar: p.avatar,
     lives: p.lives,
     alive: p.alive,
     score: p.score,
@@ -136,16 +150,16 @@ export function controlView(room: Room): ControlView {
 
 function results(room: Room): Results {
   const players = room.players();
-  const nick = new Map(players.map((p) => [p.id, p.nickname]));
-  const ghostBoard = players
+  const byId = new Map(players.map((p) => [p.id, p]));
+  const ghostRanking = players
     .filter((p) => p.ghostPoints > 0)
-    .map((p) => ({ id: p.id, nickname: p.nickname, ghostPoints: p.ghostPoints }))
-    .sort((a, b) => b.ghostPoints - a.ghostPoints);
+    .sort((a, b) => b.ghostPoints - a.ghostPoints) // stable: ties keep join order
+    .map((p) => ({ id: p.id, nickname: p.nickname, avatar: p.avatar }));
   let longestWord: Results["longestWord"] = null;
   for (const { pid, word } of room.acceptedWords) {
-    const nickname = nick.get(pid);
-    if (nickname === undefined) continue; // kicked since
-    if (!longestWord || word.length > longestWord.word.length) longestWord = { nickname, word };
+    const p = byId.get(pid);
+    if (!p) continue; // kicked since
+    if (!longestWord || word.length > longestWord.word.length) longestWord = { nickname: p.nickname, avatar: p.avatar, word };
   }
-  return { winners: [...room.winners], ghostBoard, longestWord };
+  return { winners: [...room.winners], ghostRanking, longestWord };
 }

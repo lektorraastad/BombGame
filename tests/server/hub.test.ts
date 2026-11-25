@@ -407,8 +407,26 @@ test("projector views carry lastEvent: word after an accepted word, explosion af
   await tick();
   assert.equal(host.views().at(-1).lastEvent, null, "the next broadcast is not another explosion");
 
-  assert.equal(ctl.views().at(-1).lastEvent, undefined, "projector only");
-  assert.equal(players[0].views().at(-1).lastEvent, undefined, "projector only");
+  assert.equal(ctl.views().at(-1).lastEvent, undefined, "projector and players only");
+});
+
+test("player views carry the same lastEvent as the projector: explosion, then null", async () => {
+  const { hub, clock } = makeHub();
+  const { host, code } = await hostRoom(hub);
+  const players = [await joinPlayer(hub, code, "Ola"), await joinPlayer(hub, code, "Kari")];
+  assert.equal(players[0].views().at(-1).lastEvent, null, "lobby");
+  host.send({ t: "cmd", cmd: "settings", settings: { mode: "classic", timerStyle: "visible", turnTime: 5 } });
+  host.send({ t: "cmd", cmd: "start" });
+  await tick();
+  for (const p of players) p.clear();
+  host.clear();
+  await clock.advance(5_000);
+  await tick();
+  assert.equal(host.views().at(-1).lastEvent, "explosion");
+  for (const p of players) assert.equal(p.views().at(-1).lastEvent, "explosion");
+  host.send({ t: "cmd", cmd: "lock" });
+  await tick();
+  for (const p of players) assert.equal(p.views().at(-1).lastEvent, null, "the next broadcast is not another explosion");
 });
 
 // ---- playing and commands ----
@@ -559,6 +577,21 @@ test("rate limit drops floods", async () => {
   assert.equal(p.msgs.filter((m) => m.t === "result").length, 1, "typing beyond 10 is dropped, other messages still pass");
 });
 
+test("typing in Everyone at once sends nothing to anyone", async () => {
+  const { hub } = makeHub();
+  const { host, code, ola, kari } = await playingRoom(hub);
+  const nora = await joinPlayer(hub, code, "Nora"); // joins mid-game as a watcher; still a connection
+  await tick();
+  const all = [host, ola, kari, nora];
+  for (const c of all) c.clear();
+  for (let i = 1; i <= 5; i++) {
+    ola.send({ t: "typing", text: "st".repeat(i) });
+    kari.send({ t: "typing", text: "a".repeat(i) });
+  }
+  await tick();
+  for (const c of all) assert.equal(c.msgs.length, 0, "no view is broadcast for Everyone-at-once typing");
+});
+
 test("idle room is cleaned up and connections closed with 4004", async () => {
   const { hub, clock } = makeHub();
   const { host, code } = await hostRoom(hub);
@@ -629,4 +662,50 @@ test("room limit: 21st room is refused with server-full", () => {
   c.send({ t: "create", passcode: PASS, token: "h21" });
   assert.deepEqual(c.msgs.at(-1), { t: "error", reason: "server-full" });
   assert.equal(hub.roomCount(), MAX_ROOMS);
+});
+
+// ---- avatars ----
+
+test("avatar: a free one is taken, another player's is refused as avatar-taken", async () => {
+  const { hub } = makeHub();
+  const { host, code } = await hostRoom(hub);
+  const a = await joinPlayer(hub, code, "Ola");
+  const b = await joinPlayer(hub, code, "Kari");
+  await tick();
+  const players = host.views().at(-1).players;
+  const avA = players[0].avatar;
+  const avB = players[1].avatar;
+  b.send({ t: "avatar", avatar: avA });
+  assert.deepEqual(b.msgs.at(-1), { t: "result", ok: false, reason: "avatar-taken" });
+  const free = [...Array(60).keys()].find((i) => i !== avA && i !== avB)!;
+  b.send({ t: "avatar", avatar: free });
+  assert.deepEqual(b.msgs.at(-1), { t: "result", ok: true, kind: "avatar" });
+  await tick();
+  assert.equal(host.views().at(-1).players[1].avatar, free);
+  assert.equal(a.views().at(-1).players[1].avatar, free, "the other player sees it too");
+  assert.equal(b.views().at(-1).me.avatar, free);
+});
+
+test("avatar: changing during a game is avatar-locked; junk is a bad message; a host is not-player", async () => {
+  const { hub } = makeHub();
+  const { host, code, ola } = await playingRoom(hub);
+  const before = host.views().at(-1).players.map((p: any) => p.avatar);
+  const free = [...Array(60).keys()].find((i) => !before.includes(i))!;
+  ola.send({ t: "avatar", avatar: free });
+  assert.deepEqual(ola.msgs.at(-1), { t: "result", ok: false, reason: "avatar-locked" });
+  for (const avatar of ["3", -1, 60, 2.5, null]) {
+    ola.send({ t: "avatar", avatar });
+    assert.deepEqual(ola.msgs.at(-1), { t: "error", reason: "bad-message" }, String(avatar));
+  }
+  host.send({ t: "avatar", avatar: free });
+  assert.deepEqual(host.msgs.at(-1), { t: "result", ok: false, reason: "not-player" });
+  const ctl = connect(hub);
+  ctl.send({ t: "control", code, passcode: PASS, token: "phone" });
+  ctl.send({ t: "avatar", avatar: free });
+  assert.deepEqual(ctl.msgs.at(-1), { t: "result", ok: false, reason: "not-player" });
+  const stranger = connect(hub);
+  stranger.send({ t: "avatar", avatar: free });
+  assert.deepEqual(stranger.msgs.at(-1), { t: "result", ok: false, reason: "not-player" });
+  await tick();
+  assert.deepEqual(host.views().at(-1).players.map((p: any) => p.avatar), before, "nobody's avatar changed");
 });

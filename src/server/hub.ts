@@ -173,6 +173,7 @@ export class Hub {
       case "join": return this.join(c, msg);
       case "submit": return this.submit(c, msg.word);
       case "typing": return this.typing(c, msg.text);
+      case "avatar": return this.avatar(c, msg.avatar);
       case "cmd": return this.command(c, msg);
       case "leave": return this.unbind(c);
     }
@@ -253,6 +254,12 @@ export class Hub {
   private typing(c: Client, text: string): void {
     if (!c.room || c.role !== "player" || !c.pid) return;
     c.room.room.typing(c.pid, text);
+  }
+
+  private avatar(c: Client, avatar: number): void {
+    if (!c.room || c.role !== "player" || !c.pid) return this.send(c, { t: "result", ok: false, reason: "not-player" });
+    const r = c.room.room.setAvatar(c.pid, avatar);
+    this.send(c, r.ok ? { t: "result", ok: true, kind: "avatar" } : { t: "result", ok: false, reason: r.reason });
   }
 
   private command(c: Client, msg: Extract<ClientMsg, { t: "cmd" }>): void {
@@ -382,7 +389,10 @@ export class Hub {
         text = shared.get(role)!;
       } else if (c.role === "player" && c.pid) {
         const pid = c.pid;
-        text = viewText(() => playerView(room, pid));
+        text = viewText(() => {
+          const v = playerView(room, pid);
+          return v ? { ...v, lastEvent } : null;
+        });
       }
       if (text === null) continue;
       try {

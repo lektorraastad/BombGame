@@ -93,6 +93,18 @@ test("final 3: a waiting player's keystrokes store nothing and call onChange 0 t
   assert.equal(changes, 1);
 });
 
+test("typing in Everyone at once triggers no change", () => {
+  let changes = 0;
+  const { room, ids } = setup("everyone", 4, {}, () => { changes++; });
+  assert.equal(room.settings.liveTyping, true, "live typing is on by default");
+  for (const id of ids) assert.equal(room.isOn(id), true);
+  changes = 0;
+  for (const id of ids) for (let i = 0; i < 5; i++) room.typing(id, "st".repeat(i + 1));
+  assert.equal(changes, 0);
+  for (const id of ids) assert.equal(room.typingOf(id), undefined, "nothing stored");
+  assert.ok(!("typing" in projectorView(room)));
+});
+
 test("final 4: blocked list is case-insensitive and names are NFC-normalised", () => {
   const checker = createWordChecker({ dictionary: ["damn", "fine"], known: ["damn", "fine"], blocked: ["Damn"] });
   assert.equal(checker.isBlocked("damn"), true);

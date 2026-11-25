@@ -1,7 +1,8 @@
 // The control panel as an HTML string, plus the small pure rules it needs. Pure: no DOM access, and
 // every piece of text that came from a player goes through esc(). In overlay mode (shown on the
 // projector, which the class may see) there are no score or ghost-point columns.
-import { esc } from "./render-player.js";
+import { esc } from "./escape.js";
+import { avatarImg } from "./avatars.js";
 
 /** Fewer prompts than this for a band and type, and the panel warns that they will repeat. */
 export const FEW_PROMPTS = 15;
@@ -15,6 +16,8 @@ export const FEW_PROMPTS = 15;
 const TYPE_LABEL = { contains: "Contains", starts: "Starts with", ends: "Ends with" };
 /** @type {Record<string, string>} */
 const BAND_LABEL = { easy: "Easy", medium: "Medium", hard: "Hard", mixed: "Mixed" };
+/** Settings that change only how the game looks: never locked, shown under "Look". */
+const LOOK_KEYS = ["theme"];
 /** @type {Record<string, string>} */
 const PHASE_LABEL = { lobby: "Lobby", playing: "Playing", paused: "Paused", results: "Game over" };
 
@@ -97,7 +100,7 @@ function players(view, ui) {
       const armed = ui.confirmKick === p.id;
       const kick = `<button type="button" class="small kick${armed ? " armed" : ""}" data-action="kick" data-pid="${id}">${armed ? "Really kick?" : "Kick"}</button>`;
       const cols = priv ? `<td>${esc(p.score)}</td><td>${esc(p.ghostPoints)}</td>` : "";
-      return `<tr><td class="name">${name}</td><td>${esc(p.lives)}</td>${cols}<td class="state">${state}</td><td>${kick}</td></tr>`;
+      return `<tr><td class="name">${avatarImg(p.avatar)} ${name}</td><td>${esc(p.lives)}</td>${cols}<td class="state">${state}</td><td>${kick}</td></tr>`;
     })
     .join("");
   const list = view.players.length ? `<table>${head}${rows}</table>` : `<p>No players yet.</p>`;
@@ -113,8 +116,13 @@ function settings(view) {
     .map((w) => `<p class="warning">⚠ ${esc(w)}</p>`)
     .join("");
   const note = locked ? `<p class="note">Settings are locked while a game is running. End the game to change them.</p>` : "";
-  const fields = (view.settingDecls ?? []).map((/** @type {any} */ d) => field(d, s[d.key])).join("");
-  return `<form class="ctl-form" autocomplete="off"><fieldset class="settings"${locked ? " disabled" : ""}><legend>Settings</legend>${note}${warnings}${fields}</fieldset></form>`;
+  const decls = view.settingDecls ?? [];
+  // The look can change at any time, so it sits outside the fieldset that a running game disables.
+  const isLook = (/** @type {any} */ d) => LOOK_KEYS.includes(d.key);
+  const look = decls.filter(isLook).map((/** @type {any} */ d) => field(d, s[d.key])).join("");
+  const fields = decls.filter((/** @type {any} */ d) => !isLook(d)).map((/** @type {any} */ d) => field(d, s[d.key])).join("");
+  const lookSet = look ? `<fieldset class="look"><legend>Look</legend>${look}</fieldset>` : "";
+  return `<form class="ctl-form" autocomplete="off">${lookSet}<fieldset class="settings"${locked ? " disabled" : ""}><legend>Settings</legend>${note}${warnings}${fields}</fieldset></form>`;
 }
 
 /** @param {any} d a SettingDecl @param {any} value */

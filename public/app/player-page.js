@@ -1,7 +1,10 @@
 // DOM wiring for the join page and the player screen. All logic lives in the other modules.
 import { createConnection } from "./net.js";
 import { createCountdown, URGENT_MS } from "./countdown.js";
-import { renderPlayer, reasonText } from "./render-player.js";
+import { renderPlayer, reasonText, wordTiles } from "./render-player.js";
+import { themeOf } from "./theme.js";
+import { BOMB_CSS } from "./bomb.js";
+import { createMotion } from "./motion.js";
 import { initialJoin, saveJoin, clearJoin, terminalError, joinStatusText, submitOutcome, rememberKick, wasKicked, KICKED_TEXT } from "./session.js";
 
 const TYPING_GAP_MS = 100; // at most 10 typing messages a second
@@ -36,6 +39,7 @@ let status = "connecting";
 let joined = false;
 /** @type {ReturnType<typeof createConnection> | null} */ let conn = null;
 const countdown = createCountdown(() => Date.now());
+const motion = createMotion(() => Date.now());
 
 /** @param {string} text */
 function joinError(text) {
@@ -86,7 +90,9 @@ function onMessage(msg) {
     $("game").hidden = false;
   } else if (msg.t === "view") {
     view = msg.view;
+    document.documentElement.dataset.theme = themeOf(view);
     countdown.update(view);
+    motion.view(view);
     const text = view.prompt ? view.prompt.text : "";
     if (text !== lastPromptText) lastResult = undefined;
     lastPromptText = text;
@@ -135,19 +141,66 @@ function showEnd(text) {
   }
 }
 
-function draw() {
+/**
+ * Draws the typed letters as tiles under the see-through text box, with the caret where the cursor
+ * is, and keeps the caret in view when the word is longer than the box.
+ */
+function paintWord() {
+  const box = document.getElementById("word");
+  const mirror = document.getElementById("word-tiles");
+  if (!(box instanceof HTMLInputElement) || !mirror) return;
+  mirror.innerHTML = wordTiles(box.value, box.selectionStart ?? box.value.length);
+  const caret = /** @type {HTMLElement | null} */ (mirror.querySelector(".caret"));
+  mirror.scrollLeft = caret ? Math.max(0, caret.offsetLeft - mirror.clientWidth + 40) : 0;
+}
+
+/** The circle's shape on screen (width / height), measured after each draw, so the arrow points at the seat. */
+let ringAspect = 1;
+
+function draw(again = true) {
   if (!view || status === "kicked" || status === "ended") return;
   const root = $("game");
   const old = /** @type {HTMLInputElement | null} */ (root.querySelector("#word"));
   const text = old ? old.value : "";
-  root.innerHTML = renderPlayer(view, { countdownMs: countdown.remainingMs(), lastResult, status });
+  const selStart = old?.selectionStart ?? text.length;
+  const selEnd = old?.selectionEnd ?? text.length;
+  // A keyboard user moving around the emoji picker keeps their place when the screen is redrawn.
+  const active = document.activeElement;
+  const pickFocus = active instanceof HTMLElement && root.contains(active) ? active.dataset.avatar : undefined;
+  const countdownMs = countdown.remainingMs();
+  const bomb = motion.bombState(countdownMs, view.phase === "playing" && !view.paused);
+  root.innerHTML = renderPlayer(view, { countdownMs, lastResult, status, bomb, ringAspect });
   const box = /** @type {HTMLInputElement | null} */ (root.querySelector("#word"));
   if (box) {
     box.value = text;
     box.focus();
-    box.setSelectionRange(text.length, text.length);
+    // Where the cursor was (a redraw keeps it), and the typed letters on their tiles straight away.
+    box.setSelectionRange(Math.min(selStart, text.length), Math.min(selEnd, text.length));
+    paintWord();
+  } else if (pickFocus !== undefined) {
+    /** @type {HTMLElement | null} */ (root.querySelector(`button[data-avatar="${Number(pickFocus)}"]`))?.focus();
+  }
+  // A new screen or window size can change the oval's shape: then draw once more with the real one.
+  const ring = root.querySelector(".arena .circle")?.getBoundingClientRect();
+  if (ring && ring.width > 0 && ring.height > 0 && Math.abs(ring.width / ring.height - ringAspect) > 0.005) {
+    ringAspect = ring.width / ring.height;
+    if (again) draw(false);
   }
 }
+
+// Redraw when the game area changes size (the window is resized, or a screen with more or fewer
+// lines comes): the oval's shape may change with no new view, and the arrow must turn with it.
+new ResizeObserver(() => draw()).observe($("game"));
+
+// The emoji picker is replaced on every view too. If a redraw lands between the press and the
+// release of a click, the button under the pointer is the new one.
+$("game").addEventListener("click", (ev) => {
+  const at = ev.detail > 0 ? document.elementFromPoint(ev.clientX, ev.clientY) : null;
+  const hit = ev.target instanceof Element ? ev.target.closest("button[data-avatar]") : null;
+  const btn = /** @type {HTMLButtonElement | null} */ (hit ?? at?.closest("button[data-avatar]") ?? null);
+  if (!btn || btn.disabled || !$("game").contains(btn)) return;
+  conn?.send({ t: "avatar", avatar: Number(btn.dataset.avatar) });
+});
 
 // The text box is replaced on every view, so listen on the container.
 let lastTypingAt = 0;
@@ -155,6 +208,7 @@ let lastTypingAt = 0;
 $("game").addEventListener("input", (ev) => {
   const box = /** @type {HTMLInputElement} */ (ev.target);
   if (box.id !== "word") return;
+  paintWord();
   const wait = lastTypingAt + TYPING_GAP_MS - Date.now();
   const send = () => {
     typingTimer = null;
@@ -172,12 +226,21 @@ $("game").addEventListener("keydown", (ev) => {
   const word = box.value.trim();
   if (!word) return;
   const out = submitOutcome(conn ? conn.send({ t: "submit", word }) : false);
-  if (out.clear) box.value = "";
-  else {
+  if (out.clear) {
+    box.value = "";
+    paintWord();
+  } else {
     lastResult = { ok: false, reason: "not-sent" };
     draw();
   }
 });
+
+// The cursor moved without typing (arrow keys, Home, End, a click in the box): move the tile caret.
+for (const type of ["keyup", "select", "pointerup", "focusin"]) {
+  $("game").addEventListener(type, (ev) => {
+    if (ev.target instanceof HTMLInputElement && ev.target.id === "word") paintWord();
+  });
+}
 
 // Keep the box focused, even after a click elsewhere.
 document.addEventListener("click", () => {
@@ -192,3 +255,19 @@ setInterval(() => {
   for (const el of document.querySelectorAll("[data-countdown]")) el.textContent = String(Math.ceil(ms / 1000));
   for (const el of document.querySelectorAll("[data-bomb]")) el.classList.toggle("urgent", ms <= URGENT_MS);
 }, 200);
+
+// The bomb's styles, once. They live in bomb.js so a new bomb design is one file.
+{
+  const style = document.createElement("style");
+  style.textContent = BOMB_CSS;
+  document.head.append(style);
+}
+
+// While the arrow swings, the bomb explodes or a player pops in, redraw about every 100 ms (each
+// draw picks the animation up where it is), and once more when it has finished.
+let animating = false;
+setInterval(() => {
+  const busy = motion.busy();
+  if (busy || animating) draw();
+  animating = busy;
+}, 100);

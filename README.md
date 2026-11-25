@@ -75,8 +75,8 @@ Then try the game once yourself: open `/host` in one tab and `/` in two other ta
 
 1. **Open `/host`** on the laptop connected to the projector, for example `https://your-site.netlify.app/host`.
 2. **Type the passcode** and click **Create room**.
-3. **Put the code on the projector.** The screen shows the site address and a four-letter room code in big letters, and each name appears as a student joins.
-4. **Students go to the site** (the address without `/host`), type the code and a nickname, and click **Join**.
+3. **Put the code on the projector.** The screen shows the site address and a four-letter room code in big letters, and each name appears round the bomb, with its emoji, as a student joins.
+4. **Students go to the site** (the address without `/host`), type the code and a nickname, and click **Join**. Each student gets an emoji and can tap another one while they wait for the game to start.
 5. **Use ⚙ for the overlay, or open the control window on your laptop or phone.** The buttons are at the bottom right of the projector screen. They are faint until you move the mouse over them.
    - **⚙ Control (overlay)** opens the control panel on top of the projector screen. The class can see it, so it doesn't show scores or ghost points. Close it with **Close** or the Esc key.
    - **Open control window** opens the control panel in a separate window. Drag it to your own laptop screen if the projector shows a second screen and not a copy of yours.
@@ -84,7 +84,8 @@ Then try the game once yourself: open `/host` in one tab and `/` in two other ta
 
 In the control panel you can:
 
-- **Change the settings** before a game: the mode (**Classic**, where the bomb is passed around, or **Everyone at once**), the difficulty, the timer, the number of lives, and what knocked-out players do. Settings are locked while a game is running.
+- **Change the settings** before a game: the mode (**Classic**, where the bomb is passed around, or **Everyone at once**), the difficulty, the timer, the number of lives, and what knocked-out players do. Settings are locked while a game is running, except the **Theme** (the colours for every screen), which you can change at any time.
+- **Live typing** is on by default: in Classic, everyone can watch the current player's letters appear on the projector and on the laptops (rude words show as stars). To switch it off, untick **Live typing** in the settings.
 - **Start**, **Pause** and **Resume**, **Skip** a prompt nobody can answer, and **End** the game early.
 - **Play again** after a game. The same players stay in the room.
 - **Lock** the room so nobody new can join.

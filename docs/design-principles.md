@@ -53,9 +53,11 @@ The bomb, its animated flame and the turn arrow are one self-contained drawing i
   | Lives | Hearts | `#FF6B6B` |
 
 - **Saved for later: "Slate and violet".** Roy wants to expand on it later. Sketch colours: background `#2C3442`, ring `#384152`, tiles `#EEF1F6`, ink `#151A23`, prompt `#FFE14D`, whose turn `#7C5CFF`, matched letters `#0F9F6E`, lives `#FF5C7A`.
-- **Also sketched (not chosen), both candidates for extra themes:**
+- **Shipped with the redesign as extra themes** (the host picks one under **Look → Theme** in the settings):
   - **"Enamel":** stage `#243244`, tiles `#F3F0E8`, tile ink `#1A2430`, tile edge `#C9C3B4`, bomb `#1A2430`, whose turn `#FF5A4E`, spark `#FFD23F`, names `#EEF2F7`, muted `#93A1B3`.
   - **"Night fuse":** stage `#16202A`, tiles `#DCE6E1`, tile ink `#13201B`, tile edge `#A9BAB2`, bomb `#0E141A`, whose turn `#FFC23D`, spark `#E8364F`, names `#E8EEF0`, muted `#7F8E99`.
+  - The full lists, with the few extra colours each theme needs (panel, answered, refusal, bomb rim), are in `public/app/themes.css`.
+- **The bomb's rim (decided in the redesign):** in Enamel and Night fuse the bomb stays dark, as sketched, and gets a light rim (`--bomb-rim`) so it can't disappear on a washed-out projector. Workshop has a rim too, because its red bomb is only 2.6:1 against the stage. Every theme's rim must be at least 3:1 against the stage, and a test checks this along with every text colour.
 - **Rejected:** the BombParty screenshot's brown colours, pixel-art styles, and generic "dark background plus one neon accent" palettes.
 
 ## Agreed layout (redesign)
@@ -63,9 +65,9 @@ The bomb, its animated flame and the turn arrow are one self-contained drawing i
 - **Each player:** their chosen emoji avatar (from a fixed set of 60), name, lives and last word, with the prompt letters highlighted as tiles. Live typing is shown with a cursor (Roy accepts an occasional rude word as a tradeoff), and known rude words from the block list are masked (★★★★) as they're typed.
 - **Student screens:** students see the same circle and bomb, with their own tile-style text box along the bottom.
 - **Everyone at once:** there's no arrow. The bomb stays in the middle with its fuse burning down for the round, names tick off with ✓ as students answer, and words are shown after the round.
-- **Large classes:** names and avatars shrink, and above 20 players they sit in two rings.
+- **Large classes:** names and avatars shrink, and above 20 players they sit in two rings. On student laptops, above 20 players the circle shows names and hearts but not last words (the projector still shows them all).
+- **Joining:** students type their name, then tap one of the 60 emoji in a grid. They can change it in the lobby, and a taken emoji says "Taken, pick another".
+- **Lobby:** the room code shown large on letter tiles, with avatars popping into the circle as students join. The pop is the only animation outside the bomb.
+- **Results:** the winner's avatar in the middle where the bomb was, with the longest word and the best ghosts (ranked, without points).
 
-## Proposed, not yet confirmed by Roy
-- **Joining:** students type their name, then tap one of the 60 emoji in a grid.
-- **Lobby:** the room code shown large on letter tiles, with avatars popping into the circle as students join.
-- **Results:** the winner's avatar in the middle where the bomb was, with the ghost leaderboard and the longest word around it.
+Screenshots of every screen in every theme are in `docs/screenshots/` (`npm run screenshots` makes them again).
