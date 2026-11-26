@@ -369,7 +369,7 @@ test("control views carry promptCounts for every band and type; other views do n
   }
   const cv = ctl.views().at(-1);
   assert.deepEqual(cv.promptCounts, expected);
-  assert.equal(cv.promptCounts.easy.starts, 1, "only 'st' starts with 200+ answers");
+  assert.equal(cv.promptCounts.easy.starts, 2, "'st' (very easy) and 're' (easy) start the Easy group");
   assert.equal(host.views().at(-1).promptCounts, undefined);
   assert.equal(p.views().at(-1).promptCounts, undefined);
 });

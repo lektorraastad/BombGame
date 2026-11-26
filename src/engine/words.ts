@@ -28,6 +28,8 @@ export function createWordChecker(opts: {
   dictionary: Iterable<string>;
   known: Iterable<string>;
   blocked: Iterable<string>;
+  /** Beginner words (CEFR-J A1–A2 and known names). Accepted now, used for examples later (Task 6). */
+  beginner?: Iterable<string>;
 }): WordChecker {
   const lower = (items: Iterable<string>) => [...items].map((w) => w.toLowerCase());
   const dictionary = new Set(lower(opts.dictionary));

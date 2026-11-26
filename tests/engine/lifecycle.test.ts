@@ -63,7 +63,7 @@ function recordingActivity() {
   return { activity, calls };
 }
 
-const ST: Prompt = { text: "st", type: "contains", count: 480, common: 0 };
+const ST: Prompt = { text: "st", type: "contains", count: 480, common: 20 };
 
 function setup(opts: {
   prompts?: Prompt[];

@@ -37,6 +37,9 @@ const draw = (room: Room, over: Record<string, unknown> = {}) => {
 
 test("the credits shown on the projector are the word lists' credits", () => {
   assert.equal(CREDITS, WORD_LIST_CREDITS);
+  const expected = "Word lists: New General Service List (Browne, Culligan & Phillips, CC BY-SA 4.0) · SCOWL/ESDB (Kevin Atkinson) · CEFR-J Wordlist Version 1.5 (Yukio Tono, Tokyo University of Foreign Studies)";
+  assert.equal(CREDITS, expected);
+  assert.equal(WORD_LIST_CREDITS, expected);
 });
 
 test("projector never contains scores, ghost points or tokens", async () => {

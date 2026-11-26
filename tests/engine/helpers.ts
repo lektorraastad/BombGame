@@ -48,16 +48,17 @@ export function makeTestChecker() {
 
 import type { Prompt } from "../../src/engine/types.ts";
 
+// `common` gives every level: st/ing/ou very easy, re/ast easy, oun/pl medium, ect/gh/ky hard.
 export const fixturePrompts: Prompt[] = [
-  { text: "st", type: "starts", count: 480, common: 0 },
-  { text: "ing", type: "ends", count: 350, common: 0 },
-  { text: "ou", type: "contains", count: 260, common: 0 },
-  { text: "re", type: "starts", count: 120, common: 0 },
-  { text: "ast", type: "ends", count: 90, common: 0 },
-  { text: "oun", type: "contains", count: 64, common: 0 },
-  { text: "pl", type: "starts", count: 55, common: 0 },
-  { text: "ect", type: "ends", count: 38, common: 0 },
-  { text: "gh", type: "contains", count: 24, common: 0 },
-  { text: "ky", type: "ends", count: 31, common: 0 },
+  { text: "st", type: "starts", count: 480, common: 40 },
+  { text: "ing", type: "ends", count: 350, common: 30 },
+  { text: "ou", type: "contains", count: 260, common: 20 },
+  { text: "re", type: "starts", count: 120, common: 12 },
+  { text: "ast", type: "ends", count: 90, common: 9 },
+  { text: "oun", type: "contains", count: 64, common: 6 },
+  { text: "pl", type: "starts", count: 55, common: 5 },
+  { text: "ect", type: "ends", count: 38, common: 2 },
+  { text: "gh", type: "contains", count: 24, common: 3 },
+  { text: "ky", type: "ends", count: 31, common: 1 },
   { text: "zz", type: "contains", count: 19, common: 0 },
 ];

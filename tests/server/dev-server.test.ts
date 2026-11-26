@@ -121,7 +121,7 @@ test("health reports word counts", async () => {
 test("health without words is a 500 with words-not-loaded and the error kind", () => {
   assert.deepEqual(health(null, 3, 1000, "ENOENT"), { status: 500, body: { ok: false, error: "words-not-loaded", kind: "ENOENT" } });
   assert.deepEqual(health(null, 3, 1000), { status: 500, body: { ok: false, error: "words-not-loaded", kind: "unknown" } });
-  const counts = { dictionary: 1, known: 2, blockedWords: 3, blockedNames: 4 };
+  const counts = { dictionary: 1, known: 2, beginner: 5, blockedWords: 3, blockedNames: 4 };
   assert.deepEqual(health(counts, 3, 1000), { status: 200, body: { ok: true, words: counts, rooms: 3, startedAt: 1000 } });
 });
 

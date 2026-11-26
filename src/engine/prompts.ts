@@ -1,10 +1,24 @@
 import type { Band, Prompt, PromptType } from "./types.ts";
 
-export const BAND_RANGES = {
-  easy: [200, Infinity],
-  medium: [60, 199],
-  hard: [20, 59],
-} as const;
+/** How hard a prompt is, from how many beginner words fit it (`common`). */
+export type Level = "veryEasy" | "easy" | "medium" | "hard";
+
+/** The lowest `common` for each level; anything under `medium` is hard. */
+export const LEVEL_MIN = { veryEasy: 15, easy: 8, medium: 4 } as const;
+
+export function levelOf(p: Prompt): Level {
+  if (p.common >= LEVEL_MIN.veryEasy) return "veryEasy";
+  if (p.common >= LEVEL_MIN.easy) return "easy";
+  if (p.common >= LEVEL_MIN.medium) return "medium";
+  return "hard";
+}
+
+// Temporary: the old band names mapped onto levels. Task 4 replaces bands with the Difficulty setting.
+const BAND_LEVELS: Record<Exclude<Band, "mixed">, Level[]> = {
+  easy: ["veryEasy", "easy"],
+  medium: ["medium"],
+  hard: ["hard"],
+};
 
 export const MIN_ANSWERS = 20;
 
@@ -23,8 +37,7 @@ export function createPromptBank(prompts: Prompt[]): PromptBank {
     return kept.filter((p) => {
       if (!types.includes(p.type)) return false;
       if (band === "mixed") return true;
-      const [lo, hi] = BAND_RANGES[band];
-      return p.count >= lo && p.count <= hi;
+      return BAND_LEVELS[band].includes(levelOf(p));
     });
   }
 

@@ -62,9 +62,12 @@ export function problems(summary: ReturnType<typeof summarize>): string[] {
   if (summary.counts.known < 1000) out.push(`only ${summary.counts.known} known words (need 1000+)`);
   if (summary.counts.blockedWords < 200) out.push(`only ${summary.counts.blockedWords} blocked words (need 200+): was blocked-en.txt emptied?`);
   for (const [type, b] of Object.entries(summary.prompts)) {
-    const total = b.easy + b.medium + b.hard;
+    const total = b.veryEasy + b.easy + b.medium + b.hard;
     if (total < 10) out.push(`only ${total} "${type}" prompts (need 10+)`);
   }
+  // A small Easy option means the CEFR-J file was damaged or removed.
+  const easyOption = summary.prompts.contains.veryEasy + summary.prompts.contains.easy;
+  if (easyOption < 100) out.push(`Easy option has only ${easyOption} "contains" prompts (need 100+)`);
   return out;
 }
 

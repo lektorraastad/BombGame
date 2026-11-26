@@ -128,27 +128,28 @@ test("prompts are sorted by type, count desc, text", () => {
   }
 });
 
-test("summary counts bands with BAND_RANGES", () => {
+test("summary counts prompts per level by common, and the beginner words", () => {
   const data = {
-    dictionary: ["a", "b"], known: ["a"], beginner: [], blockedWords: [], blockedNames: ["x"],
+    dictionary: ["a", "b"], known: ["a"], beginner: ["a", "b", "c"], blockedWords: [], blockedNames: ["x"],
     prompts: [
-      { text: "aa", type: "contains" as const, count: 250, common: 0 },
-      { text: "ab", type: "contains" as const, count: 199, common: 0 },
-      { text: "ac", type: "contains" as const, count: 60, common: 0 },
-      { text: "ad", type: "contains" as const, count: 59, common: 0 },
-      { text: "ae", type: "ends" as const, count: 20, common: 0 },
+      { text: "aa", type: "contains" as const, count: 25, common: 15 },
+      { text: "ab", type: "contains" as const, count: 250, common: 14 },
+      { text: "ac", type: "contains" as const, count: 60, common: 8 },
+      { text: "ad", type: "contains" as const, count: 59, common: 7 },
+      { text: "af", type: "contains" as const, count: 300, common: 3 },
+      { text: "ae", type: "ends" as const, count: 20, common: 4 },
     ],
   };
   const s = summarize(data, ["blocked-extra.txt"]);
-  assert.deepEqual(s.counts, { dictionary: 2, known: 1, blockedWords: 0, blockedNames: 1 });
-  assert.deepEqual(s.prompts.contains, { easy: 1, medium: 2, hard: 1 });
-  assert.deepEqual(s.prompts.ends, { easy: 0, medium: 0, hard: 1 });
-  assert.deepEqual(s.prompts.starts, { easy: 0, medium: 0, hard: 0 });
+  assert.deepEqual(s.counts, { dictionary: 2, known: 1, beginner: 3, blockedWords: 0, blockedNames: 1 });
+  assert.deepEqual(s.prompts.contains, { veryEasy: 1, easy: 2, medium: 1, hard: 1 });
+  assert.deepEqual(s.prompts.ends, { veryEasy: 0, easy: 0, medium: 1, hard: 0 });
+  assert.deepEqual(s.prompts.starts, { veryEasy: 0, easy: 0, medium: 0, hard: 0 });
   assert.deepEqual(s.skipped, ["blocked-extra.txt"]);
 });
 
 test("credit line is exact", () => {
-  assert.equal(WORD_LIST_CREDITS, "Word lists: New General Service List (Browne, Culligan & Phillips, CC BY-SA 4.0) · SCOWL/ESDB (Kevin Atkinson)");
+  assert.equal(WORD_LIST_CREDITS, "Word lists: New General Service List (Browne, Culligan & Phillips, CC BY-SA 4.0) · SCOWL/ESDB (Kevin Atkinson) · CEFR-J Wordlist Version 1.5 (Yukio Tono, Tokyo University of Foreign Studies)");
 });
 
 // ---- Final review fixes ----
@@ -174,12 +175,24 @@ test("blockedVariants: suffix forms unless the word is a known word; strong stem
 });
 
 test("problems() refuses tiny known lists, missing prompt types and an emptied block list", () => {
-  const ok = { counts: { dictionary: 100000, known: 8000, blockedWords: 300, blockedNames: 300 },
-    prompts: { contains: { easy: 50, medium: 50, hard: 50 }, starts: { easy: 4, medium: 50, hard: 50 }, ends: { easy: 5, medium: 5, hard: 5 } }, skipped: [] };
+  const ok = { counts: { dictionary: 100000, known: 8000, beginner: 2500, blockedWords: 300, blockedNames: 300 },
+    prompts: { contains: { veryEasy: 60, easy: 50, medium: 50, hard: 50 }, starts: { veryEasy: 0, easy: 4, medium: 50, hard: 50 },
+      ends: { veryEasy: 2, easy: 3, medium: 3, hard: 2 } }, skipped: [] };
   assert.deepEqual(problems(ok), []);
   assert.equal(problems({ ...ok, counts: { ...ok.counts, known: 999 } }).length, 1);
   assert.equal(problems({ ...ok, counts: { ...ok.counts, blockedWords: 199 } }).length, 1);
-  assert.equal(problems({ ...ok, prompts: { ...ok.prompts, ends: { easy: 3, medium: 3, hard: 3 } } }).length, 1);
+  assert.equal(problems({ ...ok, prompts: { ...ok.prompts, ends: { veryEasy: 2, easy: 2, medium: 3, hard: 2 } } }).length, 1);
+});
+
+test("problems() refuses a build whose Easy option has under 100 \"contains\" prompts", () => {
+  const ok = { counts: { dictionary: 100000, known: 8000, beginner: 2500, blockedWords: 300, blockedNames: 300 },
+    prompts: { contains: { veryEasy: 40, easy: 40, medium: 50, hard: 50 }, starts: { veryEasy: 10, easy: 10, medium: 50, hard: 50 },
+      ends: { veryEasy: 10, easy: 10, medium: 10, hard: 10 } }, skipped: [] };
+  const bad = problems(ok);
+  assert.equal(bad.length, 1);
+  assert.match(bad[0], /Easy option/);
+  assert.equal(bad[0], 'Easy option has only 80 "contains" prompts (need 100+)');
+  assert.deepEqual(problems({ ...ok, prompts: { ...ok.prompts, contains: { veryEasy: 50, easy: 50, medium: 0, hard: 0 } } }), []);
 });
 
 // ---- Batch 1, Task 2: CEFR-J, name lists, beginner words, common ----

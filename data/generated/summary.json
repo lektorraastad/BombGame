@@ -2,24 +2,28 @@
   "counts": {
     "dictionary": 143784,
     "known": 12610,
+    "beginner": 2653,
     "blockedWords": 499,
     "blockedNames": 312
   },
   "prompts": {
     "contains": {
-      "easy": 137,
-      "medium": 342,
-      "hard": 715
+      "veryEasy": 341,
+      "easy": 287,
+      "medium": 347,
+      "hard": 219
     },
     "starts": {
-      "easy": 8,
-      "medium": 82,
-      "hard": 192
+      "veryEasy": 72,
+      "easy": 81,
+      "medium": 81,
+      "hard": 48
     },
     "ends": {
-      "easy": 17,
-      "medium": 56,
-      "hard": 137
+      "veryEasy": 67,
+      "easy": 59,
+      "medium": 17,
+      "hard": 67
     }
   },
   "skipped": [

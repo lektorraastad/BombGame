@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { loadWordData } from "../../src/words/load.ts";
 import { buildWordData } from "../../src/words/build.ts";
 import { readRaw } from "../../scripts/build-words.ts";
+import { levelOf } from "../../src/engine/prompts.ts";
+import type { Prompt } from "../../src/engine/types.ts";
 
 const root = join(import.meta.dirname, "..", "..");
 const gen = (name: string) => readFileSync(join(root, "data", "generated", name), "utf8");
@@ -15,23 +17,39 @@ test("generated sizes match the supplied lists", () => {
   const { summary } = loadWordData(gen);
   near(summary.counts.known, 12610);
   near(summary.counts.dictionary, 143784);
-  const e = { contains: [137, 342, 715], starts: [8, 82, 192], ends: [17, 56, 137] } as const;
-  for (const t of ["contains", "starts", "ends"] as const) {
-    near(summary.prompts[t].easy, e[t][0]);
-    near(summary.prompts[t].medium, e[t][1]);
-    near(summary.prompts[t].hard, e[t][2]);
-  }
+  const c = summary.prompts.contains;
+  assert.ok(c.veryEasy + c.easy >= 150, `Easy option has ${c.veryEasy + c.easy} "contains" prompts (need 150+)`);
+  assert.ok(c.veryEasy >= 100, `very easy has ${c.veryEasy} "contains" prompts (need 100+)`);
 });
 
-test("every prompt has at least 20 known answers (recount)", () => {
+test("levels: STS and CTS are hard, IGH is very easy", () => {
+  const prompts = JSON.parse(gen("prompts.json")) as Prompt[];
+  const find = (text: string) => prompts.find((p) => p.type === "contains" && p.text === text);
+  for (const text of ["sts", "cts"]) {
+    const p = find(text);
+    if (p) assert.equal(levelOf(p), "hard", `${text} (common ${p.common})`);
+  }
+  const igh = find("igh");
+  assert.ok(igh, "igh is a prompt");
+  assert.equal(levelOf(igh), "veryEasy", `igh (common ${igh.common})`);
+});
+
+test("beginner.txt has more than 2000 words", () => {
+  assert.ok(gen("beginner.txt").split("\n").filter(Boolean).length > 2000);
+});
+
+test("every prompt has at least 20 known answers, and common counts the beginner words (recount)", () => {
   const known = gen("known.txt").split("\n").filter(Boolean);
-  const prompts = JSON.parse(gen("prompts.json")) as { text: string; type: string; count: number }[];
+  const beginner = gen("beginner.txt").split("\n").filter(Boolean);
+  const prompts = JSON.parse(gen("prompts.json")) as Prompt[];
   for (const type of ["contains", "starts", "ends"]) {
     for (const p of prompts.filter((x) => x.type === type).slice(0, 50)) {
-      const n = known.filter((w) => w.length > p.text.length &&
-        (type === "contains" ? w.includes(p.text) : type === "starts" ? w.startsWith(p.text) : w.endsWith(p.text))).length;
+      const fits = (w: string) => w.length > p.text.length &&
+        (type === "contains" ? w.includes(p.text) : type === "starts" ? w.startsWith(p.text) : w.endsWith(p.text));
+      const n = known.filter(fits).length;
       assert.equal(n, p.count, `${type}:${p.text}`);
       assert.ok(n >= 20);
+      assert.equal(beginner.filter(fits).length, p.common, `common ${type}:${p.text}`);
     }
   }
 });

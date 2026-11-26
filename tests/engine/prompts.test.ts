@@ -1,12 +1,17 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BAND_RANGES, MIN_ANSWERS, createPromptBank } from "../../src/engine/prompts.ts";
+import { LEVEL_MIN, MIN_ANSWERS, createPromptBank, levelOf } from "../../src/engine/prompts.ts";
 import { fixturePrompts, makeDeps } from "./helpers.ts";
 import type { Prompt } from "../../src/engine/types.ts";
 
 test("constants match the spec", () => {
-  assert.deepEqual(BAND_RANGES, { easy: [200, Infinity], medium: [60, 199], hard: [20, 59] });
+  assert.deepEqual(LEVEL_MIN, { veryEasy: 15, easy: 8, medium: 4 });
   assert.equal(MIN_ANSWERS, 20);
+});
+
+test("levelOf edges: 15 very easy, 14 and 8 easy, 7 and 4 medium, 3 and 0 hard", () => {
+  const at = (common: number) => levelOf({ text: "ab", type: "contains", count: 100, common });
+  assert.deepEqual([15, 14, 8, 7, 4, 3, 0].map(at), ["veryEasy", "easy", "easy", "medium", "medium", "hard", "hard"]);
 });
 
 test("drops prompts under 20 answers", () => {
@@ -29,31 +34,36 @@ test("respects band and types", () => {
   for (let i = 0; i < 200; i++) {
     const p = bank.next({ band: "hard", types: ["ends"], random: deps.random, avoid: [] });
     assert.equal(p.type, "ends");
-    assert.ok(p.count >= 20 && p.count <= 59);
+    assert.equal(levelOf(p), "hard");
     seen.add(p.text);
   }
   assert.deepEqual([...seen].sort(), ["ect", "ky"]);
 });
 
-test("band edges: 200 easy, 199 medium, 60 medium, 59 hard, 20 hard", () => {
+// Temporary until Task 4 replaces the bands: easy = very easy + easy, medium = medium, hard = hard.
+test("old band names map onto levels by common", () => {
   const edge: Prompt[] = [
-    { text: "aa", type: "starts", count: 200, common: 0 },
-    { text: "bb", type: "starts", count: 199, common: 0 },
-    { text: "cc", type: "starts", count: 60, common: 0 },
-    { text: "dd", type: "starts", count: 59, common: 0 },
-    { text: "ee", type: "starts", count: 20, common: 0 },
+    { text: "aa", type: "starts", count: 20, common: 15 },
+    { text: "bb", type: "starts", count: 20, common: 8 },
+    { text: "cc", type: "starts", count: 500, common: 7 },
+    { text: "dd", type: "starts", count: 500, common: 4 },
+    { text: "ee", type: "starts", count: 500, common: 3 },
   ];
   const bank = createPromptBank(edge);
-  assert.equal(bank.size("easy", ["starts"]), 1);
+  assert.equal(bank.size("easy", ["starts"]), 2);
   assert.equal(bank.size("medium", ["starts"]), 2);
-  assert.equal(bank.size("hard", ["starts"]), 2);
+  assert.equal(bank.size("hard", ["starts"]), 1);
   assert.equal(bank.size("mixed", ["starts"]), 5);
+  const fx = createPromptBank(fixturePrompts);
+  assert.equal(fx.size("easy", ["contains", "starts", "ends"]), 5);
+  assert.equal(fx.size("medium", ["contains", "starts", "ends"]), 2);
+  assert.equal(fx.size("hard", ["contains", "starts", "ends"]), 3);
 });
 
 test("avoid prevents immediate repeats", () => {
   const two: Prompt[] = [
-    { text: "st", type: "starts", count: 300, common: 0 },
-    { text: "re", type: "starts", count: 250, common: 0 },
+    { text: "st", type: "starts", count: 300, common: 20 },
+    { text: "re", type: "starts", count: 250, common: 20 },
   ];
   const bank = createPromptBank(two);
   const { deps } = makeDeps(11);
@@ -65,8 +75,8 @@ test("avoid prevents immediate repeats", () => {
 
 test("avoid is keyed on type and text together", () => {
   const two: Prompt[] = [
-    { text: "st", type: "starts", count: 300, common: 0 },
-    { text: "st", type: "ends", count: 250, common: 0 },
+    { text: "st", type: "starts", count: 300, common: 20 },
+    { text: "st", type: "ends", count: 250, common: 20 },
   ];
   const bank = createPromptBank(two);
   const { deps } = makeDeps(5);
@@ -77,7 +87,7 @@ test("avoid is keyed on type and text together", () => {
 });
 
 test("avoid is ignored when it would leave nothing", () => {
-  const one: Prompt[] = [{ text: "st", type: "starts", count: 300, common: 0 }];
+  const one: Prompt[] = [{ text: "st", type: "starts", count: 300, common: 20 }];
   const bank = createPromptBank(one);
   const { deps } = makeDeps(2);
   const p = bank.next({ band: "easy", types: ["starts"], random: deps.random, avoid: ["starts:st"] });
@@ -86,8 +96,8 @@ test("avoid is ignored when it would leave nothing", () => {
 
 test("throws when nothing matches", () => {
   const bank = createPromptBank([
-    { text: "st", type: "starts", count: 300, common: 0 },
-    { text: "zz", type: "ends", count: 19, common: 0 },
+    { text: "st", type: "starts", count: 300, common: 20 },
+    { text: "zz", type: "ends", count: 19, common: 20 },
   ]);
   const { deps } = makeDeps(1);
   const draw = (band: "easy" | "hard", types: ("starts" | "ends")[]) =>
