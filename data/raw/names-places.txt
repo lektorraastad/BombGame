@@ -1,6 +1,6 @@
-# Place names the game accepts as answers: countries, nationalities and
-# languages, and well-known cities. Roy may add lines (one entry per line).
-# Countries, nationalities and languages also count as known words; cities don't.
+# Place names the game accepts as answers, in three sections (headers below).
+# Roy may add lines (one entry per line, notes start with #).
+# The first two sections also count as known words; the third (towns) doesn't.
 # The three section headers below must stay exactly as written.
 # Names with spaces (New Zealand, South Africa) can't be typed as one answer,
 # so they're left out. Norwegian letters: ø is written o, å aa, æ ae.
@@ -168,12 +168,12 @@ Vietnam
 Yemen
 Zambia
 Zimbabwe
-# observer states and other well-known countries
+# observer states and other well-known places
 Vatican
 Palestine
 Taiwan
 Kosovo
-# common one-word names for countries with longer official names
+# common one-word names for places with longer official names
 UK
 USA
 America
@@ -185,6 +185,14 @@ Holland
 Burma
 Korea
 UAE
+Greenland
+Scandinavia
+# continents
+Africa
+Asia
+Europe
+Antarctica
+Oceania
 
 # nationalities and languages
 Afghan
@@ -293,7 +301,14 @@ Welsh
 Yemeni
 Zambian
 Zimbabwean
-# languages
+# wider groups
+Arab
+European
+African
+Asian
+Scandinavian
+Nordic
+# spoken tongues
 Afrikaans
 Amharic
 Arabic
@@ -352,7 +367,7 @@ Lillehammer
 Molde
 Arendal
 Narvik
-# the rest of the Nordic countries
+# other Nordic towns
 Stockholm
 Gothenburg
 Malmo

@@ -118,6 +118,7 @@ Gymshark
 Lululemon
 Decathlon
 Intersport
+XXL
 FIFA
 UEFA
 NBA
@@ -175,7 +176,6 @@ Hershey's
 Reese's
 Mentos
 Starburst
-Magnum
 Gatorade
 Grandiosa
 Stabburet
