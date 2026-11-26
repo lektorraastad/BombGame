@@ -16,10 +16,10 @@ test("normalise rejects and cleans input", () => {
 
 test("matches by prompt type", () => {
   const c = makeTestChecker();
-  assert.equal(c.matches({ text: "at", type: "contains", count: 0 }, "station"), true);
-  assert.equal(c.matches({ text: "st", type: "starts", count: 0 }, "station"), true);
-  assert.equal(c.matches({ text: "on", type: "ends", count: 0 }, "station"), true);
-  assert.equal(c.matches({ text: "st", type: "ends", count: 0 }, "station"), false);
+  assert.equal(c.matches({ text: "at", type: "contains", count: 0, common: 0 }, "station"), true);
+  assert.equal(c.matches({ text: "st", type: "starts", count: 0, common: 0 }, "station"), true);
+  assert.equal(c.matches({ text: "on", type: "ends", count: 0, common: 0 }, "station"), true);
+  assert.equal(c.matches({ text: "st", type: "ends", count: 0, common: 0 }, "station"), false);
 });
 
 test("blocked words are not valid even if in dictionary", () => {
@@ -32,12 +32,12 @@ test("blocked words are not valid even if in dictionary", () => {
 
 test("examples come from known words only and respect n", () => {
   const c = makeTestChecker();
-  const p = { text: "st", type: "starts" as const, count: 0 };
+  const p = { text: "st", type: "starts" as const, count: 0, common: 0 };
   const ex = c.examples(p, 3, Math.random);
   assert.ok(ex.length <= 3 && ex.length > 0);
   for (const w of ex) assert.ok(fixtureWords.includes(w) && w.startsWith("st"));
   assert.equal(new Set(ex).size, ex.length);
-  assert.deepEqual(c.examples({ text: "zz", type: "contains", count: 0 }, 3, Math.random), []);
+  assert.deepEqual(c.examples({ text: "zz", type: "contains", count: 0, common: 0 }, 3, Math.random), []);
 });
 
 test("isBlockedName catches embedded words and Norwegian", () => {

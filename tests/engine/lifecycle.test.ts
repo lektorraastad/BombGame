@@ -63,7 +63,7 @@ function recordingActivity() {
   return { activity, calls };
 }
 
-const ST: Prompt = { text: "st", type: "contains", count: 480 };
+const ST: Prompt = { text: "st", type: "contains", count: 480, common: 0 };
 
 function setup(opts: {
   prompts?: Prompt[];
@@ -189,7 +189,7 @@ test("pause freezes remaining time", async () => {
 });
 
 test("skip prompt deals a new prompt without losing a life", async () => {
-  const bank = [ST, { text: "re", type: "contains", count: 480 } as Prompt];
+  const bank = [ST, { text: "re", type: "contains", count: 480, common: 0 } as Prompt];
   const { room, clock } = setup({ prompts: bank });
   const [a] = joinAll(room, "Ann", "Ben");
   room.start();
@@ -202,7 +202,7 @@ test("skip prompt deals a new prompt without losing a life", async () => {
 });
 
 test("bonus alphabet gives a life and resets", () => {
-  const { room } = setup({ prompts: [{ text: "ab", type: "contains", count: 300 }], words: ["ab", "cab", "tab"] });
+  const { room } = setup({ prompts: [{ text: "ab", type: "contains", count: 300, common: 0 }], words: ["ab", "cab", "tab"] });
   const [a] = joinAll(room, "Ann", "Ben");
   room.updateSettings({ bonusLetters: ["a", "b", "c"], startLives: 2, maxLives: 3 });
   room.start();
@@ -462,7 +462,7 @@ test("an activity can revive a player and keep its own state across prompts", ()
   const { deps } = makeDeps(11);
   const room = new Room({
     code: "ABCD", deps, checker: makeTestChecker(),
-    bank: createPromptBank([ST, { text: "re", type: "contains", count: 480 }]),
+    bank: createPromptBank([ST, { text: "re", type: "contains", count: 480, common: 0 }]),
     blockedNames: fixtureBlocked, modes: [fakeMode()], activities: [activity], onChange: () => changes++,
   });
   const [a, b, c] = joinAll(room, "Ann", "Ben", "Cat");

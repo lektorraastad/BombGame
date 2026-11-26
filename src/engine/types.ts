@@ -7,8 +7,8 @@ export type EngineDeps = {
 };
 
 export type PromptType = "contains" | "starts" | "ends";
-/** `count` is the number of fitting known words. */
-export type Prompt = { text: string; type: PromptType; count: number };
+/** `count` is the number of fitting known words; `common` the number of fitting beginner words (CEFR-J A1–A2 and known names). */
+export type Prompt = { text: string; type: PromptType; count: number; common: number };
 
 export type Band = "easy" | "medium" | "hard" | "mixed";
 

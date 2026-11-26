@@ -13,9 +13,9 @@ const near = (actual: number, expected: number) =>
 
 test("generated sizes match the supplied lists", () => {
   const { summary } = loadWordData(gen);
-  near(summary.counts.known, 8470);
-  near(summary.counts.dictionary, 143000);
-  const e = { contains: [90, 240, 540], starts: [4, 57, 135], ends: [10, 34, 85] } as const;
+  near(summary.counts.known, 12610);
+  near(summary.counts.dictionary, 143784);
+  const e = { contains: [137, 342, 715], starts: [8, 82, 192], ends: [17, 56, 137] } as const;
   for (const t of ["contains", "starts", "ends"] as const) {
     near(summary.prompts[t].easy, e[t][0]);
     near(summary.prompts[t].medium, e[t][1]);

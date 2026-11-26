@@ -7,7 +7,7 @@ import { createPromptBank } from "../../src/engine/prompts.ts";
 import type { Prompt } from "../../src/engine/types.ts";
 import { makeDeps, makeTestChecker, fixtureBlocked } from "./helpers.ts";
 
-const ST: Prompt = { text: "st", type: "contains", count: 480 };
+const ST: Prompt = { text: "st", type: "contains", count: 480, common: 0 };
 
 const clockOf = new WeakMap<Room, { advance(ms: number): Promise<void> }>();
 async function advance(room: Room) {

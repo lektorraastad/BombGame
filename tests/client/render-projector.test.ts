@@ -13,7 +13,7 @@ import type { PlayerId, Room } from "../../src/engine/room.ts";
 import { makeDeps, makeTestChecker, fixtureBlocked } from "../engine/helpers.ts";
 import type { Prompt } from "../../src/engine/types.ts";
 
-const ST: Prompt = { text: "st", type: "contains", count: 480 };
+const ST: Prompt = { text: "st", type: "contains", count: 480, common: 0 };
 const TOKENS = ["tok-secret-mia", "tok-secret-jon", "tok-secret-ola"];
 const ui = (over: Record<string, unknown> = {}): any => ({ countdownMs: null, credits: CREDITS, site: "bomb.example", ...over });
 

@@ -8,8 +8,8 @@ import type { Prompt } from "../../src/engine/types.ts";
 import { projectorView } from "../../src/engine/views.ts";
 import { makeDeps, makeTestChecker, fixtureBlocked } from "./helpers.ts";
 
-const ST: Prompt = { text: "st", type: "contains", count: 480 };
-const RE: Prompt = { text: "re", type: "starts", count: 120 };
+const ST: Prompt = { text: "st", type: "contains", count: 480, common: 0 };
+const RE: Prompt = { text: "re", type: "starts", count: 120, common: 0 };
 
 const clockOf = new WeakMap<Room, { advance(ms: number): Promise<void> }>();
 async function advance(room: Room) {
@@ -61,7 +61,7 @@ test("everyone gets the same prompt and answering once marks answered", () => {
 });
 
 test("skip restarts the round with a new prompt and clears answered", async () => {
-  const { room, ids } = setup(3, {}, [ST, RE, { text: "ou", type: "contains", count: 260 }]);
+  const { room, ids } = setup(3, {}, [ST, RE, { text: "ou", type: "contains", count: 260, common: 0 }]);
   const before = room.context().prompt()!.text;
   const lives = ids.map((id) => p(room, id).lives);
   const answer = { st: "station", re: "return", ou: "ouch" }[before]!;

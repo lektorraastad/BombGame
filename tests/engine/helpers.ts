@@ -49,15 +49,15 @@ export function makeTestChecker() {
 import type { Prompt } from "../../src/engine/types.ts";
 
 export const fixturePrompts: Prompt[] = [
-  { text: "st", type: "starts", count: 480 },
-  { text: "ing", type: "ends", count: 350 },
-  { text: "ou", type: "contains", count: 260 },
-  { text: "re", type: "starts", count: 120 },
-  { text: "ast", type: "ends", count: 90 },
-  { text: "oun", type: "contains", count: 64 },
-  { text: "pl", type: "starts", count: 55 },
-  { text: "ect", type: "ends", count: 38 },
-  { text: "gh", type: "contains", count: 24 },
-  { text: "ky", type: "ends", count: 31 },
-  { text: "zz", type: "contains", count: 19 },
+  { text: "st", type: "starts", count: 480, common: 0 },
+  { text: "ing", type: "ends", count: 350, common: 0 },
+  { text: "ou", type: "contains", count: 260, common: 0 },
+  { text: "re", type: "starts", count: 120, common: 0 },
+  { text: "ast", type: "ends", count: 90, common: 0 },
+  { text: "oun", type: "contains", count: 64, common: 0 },
+  { text: "pl", type: "starts", count: 55, common: 0 },
+  { text: "ect", type: "ends", count: 38, common: 0 },
+  { text: "gh", type: "contains", count: 24, common: 0 },
+  { text: "ky", type: "ends", count: 31, common: 0 },
+  { text: "zz", type: "contains", count: 19, common: 0 },
 ];

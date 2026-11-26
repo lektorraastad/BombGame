@@ -37,11 +37,11 @@ test("respects band and types", () => {
 
 test("band edges: 200 easy, 199 medium, 60 medium, 59 hard, 20 hard", () => {
   const edge: Prompt[] = [
-    { text: "aa", type: "starts", count: 200 },
-    { text: "bb", type: "starts", count: 199 },
-    { text: "cc", type: "starts", count: 60 },
-    { text: "dd", type: "starts", count: 59 },
-    { text: "ee", type: "starts", count: 20 },
+    { text: "aa", type: "starts", count: 200, common: 0 },
+    { text: "bb", type: "starts", count: 199, common: 0 },
+    { text: "cc", type: "starts", count: 60, common: 0 },
+    { text: "dd", type: "starts", count: 59, common: 0 },
+    { text: "ee", type: "starts", count: 20, common: 0 },
   ];
   const bank = createPromptBank(edge);
   assert.equal(bank.size("easy", ["starts"]), 1);
@@ -52,8 +52,8 @@ test("band edges: 200 easy, 199 medium, 60 medium, 59 hard, 20 hard", () => {
 
 test("avoid prevents immediate repeats", () => {
   const two: Prompt[] = [
-    { text: "st", type: "starts", count: 300 },
-    { text: "re", type: "starts", count: 250 },
+    { text: "st", type: "starts", count: 300, common: 0 },
+    { text: "re", type: "starts", count: 250, common: 0 },
   ];
   const bank = createPromptBank(two);
   const { deps } = makeDeps(11);
@@ -65,8 +65,8 @@ test("avoid prevents immediate repeats", () => {
 
 test("avoid is keyed on type and text together", () => {
   const two: Prompt[] = [
-    { text: "st", type: "starts", count: 300 },
-    { text: "st", type: "ends", count: 250 },
+    { text: "st", type: "starts", count: 300, common: 0 },
+    { text: "st", type: "ends", count: 250, common: 0 },
   ];
   const bank = createPromptBank(two);
   const { deps } = makeDeps(5);
@@ -77,7 +77,7 @@ test("avoid is keyed on type and text together", () => {
 });
 
 test("avoid is ignored when it would leave nothing", () => {
-  const one: Prompt[] = [{ text: "st", type: "starts", count: 300 }];
+  const one: Prompt[] = [{ text: "st", type: "starts", count: 300, common: 0 }];
   const bank = createPromptBank(one);
   const { deps } = makeDeps(2);
   const p = bank.next({ band: "easy", types: ["starts"], random: deps.random, avoid: ["starts:st"] });
@@ -86,8 +86,8 @@ test("avoid is ignored when it would leave nothing", () => {
 
 test("throws when nothing matches", () => {
   const bank = createPromptBank([
-    { text: "st", type: "starts", count: 300 },
-    { text: "zz", type: "ends", count: 19 },
+    { text: "st", type: "starts", count: 300, common: 0 },
+    { text: "zz", type: "ends", count: 19, common: 0 },
   ]);
   const { deps } = makeDeps(1);
   const draw = (band: "easy" | "hard", types: ("starts" | "ends")[]) =>

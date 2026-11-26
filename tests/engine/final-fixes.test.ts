@@ -11,7 +11,7 @@ import { projectorView, playerView } from "../../src/engine/views.ts";
 import type { Prompt } from "../../src/engine/types.ts";
 import { makeDeps, makeTestChecker, fixtureBlocked, fixtureWords } from "./helpers.ts";
 
-const ST: Prompt = { text: "st", type: "contains", count: 480 };
+const ST: Prompt = { text: "st", type: "contains", count: 480, common: 0 };
 
 function setup(modeName: "classic" | "everyone", n: number, settings: Record<string, unknown> = {}, onChange?: () => void) {
   const { deps, clock } = makeDeps(11);
@@ -109,7 +109,7 @@ test("final 4: blocked list is case-insensitive and names are NFC-normalised", (
   const checker = createWordChecker({ dictionary: ["damn", "fine"], known: ["damn", "fine"], blocked: ["Damn"] });
   assert.equal(checker.isBlocked("damn"), true);
   assert.equal(checker.isWord("damn"), false);
-  assert.deepEqual(checker.examples({ text: "a", type: "contains", count: 1 }, 5, () => 0.5), []);
+  assert.deepEqual(checker.examples({ text: "a", type: "contains", count: 1, common: 0 }, 5, () => 0.5), []);
   const mixed = createWordChecker({ dictionary: ["Fine"], known: ["Fine"], blocked: [] });
   assert.equal(mixed.isWord("fine"), true);
   assert.equal(isBlockedName("DAMN", ["Damn"]), true);
