@@ -105,7 +105,7 @@ Measured on today's prompts, before the new known words are added:
 | Medium | 4–7 | 230 | JO, EXC, LOO, SHA, TW |
 | Hard | 0–3 | 137 | TED, KED, ALS, FAC, STS |
 
-The thresholds (15, 8, 4) are **(Claude's call)**. The builder may adjust them by a step or two after the new word list is in, so that Easy keeps at least about 150 "contains" prompts. The final numbers go in the plan.
+The thresholds (15, 8, 4) are **(Claude's call)**. The builder may adjust them by a step or two after the new word list is in. The guard is on the **Easy option** (the very easy and easy levels together, about 502 "contains" prompts today): it must keep at least 150 "contains" prompts. Rising's first lap uses the very easy level alone, so that level must keep at least 100 "contains" prompts. The final numbers go in the plan.
 
 ### 5.3 The Difficulty setting
 
@@ -203,7 +203,8 @@ On every style, the urgent ticking gets faster but **not louder or higher-pitche
   - Prompt choice stays testable with a fake `random`.
 - **Health and summary:**
   - `summary.json`, `/api/health` and `problems()` report the new levels.
-  - `problems()` must also refuse a build where Easy has fewer than 100 "contains" prompts. That would mean the CEFR-J file was damaged or removed.
+  - `problems()` must also refuse a build where the Easy option has fewer than 100 "contains" prompts. That would mean the CEFR-J file was damaged or removed.
+- **Order of delivery (Claude's call):** everything in this batch goes to one draft pull request and one deploy preview, together with the try-out page. Roy tries the new difficulty and picks a ticking style on the same preview. The chosen style is then built in and the try-out page removed on the same branch, before anything goes live.
 - **Control panel:** the hub's `promptCounts` and `BAND_LABEL` in `render-control.js` use the new options.
 - **Docs:**
   - README: how Roy adds words and names, in the same click-by-click style as `blocked-extra.txt`.
