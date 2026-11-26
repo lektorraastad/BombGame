@@ -100,12 +100,14 @@ Measured on today's prompts, before the new known words are added:
 
 | Level | `common` | "contains" prompts today | Examples |
 |---|---|---|---|
-| Very easy | 15 or more | 286 | IN, CE, SH, MAN, IGH |
-| Easy | 8–14 | 216 | TEN, GRE, LIT, ISH, OND |
-| Medium | 4–7 | 230 | JO, EXC, LOO, SHA, TW |
-| Hard | 0–3 | 137 | TED, KED, ALS, FAC, STS |
+| Very easy | 15 or more | 341 | IN, CE, SH, MAN, IGH |
+| Easy | 8–14 | 287 | TEN, GRE, LIT, ISH, OND |
+| Medium | 4–7 | 347 | JO, EXC, LOO, SHA, TW |
+| Hard | 0–3 | 219 | TED, KED, ALS, FAC, STS |
 
-The thresholds (15, 8, 4) are **(Claude's call)**. The builder may adjust them by a step or two after the new word list is in. The guard is on the **Easy option** (the very easy and easy levels together, about 502 "contains" prompts today): it must keep at least 150 "contains" prompts. Rising's first lap uses the very easy level alone, so that level must keep at least 100 "contains" prompts. The final numbers go in the plan.
+The prompt counts were measured after the CEFR-J words were added (26 November 2026, `data/generated/summary.json`).
+
+The thresholds (15, 8, 4) are **(Claude's call)**. The builder may adjust them by a step or two after the new word list is in. The guard is on the **Easy option** (the very easy and easy levels together, about 628 "contains" prompts today): it must keep at least 150 "contains" prompts. Rising's first lap uses the very easy level alone, so that level must keep at least 100 "contains" prompts. The final numbers go in the plan.
 
 ### 5.3 The Difficulty setting
 

@@ -167,7 +167,7 @@ The Difficulty setting (`band`) decides which levels are dealt:
 - **Rising:** uses the `stage` passed to `bank.next`. Stage 1 is very easy only, stage 2 very easy and easy, and stage 3 onwards is as Normal. Classic moves up a stage each lap (as many prompts as there were alive players when the lap began); Everyone at once moves up each round.
 - **Hard:** every level.
 
-If none of a band's levels has a prompt of the chosen types, the bank widens to include harder levels, one at a time, until it finds one. To make the game easier or harder overall, change `LEVEL_MIN` (higher numbers make each level harder to reach) and run `npm test`: `tests/words/generated.test.ts` checks that Easy still has enough prompts and that STS and CTS stay hard.
+If none of a band's levels has a prompt of the chosen types, the bank widens to include harder levels, one at a time, until it finds one. To make the game easier or harder overall, change `LEVEL_MIN` (higher numbers make each level harder to reach), run `npm run build:words` (the level counts in `data/generated/summary.json` are worked out by the build, and a test checks they are up to date), then run `npm test`: `tests/words/generated.test.ts` checks that Easy still has enough prompts and that STS and CTS stay hard.
 
 ## 5. Add a theme
 

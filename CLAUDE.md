@@ -8,6 +8,7 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
 - **Design and plans:**
   - `docs/superpowers/specs/2026-11-21-bomb-game-design.md` is the original design, approved by Roy.
   - `docs/superpowers/specs/2026-11-23-redesign-design.md` is the redesign, approved by Roy, and `docs/superpowers/plans/2026-11-23-redesign.md` is its plan.
+  - `docs/superpowers/specs/2026-11-26-difficulty-words-sound-design.md` is batch 1 of Roy's improvements (difficulty, words and names, sound), approved by Roy, and `docs/superpowers/plans/2026-11-26-difficulty-words-sound.md` is its plan.
   - `docs/design-principles.md` holds the **visual design principles and the chosen "Workshop" theme**. Read it before any visual work.
   - `docs/superpowers/plans/` has the five implementation plans already built: connection test, engine, word lists, playable game and the redesign.
   - `docs/EXTENDING.md` explains how to add game modes, knocked-out activities, settings, prompt types and themes, and how to swap the bomb.
@@ -59,6 +60,8 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
    - a nicer, less annoying ticking sound.
 
    Each one needs a short design that Roy approves before any building.
+   - **Batch 1** (difficulty, words and names, the Sound button) is built on branch `claude/elegant-newton-cozbue`. It waits for Roy to choose a tick style on the deploy preview's `/sound-test/` page (plan Task 9). Until then the tick is a placeholder (`"beep-soft"`), and `public/sound-test/` must be removed before merging.
+   - **Batch 2** (layout) and **batch 3** (settings presets and housekeeping) follow, each with its own design for Roy to approve.
 3. **Small follow-ups:** in `docs/EXTENDING.md` privacy rules, say "player words" (the dictionary examples are also shown), and note that the control screen receives typing but doesn't draw it.
 4. **Later:**
    - the "Slate and violet" theme;
