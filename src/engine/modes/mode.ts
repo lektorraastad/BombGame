@@ -59,6 +59,11 @@ export interface GameMode {
   isOn(ctx: ModeContext, pid: PlayerId): boolean;
   /** No-reuse rule. */
   usedScope: "room" | "player";
+  /**
+   * Optional: the lap (1, 2, 3, ...) that Rising difficulty follows. Without it the room counts
+   * laps itself: one lap is as many prompts as players were alive when the lap began.
+   */
+  lap?(ctx: ModeContext): number;
   /** Mode-specific public data for views. */
   view(ctx: ModeContext): Record<string, unknown>;
 }

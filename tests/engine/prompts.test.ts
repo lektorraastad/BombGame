@@ -99,6 +99,14 @@ test("rising stage 1 deals only very easy; stage 2 adds easy; stage 3 matches no
   }
 });
 
+test("a bad stage counts as stage 1; a fractional stage rounds down", () => {
+  const one = levelsDealt("rising", 300, 5, 1);
+  for (const stage of [NaN, Infinity, -Infinity, 0, -2, 0.5, "3" as unknown as number]) {
+    assert.deepEqual(levelsDealt("rising", 300, 5, stage), one, `stage ${String(stage)}`);
+  }
+  assert.deepEqual(levelsDealt("rising", 300, 5, 2.9), levelsDealt("rising", 300, 5, 2));
+});
+
 test("hard deals every level", () => {
   const c = levelsDealt("hard", 800, 6);
   assert.ok(c.veryEasy > 0 && c.easy > 0 && c.medium > 0 && c.hard > 0, JSON.stringify(c));

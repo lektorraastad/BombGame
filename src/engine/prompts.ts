@@ -41,6 +41,12 @@ function groupsFor(band: Band, stage: number): Group[] {
 
 export const MIN_ANSWERS = 20;
 
+/** A missing, non-finite or below-1 stage is stage 1; a fractional one rounds down. */
+function cleanStage(stage: unknown): number {
+  if (typeof stage !== "number" || !Number.isFinite(stage) || stage < 1) return 1;
+  return Math.floor(stage);
+}
+
 export interface PromptBank {
   next(opts: { band: Band; types: PromptType[]; random: () => number; avoid: string[]; stage?: number }): Prompt;
   /** How many distinct prompts the band can deal at stage 1. */
@@ -85,8 +91,8 @@ export function createPromptBank(prompts: Prompt[]): PromptBank {
 
   return {
     size: (band, types) => new Set(dealable(band, 1, ofTypes(types)).pools.flat()).size,
-    next({ band, types, random, avoid, stage = 1 }) {
-      const { groups, pools } = dealable(band, stage, ofTypes(types));
+    next({ band, types, random, avoid, stage }) {
+      const { groups, pools } = dealable(band, cleanStage(stage), ofTypes(types));
       if (groups.length === 0) throw new Error("no prompts for band/types");
       const chosen = pickGroup(groups, random());
       const fresh = (pool: Prompt[]) => pool.filter((p) => !avoid.includes(promptKey(p)));
