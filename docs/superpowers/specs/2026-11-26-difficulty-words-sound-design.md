@@ -1,6 +1,6 @@
 # Bomb game: even difficulty, better words, nicer ticking (batch 1)
 
-Status: draft for Roy's approval, 2026-11-26.
+Status: approved by Roy, 2026-11-26.
 
 This is the first of three batches of improvements Roy asked for after testing the redesign at home (`docs/improvements.md`). It builds on the original design (`2026-11-21-bomb-game-design.md`) and the redesign (`2026-11-23-redesign-design.md`). Read those first; this document says only what changes.
 
