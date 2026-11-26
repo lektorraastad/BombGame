@@ -1,6 +1,6 @@
 # Bomb game: spotlight layout (batch 2)
 
-Status: draft for Roy's approval, 2026-11-26.
+Status: approved by Roy, 2026-11-26.
 
 Batch 2 of Roy's improvements (`docs/improvements.md`, item 1). It builds on the redesign (`2026-11-23-redesign-design.md`) and `docs/design-principles.md`. Read those first.
 
@@ -50,12 +50,12 @@ Roy agreed earlier that the prompt letters may shrink with the bomb, as long as 
 - **Contents:** the current player's live typing, shown as the same letter tiles with the cursor. It sits centred under the bomb, below the reach of the turn arrow (about 0.62 × the bomb's size below the centre).
 - **Size:** about 6.5% of the circle's height on the projector (about 64 px at 1920×1080) and about 6% on laptops.
 - **When it shows:** in Classic with Live typing on, at 20 players or fewer, while someone is on.
-  - If they haven't typed yet, it shows just the cursor **(Claude's call)**, so the class can see where the typing will appear.
+  - It appears with the first typed letter. (Changed after approval: the screens only receive the typing once there is some, and they aren't told whether Live typing is on, so an empty cursor first would need a change to what the server sends. Until the first letter, the seat on its turn shows its last word, as today.)
 - **When it doesn't show:**
   - **Everyone at once:** there's no single typer.
   - **Live typing off.**
   - **More than 20 players:** the inner ring sits there. With two rings, the typing stays under the player's seat as today **(Claude's call: same size as today, since the design is for 15)**.
-- **The seat on its turn:** shows its name, emoji and hearts with the turn ring, and nothing under them, since the word is in the spotlight.
+- **The seat on its turn:** while the spotlight shows, the seat has its name, emoji and hearts with the turn ring, and nothing under them, since the word is in the spotlight.
 - **Masking:** rude words are masked (★★★★) exactly as today. The server already does this, and nothing changes.
 - **Same picture everywhere:** every screen shows the same spotlight, including the typing student's own laptop **(Claude's call: one picture for everyone, and the student's own box is at the bottom anyway)**.
 
