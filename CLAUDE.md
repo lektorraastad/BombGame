@@ -60,7 +60,7 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
    - a nicer, less annoying ticking sound.
 
    Each one needs a short design that Roy approves before any building.
-   - **Batch 1** (difficulty, words and names, the Sound button) is built and reviewed on branch `claude/elegant-newton-cozbue`, draft PR lektorraastad/BombGame#2. Roy chose the tick-tock sound. It waits for Roy's go-ahead to merge (never on a lesson day).
+   - **Batch 1 is live** (difficulty, words and names, the tick-tock sound and the Sound button; merged on 26 November 2026 at Roy's request, PR lektorraastad/BombGame#2). Things for Roy to watch in the first lesson: whether Normal feels right for the class, and whether the tick-tock is loud enough on the classroom speakers.
    - **Batch 2** (layout) and **batch 3** (settings presets and housekeeping) follow, each with its own design for Roy to approve.
 3. **Small follow-ups:** in `docs/EXTENDING.md` privacy rules, say "player words" (the dictionary examples are also shown), and note that the control screen receives typing but doesn't draw it.
 4. **Later:**
