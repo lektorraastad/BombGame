@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { TICK_STYLES } from "../../public/app/tick-styles.js";
+import { TICK_TOCK } from "../../public/app/tick-styles.js";
 
 /** A fake AudioContext that records nodes, starts, stops, connections, gains and pitches. */
 function fakeAudio() {
@@ -48,23 +48,22 @@ function fakeAudio() {
   return { ctx, out, destination, started, stopped, gains, pitches, connections, built };
 }
 
-test("every style builds nodes, starts them and connects only to out", () => {
-  const keys = Object.keys(TICK_STYLES).sort();
-  assert.deepEqual(keys, ["beep-soft", "heartbeat", "muffled", "soft-clock", "tick-tock"]);
-  for (const [id, style] of Object.entries(TICK_STYLES)) {
+test("the tick-tock style builds nodes, starts them and connects only to out", () => {
+  const style = TICK_TOCK;
+  const id = "tick-tock";
+  {
     assert.ok(style.label.length > 0, `${id} has a label`);
     const peak: Record<string, number> = {};
     const pitch: Record<string, number> = {};
     for (const urgent of [false, true]) {
       const a = fakeAudio();
-      // Two calls, so alternating styles show both pitches.
+      // Two calls, so both pitches show.
       style.play(a.ctx, a.out, urgent);
       style.play(a.ctx, a.out, urgent);
       assert.ok(a.started.length > 0, `${id} ${urgent ? "urgent" : "calm"} starts a node`);
       assert.equal(a.stopped.length, a.started.length, `${id} stops every node it starts`);
       assert.ok(!a.connections.includes(a.destination), `${id} never connects to the speakers directly`);
       assert.ok(a.connections.includes(a.out), `${id} connects to out`);
-      // Every node ends up at out: anything connected to something that is not a built node must be out.
       for (const to of a.connections) assert.ok(to === a.out || a.built.includes(to), `${id} connects only inside its graph`);
       assert.ok(a.gains.length > 0, `${id} sets a gain`);
       peak[String(urgent)] = Math.max(...a.gains);
@@ -77,20 +76,11 @@ test("every style builds nodes, starts them and connects only to out", () => {
 
 test("tick-tock alternates two close pitches", () => {
   const a = fakeAudio();
-  TICK_STYLES["tick-tock"].play(a.ctx, a.out, false);
+  TICK_TOCK.play(a.ctx, a.out, false);
   const first = a.pitches[0];
   a.pitches.length = 0;
-  TICK_STYLES["tick-tock"].play(a.ctx, a.out, false);
+  TICK_TOCK.play(a.ctx, a.out, false);
   const second = a.pitches[0];
   assert.notEqual(first, second);
   assert.ok(Math.max(first, second) / Math.min(first, second) < 1.3, "close pitches");
-});
-
-test("beep-soft is today's square wave at about 0.4x today's gain", () => {
-  const a = fakeAudio();
-  TICK_STYLES["beep-soft"].play(a.ctx, a.out, false);
-  const osc = a.built.find((n) => n.kind === "osc");
-  assert.equal(osc.type, "square");
-  assert.equal(a.pitches[0], 1180);
-  assert.ok(Math.abs(Math.max(...a.gains) - 0.14 * 0.4) < 0.005);
 });

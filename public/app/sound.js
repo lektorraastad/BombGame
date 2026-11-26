@@ -2,7 +2,7 @@
 // caller's factory makes, and it makes none until unlock(), because browsers block audio until a
 // click. Player laptops never load this module.
 import { URGENT_MS } from "./countdown.js";
-import { TICK_STYLES } from "./tick-styles.js";
+import { TICK_TOCK } from "./tick-styles.js";
 
 /** @typedef {"normal" | "quiet" | "off"} SoundLevel */
 
@@ -44,10 +44,10 @@ export function readLevel(get) {
 /**
  * Every sound goes through one master gain node, set from the level.
  * @param {() => any} audioContextFactory makes an AudioContext (or a fake in tests)
- * @param {{ play(ctx: any, out: any, urgent: boolean): void }} [tickStyle] beep-soft is a placeholder until Roy chooses
+ * @param {{ play(ctx: any, out: any, urgent: boolean): void }} [tickStyle] defaults to tick-tock (Roy's choice)
  * @returns {Sound}
  */
-export function createSound(audioContextFactory, tickStyle = TICK_STYLES["beep-soft"]) {
+export function createSound(audioContextFactory, tickStyle = TICK_TOCK) {
   /** @type {any} */ let ctx = null;
   /** @type {any} */ let master = null;
   /** @type {SoundLevel} */ let level = "normal";

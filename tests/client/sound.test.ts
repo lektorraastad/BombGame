@@ -7,6 +7,7 @@ function fakeAudio() {
   const log: string[] = [];
   let made = 0;
   const gains: any[] = [];
+  const oscTypes: string[] = [];
   const param = () => ({ value: 0, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} });
   const node = (kind: string) => ({
     kind,
@@ -15,7 +16,7 @@ function fakeAudio() {
     type: "",
     buffer: null as unknown,
     connect() {},
-    start() { log.push(`start:${kind}`); },
+    start() { log.push(`start:${kind}`); if (kind === "osc") oscTypes.push(this.type); },
     stop() {},
   });
   const factory = () => {
@@ -37,7 +38,7 @@ function fakeAudio() {
       createBuffer: (_ch: number, length: number) => ({ getChannelData: () => new Float32Array(length) }),
     };
   };
-  return { factory: factory as any, log, made: () => made, gains };
+  return { factory: factory as any, log, made: () => made, gains, oscTypes };
 }
 
 test("sound does nothing until unlocked and when off", () => {
@@ -113,6 +114,15 @@ test("tick uses the given style, and every sound goes through the master gain", 
   s.setLevel("off");
   s.tick(true);
   assert.equal(calls.length, 2, "no tick while off");
+});
+
+test("the default tick is the tick-tock style: two short sine blips, not a square beep", () => {
+  const a = fakeAudio();
+  const s = createSound(a.factory);
+  s.unlock();
+  s.tick(false);
+  s.tick(false);
+  assert.deepEqual(a.oscTypes, ["sine", "sine"]);
 });
 
 test("the explosion connects to the master gain, not the destination", () => {

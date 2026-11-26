@@ -3,6 +3,9 @@
 Roy's notes after testing the redesign at home (25 November 2026), with leads for the builder. Each one needs a short design that Roy approves before any building, as usual.
 
 ## 1. A smaller bomb, with bigger names and typing
+
+**Coming in batch 2 (layout).**
+
 **Roy:** "The bomb should be a bit smaller, to allow for the students' names and what they are typing to be bigger."
 
 **Leads:**
@@ -20,6 +23,9 @@ Roy's notes after testing the redesign at home (25 November 2026), with leads fo
 - This is design work, so it must not change game logic. The bomb lives only in `public/app/bomb.js` (see `docs/design-principles.md`).
 
 ## 2. More even difficulty for the letters
+
+**Done in batch 1 (2026-11-26).**
+
 **Roy:** "The letters they are given to spell words with are sometimes very hard. We should think of ways to make the difficulty a bit more uniform."
 
 **How it works now:**
@@ -40,6 +46,9 @@ Roy's notes after testing the redesign at home (25 November 2026), with leads fo
 - Look at real prompts before choosing: list a sample from each band and ask Roy which ones feel too hard.
 
 ## 3. A nicer ticking sound
+
+**Done in batch 1 (2026-11-26).** Roy chose the tick-tock sound.
+
 **Roy:** "The sound of the ticking bomb is a bit annoying and should be refined."
 
 **How it works now:**
