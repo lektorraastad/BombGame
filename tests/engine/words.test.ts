@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalise, isBlockedName, maskBlocked } from "../../src/engine/words.ts";
+import { normalise, isBlockedName, maskBlocked, createWordChecker } from "../../src/engine/words.ts";
 import { makeTestChecker, fixtureWords, fixtureBlocked } from "./helpers.ts";
 
 test("normalise rejects and cleans input", () => {
@@ -16,10 +16,10 @@ test("normalise rejects and cleans input", () => {
 
 test("matches by prompt type", () => {
   const c = makeTestChecker();
-  assert.equal(c.matches({ text: "at", type: "contains", count: 0 }, "station"), true);
-  assert.equal(c.matches({ text: "st", type: "starts", count: 0 }, "station"), true);
-  assert.equal(c.matches({ text: "on", type: "ends", count: 0 }, "station"), true);
-  assert.equal(c.matches({ text: "st", type: "ends", count: 0 }, "station"), false);
+  assert.equal(c.matches({ text: "at", type: "contains", count: 0, common: 0 }, "station"), true);
+  assert.equal(c.matches({ text: "st", type: "starts", count: 0, common: 0 }, "station"), true);
+  assert.equal(c.matches({ text: "on", type: "ends", count: 0, common: 0 }, "station"), true);
+  assert.equal(c.matches({ text: "st", type: "ends", count: 0, common: 0 }, "station"), false);
 });
 
 test("blocked words are not valid even if in dictionary", () => {
@@ -32,12 +32,35 @@ test("blocked words are not valid even if in dictionary", () => {
 
 test("examples come from known words only and respect n", () => {
   const c = makeTestChecker();
-  const p = { text: "st", type: "starts" as const, count: 0 };
+  const p = { text: "st", type: "starts" as const, count: 0, common: 0 };
   const ex = c.examples(p, 3, Math.random);
   assert.ok(ex.length <= 3 && ex.length > 0);
   for (const w of ex) assert.ok(fixtureWords.includes(w) && w.startsWith("st"));
   assert.equal(new Set(ex).size, ex.length);
-  assert.deepEqual(c.examples({ text: "zz", type: "contains", count: 0 }, 3, Math.random), []);
+  assert.deepEqual(c.examples({ text: "zz", type: "contains", count: 0, common: 0 }, 3, Math.random), []);
+});
+
+test("examples prefer beginner words", () => {
+  const known = ["stab", "stack", "staff", "stage", "stain", "stair", "stake", "stall", "stamp", "stand", "other"];
+  const beginner = ["stage", "stamp", "stand", "other"];
+  const c = createWordChecker({ dictionary: known, known, blocked: [], beginner });
+  const p = { text: "sta", type: "starts" as const, count: 0, common: 0 };
+  for (let i = 0; i < 20; i++) {
+    assert.deepEqual([...c.examples(p, 3, Math.random)].sort(), ["stage", "stamp", "stand"]);
+  }
+});
+
+test("examples fill from known when beginner is short, never from blocked", () => {
+  const known = ["stab", "stack", "staff", "stage", "stain", "damn"];
+  const c = createWordChecker({ dictionary: known, known, blocked: ["stain", "stamp"], beginner: ["stamp", "stage", "other"] });
+  const p = { text: "sta", type: "starts" as const, count: 0, common: 0 };
+  for (let i = 0; i < 20; i++) {
+    const ex = c.examples(p, 3, Math.random);
+    assert.equal(ex.length, 3);
+    assert.equal(ex[0], "stage");
+    assert.equal(new Set(ex).size, 3);
+    for (const w of ex.slice(1)) assert.ok(["stab", "stack", "staff"].includes(w), w);
+  }
 });
 
 test("isBlockedName catches embedded words and Norwegian", () => {

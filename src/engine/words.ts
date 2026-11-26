@@ -28,11 +28,15 @@ export function createWordChecker(opts: {
   dictionary: Iterable<string>;
   known: Iterable<string>;
   blocked: Iterable<string>;
+  /** Beginner words (CEFR-J A1–A2, plus names and Roy's words that count as known). Example answers come from these first. */
+  beginner?: Iterable<string>;
 }): WordChecker {
   const lower = (items: Iterable<string>) => [...items].map((w) => w.toLowerCase());
   const dictionary = new Set(lower(opts.dictionary));
   const known = [...new Set(lower(opts.known))];
   const blocked = new Set(lower(opts.blocked));
+  const beginner = [...new Set(lower(opts.beginner ?? []))];
+  const beginnerSet = new Set(beginner);
 
   const matches = (p: Prompt, w: string): boolean =>
     p.type === "contains" ? w.includes(p.text) : p.type === "starts" ? w.startsWith(p.text) : w.endsWith(p.text);
@@ -42,12 +46,17 @@ export function createWordChecker(opts: {
     isBlocked: (w) => blocked.has(w),
     matches,
     examples(p, n, random) {
-      const pool = known.filter((w) => !blocked.has(w) && matches(p, w));
-      for (let i = pool.length - 1; i > 0; i--) {
-        const j = Math.floor(random() * (i + 1));
-        [pool[i], pool[j]] = [pool[j], pool[i]];
-      }
-      return pool.slice(0, Math.max(0, n));
+      const fits = (w: string) => !blocked.has(w) && matches(p, w);
+      const shuffled = (pool: string[]) => {
+        for (let i = pool.length - 1; i > 0; i--) {
+          const j = Math.floor(random() * (i + 1));
+          [pool[i], pool[j]] = [pool[j], pool[i]];
+        }
+        return pool;
+      };
+      const first = shuffled(beginner.filter(fits));
+      const rest = shuffled(known.filter((w) => fits(w) && !beginnerSet.has(w)));
+      return [...first, ...rest].slice(0, Math.max(0, n));
     },
   };
 }

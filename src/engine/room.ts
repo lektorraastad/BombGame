@@ -66,6 +66,13 @@ type Game = {
   pendingWords: Map<PlayerId, LastWord>;
   bomb: Bomb | null;
   pausedRemaining: number | null;
+  /** Prompts dealt this game, skips included. */
+  dealt: number;
+  /** The lap Rising difficulty follows (private: no view shows it). */
+  lap: number;
+  /** `dealt` when this lap began, and how many prompts it lasts. */
+  lapStart: number;
+  lapSize: number;
 };
 
 export const ROOM_CODE_LETTERS = "ABCDEFGHJKMNPQRSTUVWXYZ";
@@ -284,6 +291,10 @@ export class Room {
       pendingWords: new Map(),
       bomb: null,
       pausedRemaining: null,
+      dealt: 0,
+      lap: 1,
+      lapStart: 0,
+      lapSize: this.list.filter((p) => p.role === "player" && p.alive).length,
     };
     g.ctx = this.makeContext(g);
     this.game = g;
@@ -526,12 +537,15 @@ export class Room {
       return g.prompt;
     }
     this.revealWords(g);
+    this.countLap(g);
     const p = this.bank.next({
       band: this.band(),
       types: this.promptTypes(),
       random: () => this.deps.random(),
       avoid: g.recent,
+      stage: Math.min(3, g.lap),
     });
+    g.dealt++;
     g.prompt = p;
     // Old half-typed text (maybe a silent or ghost word) must not show for the new prompt.
     g.typing.clear();
@@ -539,6 +553,20 @@ export class Room {
     if (g.recent.length > AVOID_RECENT) g.recent.shift();
     g.activity.onPrompt(g.ctx);
     return p;
+  }
+
+  /**
+   * Before each prompt: the mode's own lap if it has one (Everyone at once: the round), else a new
+   * lap once this one has dealt as many prompts as players were alive when it began. Never goes down.
+   */
+  private countLap(g: Game): void {
+    if (g.mode.lap) {
+      g.lap = g.mode.lap(g.ctx);
+    } else if (g.dealt - g.lapStart >= g.lapSize) {
+      g.lap++;
+      g.lapStart = g.dealt;
+      g.lapSize = Math.max(1, g.ctx.alive().length);
+    }
   }
 
   private armBomb(g: Game, ms: number, visible: boolean): void {

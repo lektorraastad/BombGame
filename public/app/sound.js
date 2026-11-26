@@ -2,30 +2,71 @@
 // caller's factory makes, and it makes none until unlock(), because browsers block audio until a
 // click. Player laptops never load this module.
 import { URGENT_MS } from "./countdown.js";
+import { TICK_TOCK } from "./tick-styles.js";
+
+/** @typedef {"normal" | "quiet" | "off"} SoundLevel */
+
+/** The master volume for each level. Quiet is about a third, for ticking and explosion alike. */
+export const LEVEL_GAIN = { normal: 1, quiet: 0.33, off: 0 };
+
+/** @type {SoundLevel[]} */
+const LEVELS = ["normal", "quiet", "off"];
+
+/** @param {unknown} l @returns {l is SoundLevel} */
+const isLevel = (l) => typeof l === "string" && /** @type {string[]} */ (LEVELS).includes(l);
 
 /**
- * @typedef {{ unlock(): void, tick(urgent: boolean): void, explode(): void, setMuted(b: boolean): void }} Sound
+ * The level after this one: normal → quiet → off → normal. Anything else gives "normal".
+ * @param {string} l @returns {SoundLevel}
+ */
+export function nextLevel(l) {
+  if (!isLevel(l)) return "normal";
+  return LEVELS[(LEVELS.indexOf(l) + 1) % LEVELS.length];
+}
+
+/**
+ * The saved level, or "normal" when there is none, it is junk, or reading throws (blocked storage).
+ * @param {() => string | null} get @returns {SoundLevel}
+ */
+export function readLevel(get) {
+  try {
+    const l = get();
+    return isLevel(l) ? l : "normal";
+  } catch {
+    return "normal";
+  }
+}
+
+/**
+ * @typedef {{ unlock(): void, tick(urgent: boolean): void, explode(): void, setLevel(l: SoundLevel): void }} Sound
  */
 
 /**
+ * Every sound goes through one master gain node, set from the level.
  * @param {() => any} audioContextFactory makes an AudioContext (or a fake in tests)
+ * @param {{ play(ctx: any, out: any, urgent: boolean): void }} [tickStyle] defaults to tick-tock (Roy's choice)
  * @returns {Sound}
  */
-export function createSound(audioContextFactory) {
+export function createSound(audioContextFactory, tickStyle = TICK_TOCK) {
   /** @type {any} */ let ctx = null;
-  let muted = false;
+  /** @type {any} */ let master = null;
+  /** @type {SoundLevel} */ let level = "normal";
   /** @type {any} */ let noise = null;
 
   /** @returns {any} the context, or null when sound must stay silent */
-  const ready = () => (ctx && !muted ? ctx : null);
+  const ready = () => (ctx && master && level !== "off" ? ctx : null);
 
   return {
     unlock() {
       if (!ctx) {
         try {
           ctx = audioContextFactory();
+          master = ctx.createGain();
+          master.gain.value = LEVEL_GAIN[level];
+          master.connect(ctx.destination);
         } catch {
           ctx = null;
+          master = null;
           return;
         }
       }
@@ -34,18 +75,7 @@ export function createSound(audioContextFactory) {
     tick(urgent) {
       const c = ready();
       if (!c) return;
-      const t = c.currentTime;
-      const osc = c.createOscillator();
-      const gain = c.createGain();
-      osc.type = "square";
-      osc.frequency.setValueAtTime(urgent ? 1760 : 1180, t);
-      gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.exponentialRampToValueAtTime(urgent ? 0.22 : 0.14, t + 0.004);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
-      osc.connect(gain);
-      gain.connect(c.destination);
-      osc.start(t);
-      osc.stop(t + 0.06);
+      tickStyle.play(c, master, urgent);
     },
     explode() {
       const c = ready();
@@ -69,7 +99,7 @@ export function createSound(audioContextFactory) {
       gain.gain.exponentialRampToValueAtTime(0.0001, t + seconds);
       src.connect(filter);
       filter.connect(gain);
-      gain.connect(c.destination);
+      gain.connect(master);
       src.start(t);
       src.stop(t + seconds);
       // A low thump under the noise.
@@ -81,12 +111,13 @@ export function createSound(audioContextFactory) {
       bg.gain.setValueAtTime(0.8, t);
       bg.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
       boom.connect(bg);
-      bg.connect(c.destination);
+      bg.connect(master);
       boom.start(t);
       boom.stop(t + 0.6);
     },
-    setMuted(b) {
-      muted = b;
+    setLevel(l) {
+      level = isLevel(l) ? l : "normal";
+      if (master) master.gain.value = LEVEL_GAIN[level];
     },
   };
 }

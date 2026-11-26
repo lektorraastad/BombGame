@@ -15,7 +15,7 @@ export const FEW_PROMPTS = 15;
 /** @type {Record<string, string>} */
 const TYPE_LABEL = { contains: "Contains", starts: "Starts with", ends: "Ends with" };
 /** @type {Record<string, string>} */
-const BAND_LABEL = { easy: "Easy", medium: "Medium", hard: "Hard", mixed: "Mixed" };
+const BAND_LABEL = { easy: "Easy", normal: "Normal", rising: "Rising", hard: "Hard" };
 /** Settings that change only how the game looks: never locked, shown under "Look". */
 const LOOK_KEYS = ["theme"];
 /** @type {Record<string, string>} */

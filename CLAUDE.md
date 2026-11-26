@@ -8,13 +8,17 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
 - **Design and plans:**
   - `docs/superpowers/specs/2026-11-21-bomb-game-design.md` is the original design, approved by Roy.
   - `docs/superpowers/specs/2026-11-23-redesign-design.md` is the redesign, approved by Roy, and `docs/superpowers/plans/2026-11-23-redesign.md` is its plan.
+  - `docs/superpowers/specs/2026-11-26-difficulty-words-sound-design.md` is batch 1 of Roy's improvements (difficulty, words and names, sound), approved by Roy, and `docs/superpowers/plans/2026-11-26-difficulty-words-sound.md` is its plan.
   - `docs/design-principles.md` holds the **visual design principles and the chosen "Workshop" theme**. Read it before any visual work.
-  - `docs/superpowers/plans/` has the five implementation plans already built: connection test, engine, word lists, playable game and the redesign.
+  - `docs/superpowers/plans/` has the six implementation plans already built: connection test, engine, word lists, playable game, the redesign and batch 1.
   - `docs/EXTENDING.md` explains how to add game modes, knocked-out activities, settings, prompt types and themes, and how to swap the bomb.
   - `README.md` is Roy's setup guide and how to run a lesson.
+  - `docs/improvements.md` lists Roy's requested improvements, with leads into the code.
 - **Code:**
   - `src/engine/` is the pure game engine (rooms, Classic, Everyone at once, ghost mode, views). It has no network code.
   - `src/words/` and `scripts/build-words.ts` build `data/generated/` from `data/raw/`. That runs on every Netlify build.
+  - `data/raw/` also holds the CEFR-J list (`cefrj-vocabulary-profile-1.5.csv`) and Claude's name lists: `names-places.txt` (sections `# countries`, `# nationalities and languages`, `# cities`), `names-holidays.txt` and `names-brands.txt`. Roy may add two optional files: `known-extra.txt` (accepted, counts as known, makes letters easier and can be an example answer) and `names-extra.txt` (accepted as answers only).
+  - `data/generated/beginner.txt` holds the beginner words (CEFR-J A1–A2, known names, `known-extra.txt`). Prompt levels come from them (`LEVEL_MIN` in `src/engine/prompts.ts`), and example answers are picked from them first.
   - `src/server/` holds the transport-independent hub, protocol and passcode handling.
   - `netlify/server/index.ts` is the thin Netlify Server adapter. It can't run locally.
   - `scripts/dev-server.ts` is the local server with a minimal WebSocket implementation (`npm run dev`, passcode `test`).
@@ -45,12 +49,21 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
 - **Word lists:**
   - The Norwegian rude-word list blocks nicknames only, because it contains "fan", an English word students may answer with.
   - Roy's own `data/raw/blocked-extra.txt` blocks answers and nicknames.
+  - Name lists and `known-extra.txt`: blocked words always win, so a name or known word on an answer block list is never accepted. Claude never adds first names (and leaves out cities and brands that are mainly first names, like Victoria or Alexa); if Roy adds one to `names-extra.txt`, that's his choice.
 - **How we've built things so far:** test-first (watch each test fail before writing the code), a written design approved by Roy before any building, then a plan, then implementation with review. Keep that up.
 
 ## What's next
 1. **The redesign is live** (merged on 25 November 2026 at Roy's request; design: `docs/superpowers/specs/2026-11-23-redesign-design.md`). Screenshots of every screen are in `docs/screenshots/`. Things for Roy to watch in the first lesson: the Night fuse theme's red letters on the projector, and typing with a Norwegian keyboard (letters like é) while live typing is on.
-2. **Small follow-ups:** in `docs/EXTENDING.md` privacy rules, say "player words" (the dictionary examples are also shown), and note that the control screen receives typing but doesn't draw it.
-3. **Later:**
+2. **Roy's improvements after testing** (details and code leads in `docs/improvements.md`):
+   - a smaller bomb, so names and typing can be bigger;
+   - more even difficulty for the letters (some are very hard);
+   - a nicer, less annoying ticking sound.
+
+   Each one needs a short design that Roy approves before any building.
+   - **Batch 1 is live** (difficulty, words and names, the tick-tock sound and the Sound button; merged on 26 November 2026 at Roy's request, PR lektorraastad/BombGame#2). Things for Roy to watch in the first lesson: whether Normal feels right for the class, and whether the tick-tock is loud enough on the classroom speakers.
+   - **Batch 2** (layout) and **batch 3** (settings presets and housekeeping) follow, each with its own design for Roy to approve.
+3. **Small follow-ups:** in `docs/EXTENDING.md` privacy rules, say "player words" (the dictionary examples are also shown), and note that the control screen receives typing but doesn't draw it.
+4. **Later:**
    - the "Slate and violet" theme;
    - the Teams and Class vs the bomb modes;
    - adjustments after the first classroom trial.

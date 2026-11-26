@@ -9,7 +9,7 @@ import { createPromptBank } from "../../src/engine/prompts.ts";
 import type { Prompt } from "../../src/engine/types.ts";
 import { makeDeps, makeTestChecker, fixtureBlocked } from "./helpers.ts";
 
-const ST: Prompt = { text: "st", type: "contains", count: 480 };
+const ST: Prompt = { text: "st", type: "contains", count: 480, common: 0 };
 const WORDS = ["station", "stone", "street", "strong", "story", "stand", "start", "stay", "still", "storm", "last", "best", "post", "first", "most", "fast", "west", "just", "rest", "list"];
 
 const clockOf = new WeakMap<Room, { advance(ms: number): Promise<void> }>();

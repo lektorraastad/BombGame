@@ -23,7 +23,9 @@ test("numbers are clamped and stepped", () => {
 
 test("wrong types fall back to default", () => {
   assert.equal(resolveSettings(CORE_SETTINGS, { liveTyping: "yes" }).liveTyping, true);
-  assert.equal(resolveSettings(CORE_SETTINGS, { band: "extreme" }).band, "mixed");
+  assert.equal(resolveSettings(CORE_SETTINGS, { band: "extreme" }).band, "normal");
+  assert.equal(resolveSettings(CORE_SETTINGS, { band: "mixed" }).band, "normal");
+  assert.equal(resolveSettings(CORE_SETTINGS, { band: "medium" }).band, "normal");
   assert.equal(resolveSettings(CORE_SETTINGS, { startLives: "3" }).startLives, 2);
   assert.equal(resolveSettings(CORE_SETTINGS, { startLives: NaN }).startLives, 2);
 });
@@ -79,4 +81,17 @@ test("theme setting is a choice over THEME_IDS, default workshop", () => {
   assert.deepEqual(d.options.map((o) => o.value), [...THEME_IDS]);
   assert.equal(resolveSettings(CORE_SETTINGS, { theme: "nope" }).theme, "workshop");
   assert.equal(resolveSettings(CORE_SETTINGS, { theme: "night-fuse" }).theme, "night-fuse");
+});
+
+test("Difficulty offers Easy, Normal, Rising and Hard, with Normal as the default", () => {
+  const d = CORE_SETTINGS.find((x) => x.key === "band");
+  assert.ok(d && d.kind === "choice");
+  assert.equal(d.label, "Difficulty");
+  assert.equal(d.default, "normal");
+  assert.deepEqual(d.options, [
+    { value: "easy", label: "Easy" }, { value: "normal", label: "Normal" },
+    { value: "rising", label: "Rising" }, { value: "hard", label: "Hard" },
+  ]);
+  assert.equal(d.help, "How hard the letters are. Rising starts easy and gets harder each lap.");
+  assert.equal(resolveSettings(CORE_SETTINGS, {}).band, "normal");
 });

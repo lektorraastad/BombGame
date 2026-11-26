@@ -1,0 +1,37 @@
+# Holidays and festivals the game accepts as answers. They also count as
+# known words. Roy may add lines (one entry per line, notes start with #).
+# Names with spaces (Mardi Gras, Yom Kippur) can't be typed as one answer,
+# so they're left out.
+Christmas
+Xmas
+Easter
+Halloween
+Thanksgiving
+Advent
+Lent
+Epiphany
+Candlemas
+Pentecost
+Whitsun
+Ascension
+Midsummer
+Sankthans
+Yule
+Hogmanay
+Carnival
+Juneteenth
+Ramadan
+Eid
+Eid-al-Fitr
+Eid-al-Adha
+Diwali
+Holi
+Navratri
+Hanukkah
+Chanukah
+Passover
+Purim
+Sukkot
+Vesak
+Nowruz
+Kwanzaa

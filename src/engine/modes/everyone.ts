@@ -75,6 +75,8 @@ export const everyoneMode: GameMode = {
     ctx.newPrompt();
     ctx.armBomb(roundMs(ctx, s.round), true);
   },
+  /** Each round is one lap, so Rising steps up with the round. */
+  lap: (ctx) => st(ctx).round,
   isOn(ctx, pid) {
     const s = st(ctx);
     const pl = ctx.player(pid);

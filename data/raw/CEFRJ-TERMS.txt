@@ -1,0 +1,23 @@
+CEFR-J Vocabulary Profile 1.5 (cefrj-vocabulary-profile-1.5.csv)
+
+Source: https://github.com/openlanguageprofiles/olp-en-cefrj
+File:   https://raw.githubusercontent.com/openlanguageprofiles/olp-en-cefrj/master/cefrj-vocabulary-profile-1.5.csv
+Retrieved: 26 November 2026 (the CSV is kept unchanged)
+
+Terms of use, quoted from that repository's README:
+
+  "CEFR-J vocabulary and grammar profile datasets can be used for research and
+  commercial purposes with no charge, provided that you cite the dataset
+  properly. The copyright belongs to Tono Laboratory at TUFS (Tokyo University
+  of Foreign Studies). Neither CEFR-J nor Open Language Profiles is responsible
+  or liable for any inaccuracies in the dataset or any damage resulting from
+  using the dataset."
+
+Reference, quoted from that repository's README:
+
+  "The CEFR-J Wordlist Version 1.5. Compiled by Yukio Tono, Tokyo University of
+  Foreign Studies. Retrieved from http://www.cefr-j.org/download.html on
+  1/20/2020."
+
+Credit line used in the game: CEFR-J Wordlist Version 1.5 (Yukio Tono, Tokyo
+University of Foreign Studies)

@@ -1,28 +1,34 @@
 {
   "counts": {
-    "dictionary": 143007,
-    "known": 8510,
+    "dictionary": 143784,
+    "known": 12610,
+    "beginner": 2653,
     "blockedWords": 499,
     "blockedNames": 312
   },
   "prompts": {
     "contains": {
-      "easy": 88,
-      "medium": 241,
-      "hard": 540
+      "veryEasy": 341,
+      "easy": 287,
+      "medium": 347,
+      "hard": 219
     },
     "starts": {
-      "easy": 4,
-      "medium": 56,
-      "hard": 133
+      "veryEasy": 72,
+      "easy": 81,
+      "medium": 81,
+      "hard": 48
     },
     "ends": {
-      "easy": 10,
-      "medium": 33,
-      "hard": 86
+      "veryEasy": 67,
+      "easy": 59,
+      "medium": 17,
+      "hard": 67
     }
   },
   "skipped": [
-    "blocked-extra.txt"
+    "blocked-extra.txt",
+    "known-extra.txt",
+    "names-extra.txt"
   ]
 }

@@ -3,13 +3,13 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildWordData, summarize, type WordData } from "../src/words/build.ts";
+import { buildWordData, summarize, type WordData, type RawWords } from "../src/words/build.ts";
 
-const OPTIONAL = ["blocked-no.txt", "blocked-extra.txt"];
+const OPTIONAL = ["blocked-no.txt", "blocked-extra.txt", "known-extra.txt", "names-extra.txt"];
 
 /** Reads the raw files. Missing optional files are listed in `skipped`. */
 export function readRaw(rawDir: string): {
-  raw: { scowl: string; ngsl: string[]; blocked: string[]; namesOnly: string[] };
+  raw: RawWords;
   skipped: string[];
 } {
   const skipped: string[] = [];
@@ -20,9 +20,18 @@ export function readRaw(rawDir: string): {
     skipped.push(name);
     return [];
   };
-  const raw = {
+  const raw: RawWords = {
     scowl: req("scowl-words.txt"),
     ngsl: [req("ngsl-lemmatized.csv"), req("ngsl-supplementary.csv")],
+    cefrj: req("cefrj-vocabulary-profile-1.5.csv"),
+    // Countries, nationalities and languages are known words; cities are answers only.
+    places: req("names-places.txt"),
+    holidays: req("names-holidays.txt"),
+    // Brands are answers only.
+    brands: req("names-brands.txt"),
+    // Roy's own lists: known-extra.txt words count as known, names-extra.txt are answers only.
+    knownExtra: opt("known-extra.txt"),
+    namesExtra: opt("names-extra.txt"),
     // English + Roy's own list block answers and nicknames.
     blocked: [req("blocked-en.txt"), ...opt("blocked-extra.txt")],
     // The Norwegian list blocks nicknames only ("fan" is an everyday English answer).
@@ -38,6 +47,7 @@ export function writeGenerated(outDir: string, data: WordData, skipped: string[]
   const txt = (ws: string[]) => ws.join("\n") + "\n";
   writeFileSync(join(outDir, "dictionary.txt"), txt(data.dictionary));
   writeFileSync(join(outDir, "known.txt"), txt(data.known));
+  writeFileSync(join(outDir, "beginner.txt"), txt(data.beginner));
   writeFileSync(join(outDir, "blocked-words.txt"), txt(data.blockedWords));
   writeFileSync(join(outDir, "blocked-names.txt"), txt(data.blockedNames));
   writeFileSync(join(outDir, "prompts.json"), JSON.stringify(data.prompts));
@@ -52,9 +62,12 @@ export function problems(summary: ReturnType<typeof summarize>): string[] {
   if (summary.counts.known < 1000) out.push(`only ${summary.counts.known} known words (need 1000+)`);
   if (summary.counts.blockedWords < 200) out.push(`only ${summary.counts.blockedWords} blocked words (need 200+): was blocked-en.txt emptied?`);
   for (const [type, b] of Object.entries(summary.prompts)) {
-    const total = b.easy + b.medium + b.hard;
+    const total = b.veryEasy + b.easy + b.medium + b.hard;
     if (total < 10) out.push(`only ${total} "${type}" prompts (need 10+)`);
   }
+  // A small Easy option means the CEFR-J file was damaged or removed.
+  const easyOption = summary.prompts.contains.veryEasy + summary.prompts.contains.easy;
+  if (easyOption < 100) out.push(`Easy option has only ${easyOption} "contains" prompts (need 100+)`);
   return out;
 }
 

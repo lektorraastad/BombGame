@@ -18,6 +18,7 @@ export function loadWordData(read: (name: string) => string): {
     dictionary: list(read("dictionary.txt")),
     known: list(read("known.txt")),
     blocked: list(read("blocked-words.txt")),
+    beginner: list(read("beginner.txt")),
   });
   const bank = createPromptBank(JSON.parse(read("prompts.json")) as Prompt[]);
   return {

@@ -7,7 +7,7 @@ import { createPromptBank } from "../../src/engine/prompts.ts";
 import type { Prompt } from "../../src/engine/types.ts";
 import { makeDeps, makeTestChecker, fixtureBlocked } from "./helpers.ts";
 
-const ST: Prompt = { text: "st", type: "contains", count: 480 };
+const ST: Prompt = { text: "st", type: "contains", count: 480, common: 0 };
 
 const clockOf = new WeakMap<Room, { advance(ms: number): Promise<void> }>();
 async function advance(room: Room) {
@@ -49,7 +49,7 @@ test("classic declares its settings and room-wide word scope", () => {
   assert.equal(room.settings.timerStyle, "hidden");
   assert.equal(room.settings.fuseMin, 10);
   assert.equal(room.settings.fuseMax, 30);
-  assert.equal(room.settings.minTurn, 5);
+  assert.equal(room.settings.minTurn, 8);
   assert.equal(room.settings.turnTime, 12);
   assert.equal(room.settings.silentAnswers, true);
 });
@@ -107,7 +107,7 @@ test("valid word passes turn and tops up fuse to minTurn", async () => {
   await clock.advance(room.bombRemaining() - 2_000);
   assert.equal(room.bombRemaining(), 2_000);
   assert.deepEqual(room.submit(first, "station"), { ok: true, kind: "turn" });
-  assert.equal(room.bombRemaining(), 5_000);
+  assert.equal(room.bombRemaining(), 8_000);
   assert.notEqual(cur(room), first);
 });
 

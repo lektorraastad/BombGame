@@ -363,13 +363,13 @@ test("control views carry promptCounts for every band and type; other views do n
 
   const bank = createPromptBank(fixturePrompts);
   const expected: Record<string, Record<string, number>> = {};
-  for (const band of ["easy", "medium", "hard", "mixed"] as const) {
+  for (const band of ["easy", "normal", "rising", "hard"] as const) {
     expected[band] = {};
     for (const type of ["contains", "starts", "ends"] as const) expected[band][type] = bank.size(band, [type]);
   }
   const cv = ctl.views().at(-1);
   assert.deepEqual(cv.promptCounts, expected);
-  assert.equal(cv.promptCounts.easy.starts, 1, "only 'st' starts with 200+ answers");
+  assert.equal(cv.promptCounts.easy.starts, 2, "'st' (very easy) and 're' (easy) start the Easy group");
   assert.equal(host.views().at(-1).promptCounts, undefined);
   assert.equal(p.views().at(-1).promptCounts, undefined);
 });
