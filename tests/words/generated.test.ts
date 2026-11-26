@@ -97,3 +97,30 @@ test("forms of rude words are rejected, but everyday look-alikes are accepted", 
     assert.ok(checker.isWord(w), `${w} should be accepted`);
   }
 });
+
+test("places, holidays and brands are words; classmates' first names are not", () => {
+  const { checker } = loadWordData(gen);
+  for (const w of ["norway", "norwegian", "christmas", "tiktok", "oslo", "jordan", "banana"]) {
+    assert.ok(checker.isWord(w), `${w} should be accepted`);
+  }
+  for (const w of ["emma", "ingrid", "jonas", "thea"]) assert.ok(!checker.isWord(w), `${w} should be rejected`);
+  assert.ok(!checker.isWord("fuck"));
+  const rawNames = (f: string) => new Set(readFileSync(join(root, "data", "raw", f), "utf8").split("\n")
+    .map((l) => l.trim().toLowerCase()).filter((l) => l && !l.startsWith("#")));
+  for (const f of ["names-places.txt", "names-brands.txt"]) {
+    const names = rawNames(f);
+    for (const w of ["victoria", "florence", "sydney", "alexa"]) assert.ok(!names.has(w), `${w} in ${f}`);
+  }
+});
+
+test("Easy, Normal and Rising never deal STS or CTS, at any stage", () => {
+  const { bank } = loadWordData(gen);
+  for (const band of ["easy", "normal", "rising"] as const) {
+    for (const stage of [1, 2, 3, 4]) {
+      for (let i = 0; i < 200; i++) {
+        const p = bank.next({ band, types: ["contains"], random: Math.random, avoid: [], stage });
+        assert.ok(!(p.type === "contains" && (p.text === "sts" || p.text === "cts")), `${band} stage ${stage}: ${p.text}`);
+      }
+    }
+  }
+});

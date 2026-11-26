@@ -57,7 +57,7 @@ export const classicMode: GameMode = {
       default: "hidden", options: [{ value: "hidden", label: "Hidden fuse" }, { value: "visible", label: "Visible countdown" }] },
     { key: "fuseMin", label: "Shortest fuse", help: "Hidden fuse: the shortest it can be.", kind: "number", default: 10, min: 3, max: 60, step: 1, unit: "s" },
     { key: "fuseMax", label: "Longest fuse", help: "Hidden fuse: the longest it can be.", kind: "number", default: 30, min: 5, max: 90, step: 1, unit: "s" },
-    { key: "minTurn", label: "Minimum turn time", help: "Hidden fuse: a valid word tops the fuse up to at least this.", kind: "number", default: 5, min: 2, max: 15, step: 1, unit: "s" },
+    { key: "minTurn", label: "Minimum turn time", help: "Hidden fuse: a valid word tops the fuse up to at least this.", kind: "number", default: 8, min: 2, max: 15, step: 1, unit: "s" },
     { key: "turnTime", label: "Turn time", help: "Visible countdown: seconds for each turn.", kind: "number", default: 12, min: 5, max: 60, step: 1, unit: "s" },
     { key: "silentAnswers", label: "Silent answers", help: "Waiting players can answer privately for points.", kind: "boolean", default: true },
   ],

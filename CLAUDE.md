@@ -16,6 +16,8 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
 - **Code:**
   - `src/engine/` is the pure game engine (rooms, Classic, Everyone at once, ghost mode, views). It has no network code.
   - `src/words/` and `scripts/build-words.ts` build `data/generated/` from `data/raw/`. That runs on every Netlify build.
+  - `data/raw/` also holds the CEFR-J list (`cefrj-vocabulary-profile-1.5.csv`) and Claude's name lists: `names-places.txt` (sections `# countries`, `# nationalities and languages`, `# cities`), `names-holidays.txt` and `names-brands.txt`. Roy may add two optional files: `known-extra.txt` (accepted, counts as known, makes letters easier and can be an example answer) and `names-extra.txt` (accepted as answers only).
+  - `data/generated/beginner.txt` holds the beginner words (CEFR-J A1–A2, known names, `known-extra.txt`). Prompt levels come from them (`LEVEL_MIN` in `src/engine/prompts.ts`), and example answers are picked from them first.
   - `src/server/` holds the transport-independent hub, protocol and passcode handling.
   - `netlify/server/index.ts` is the thin Netlify Server adapter. It can't run locally.
   - `scripts/dev-server.ts` is the local server with a minimal WebSocket implementation (`npm run dev`, passcode `test`).
@@ -46,6 +48,7 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
 - **Word lists:**
   - The Norwegian rude-word list blocks nicknames only, because it contains "fan", an English word students may answer with.
   - Roy's own `data/raw/blocked-extra.txt` blocks answers and nicknames.
+  - Name lists and `known-extra.txt`: blocked words always win, so a name or known word on an answer block list is never accepted. Claude never adds first names (and leaves out cities and brands that are mainly first names, like Victoria or Alexa); if Roy adds one to `names-extra.txt`, that's his choice.
 - **How we've built things so far:** test-first (watch each test fail before writing the code), a written design approved by Roy before any building, then a plan, then implementation with review. Keep that up.
 
 ## What's next

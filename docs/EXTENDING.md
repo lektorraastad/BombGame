@@ -19,8 +19,8 @@ All the game rules live in `src/engine/`. That code has no network or screen cod
 |---|---|
 | `src/engine/types.ts` | Shared types: `Prompt`, `PromptType`, `SettingDecl`, `Settings`. |
 | `src/engine/settings.ts` | `CORE_SETTINGS` (settings every game has) and the code that checks the teacher's choices. |
-| `src/engine/words.ts` | Tidying up typed words, checking they are real words and fit the prompt, example answers. |
-| `src/engine/prompts.ts` | The prompt bank: picks the next prompt by difficulty and type. |
+| `src/engine/words.ts` | Tidying up typed words, checking they are real words and fit the prompt, example answers (beginner words first, then other known words). |
+| `src/engine/prompts.ts` | Prompt levels (`LEVEL_MIN`, `levelOf`) and the prompt bank, which picks the next prompt by difficulty, stage and type. |
 | `src/engine/room.ts` | The room: players, joining, host controls, starting and ending games, and the rules every mode shares. |
 | `src/engine/modes/` | Game modes (`classic.ts`, `everyone.ts`). Guide: `src/engine/modes/README.md`. |
 | `src/engine/knockout/` | What knocked-out players do (`ghost.ts`). Guide: `src/engine/knockout/README.md`. |
@@ -137,11 +137,37 @@ A prompt type says where the letters must appear in a word. Today there are thre
    ```
 
 3. **The setting.** In `src/engine/settings.ts`, add it to `PROMPT_TYPES` so the teacher can pick it: `{ value: "middle", label: "In the middle" }`.
-4. **The prompts.** The prompt bank (`createPromptBank` in `src/engine/prompts.ts`) only deals prompts from the list it is given. Add prompts with `type: "middle"` to that list. Each one's `count` must be the number of known words that fit it. Difficulty comes from `count` (Easy 200 or more, Medium 60–199, Hard 20–59), and prompts with fewer than 20 are dropped.
-5. **Tests.** In `tests/engine/words.test.ts`, check that `matches({ text: "ar", type: "middle", count: 50 }, "part")` is true and that `"art"` and `"car"` are false. In `tests/engine/prompts.test.ts`, check that the bank deals a `middle` prompt when `types` is `["middle"]`.
+4. **The prompts.** The prompt bank (`createPromptBank` in `src/engine/prompts.ts`) only deals prompts from the list it is given. Add prompts with `type: "middle"` to that list. Each one's `count` must be the number of known words that fit it, and its `common` the number of beginner words that fit it. Prompts with fewer than 20 known answers (`MIN_ANSWERS`) are dropped. The level comes from `common`: see "Prompt levels" below.
+5. **Tests.** In `tests/engine/words.test.ts`, check that `matches({ text: "ar", type: "middle", count: 50, common: 10 }, "part")` is true and that `"art"` and `"car"` are false. In `tests/engine/prompts.test.ts`, check that the bank deals a `middle` prompt when `types` is `["middle"]`.
 6. Run the tests and the type check.
 
 The type check helps here: if you miss a place that has to handle every prompt type, `npx tsc -p tsconfig.json` will usually point to it.
+
+### Prompt levels
+
+Each prompt has a level, worked out by `levelOf` in `src/engine/prompts.ts` from its `common` count: how many **beginner words** (CEFR-J A1–A2, plus the place and holiday names and Roy's `known-extra.txt` words, all in `data/generated/beginner.txt`) contain it. The build (`src/words/build.ts`) works out `common` for every prompt.
+
+The thresholds are in `LEVEL_MIN`:
+
+```ts
+export const LEVEL_MIN = { veryEasy: 15, easy: 8, medium: 4 } as const;
+```
+
+| Level | `common` |
+|---|---|
+| very easy | 15 or more |
+| easy | 8–14 |
+| medium | 4–7 |
+| hard | under 4 (for example "sts" and "cts") |
+
+The Difficulty setting (`band`) decides which levels are dealt:
+
+- **Easy:** very easy and easy.
+- **Normal** (default): very easy and easy, with medium for about 1 prompt in 5 (`NORMAL_MEDIUM_SHARE`). Never hard.
+- **Rising:** uses the `stage` passed to `bank.next`. Stage 1 is very easy only, stage 2 very easy and easy, and stage 3 onwards is as Normal. Classic moves up a stage each lap (as many prompts as there were alive players when the lap began); Everyone at once moves up each round.
+- **Hard:** every level.
+
+If none of a band's levels has a prompt of the chosen types, the bank widens to include harder levels, one at a time, until it finds one. To make the game easier or harder overall, change `LEVEL_MIN` (higher numbers make each level harder to reach) and run `npm test`: `tests/words/generated.test.ts` checks that Easy still has enough prompts and that STS and CTS stay hard.
 
 ## 5. Add a theme
 

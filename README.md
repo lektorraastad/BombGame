@@ -85,6 +85,12 @@ Then try the game once yourself: open `/host` in one tab and `/` in two other ta
 In the control panel you can:
 
 - **Change the settings** before a game: the mode (**Classic**, where the bomb is passed around, or **Everyone at once**), the difficulty, the timer, the number of lives, and what knocked-out players do. Settings are locked while a game is running, except the **Theme** (the colours for every screen), which you can change at any time.
+- **Difficulty** decides how hard the letters are:
+  - **Easy:** only letters that lots of everyday words contain.
+  - **Normal** (the default): mostly easy letters, with a slightly harder one about every fifth turn.
+  - **Rising:** starts with the easiest letters and gets harder each time the bomb has gone round the class, until it reaches Normal.
+  - **Hard:** any letters at all, including very hard ones like "sts".
+- **Minimum turn time** (Classic, hidden fuse) is 8 seconds: after a correct word, the next player always has at least this long.
 - **Live typing** is on by default: in Classic, everyone can watch the current player's letters appear on the projector and on the laptops (rude words show as stars). To switch it off, untick **Live typing** in the settings.
 - **Start**, **Pause** and **Resume**, **Skip** a prompt nobody can answer, and **End** the game early.
 - **Play again** after a game. The same players stay in the room.
@@ -153,9 +159,27 @@ The game's words come from the files in `data/raw/`. Every time Netlify deploys 
 
 Words in `blocked-extra.txt` can't be used as answers or in nicknames. Common forms are blocked automatically: the word plus -s, -es, -ed or -ing. Add unusual forms, such as a different spelling, on their own line. The Norwegian list (`blocked-no.txt`) only blocks **nicknames**, because some of its words, like "fan", are ordinary English words students should be able to answer with.
 
+**Adding words and names**
+
+Students can already answer with countries, nationalities and languages (Norway, Norwegian), well-known cities (Oslo, Bergen), holidays (Christmas, Eid) and brands and apps (TikTok, Lego). If a word or name your class uses is refused, you can add it yourself. There are two files for this, and you only need to create them if you want them:
+
+- **`known-extra.txt`** is for everyday English words your students know. They're accepted as answers. They also make the game easier, because the game picks easier letters when many known words contain them, and they can be shown as example answers after an explosion.
+- **`names-extra.txt`** is for names you want accepted as answers, such as a local place, a band or a football club. They're only accepted as answers. They don't change which letters come up and are never shown as example answers.
+
+To add words or names:
+1. On GitHub, open the `data/raw` folder.
+2. If the file isn't there yet, click **Add file → Create new file** and name it `known-extra.txt` or `names-extra.txt`. Otherwise open it and click the pencil icon.
+3. Write one word or name per line, spelled normally ("TikTok" is fine, students can type "tiktok"). Notes go on their own line, starting with `#`.
+4. Click **Commit changes**. Netlify redeploys by itself after a minute or two.
+
+A few things to know:
+- Only single words with the letters a to z work. Entries with spaces, numbers, other symbols or Norwegian letters (æ, ø, å) are skipped, so write "Tromsø" as `tromso`.
+- A word on a block list (`blocked-en.txt` or your `blocked-extra.txt`) is never accepted, even if you add it here.
+- The game never adds students' first names by itself, so names like Emma or Jonas aren't accepted. If you add one to `names-extra.txt`, that's your choice. A student could then use a classmate's name as an answer.
+
 **If a deploy fails** while building the word lists, a file in `data/raw/` was probably damaged, emptied or deleted. You might see "Word lists look broken" or a "no such file" error. Undo your last change on GitHub, or paste the end of the deploy log into the chat with Claude.
 
-Word lists: New General Service List (Browne, Culligan & Phillips, CC BY-SA 4.0) and SCOWL/ESDB (Kevin Atkinson). See `data/raw/SCOWL-LICENSE.txt`.
+Word lists: New General Service List (Browne, Culligan & Phillips, CC BY-SA 4.0), SCOWL/ESDB (Kevin Atkinson) and CEFR-J Wordlist Version 1.5 (Yukio Tono, Tokyo University of Foreign Studies). See `data/raw/SCOWL-LICENSE.txt` and `data/raw/CEFRJ-TERMS.txt`.
 
 ## For developers
 
