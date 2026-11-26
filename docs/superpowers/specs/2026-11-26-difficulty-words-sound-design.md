@@ -150,6 +150,7 @@ New files in `data/raw/`:
 - Entries that aren't game words are skipped: anything with spaces, digits or other symbols, so "New York" and "7-Eleven" are left out **(Claude's call)**.
 - Blocked words win: a name or known word on any answer block list is never accepted. The automatic blocked-variant rules (`blockedVariants`) apply to the new words too.
 - First names are never added by Claude. If Roy adds one to `names-extra.txt`, that's his choice.
+- **Places and brands that are also first names (decided by Roy):** every real country is accepted, even when it is also a first name (Jordan, Chad, Georgia, Kenya). Cities and brands that are mainly first names to a 13-year-old are left out (Victoria, Florence, Sydney, Austin, Alexa). Cities that are mainly places stay (Paris, London).
 - Nothing else about the dictionary changes. Capitalised SCOWL entries stay excluded unless one of these lists names them.
 
 **Credits:**
@@ -213,7 +214,7 @@ On every style, the urgent ticking gets faster but **not louder or higher-pitche
 - **Tests to keep green:**
   - all existing unit, e2e and load tests;
   - `tests/words/generated.test.ts` should check that STS and CTS are never dealt in Easy, Normal or Rising;
-  - also check that "norway", "christmas" and "tiktok" are accepted and "john" is not.
+  - also check that "norway", "christmas", "tiktok" and "jordan" are accepted and "john" and "victoria" are not.
 
 ## 7. Left to the builder
 
