@@ -137,11 +137,11 @@ export type WordData = {
 };
 
 /** How many prompts of one type are at each level. */
-export type BandCounts = Record<Level, number>;
+export type LevelCounts = Record<Level, number>;
 
 export type Summary = {
   counts: { dictionary: number; known: number; beginner: number; blockedWords: number; blockedNames: number };
-  prompts: Record<PromptType, BandCounts>;
+  prompts: Record<PromptType, LevelCounts>;
   skipped: string[];
 };
 
@@ -296,8 +296,8 @@ export function generatePrompts(known: Iterable<string>, beginner: Iterable<stri
 }
 
 export function summarize(data: WordData, skipped: string[]): Summary {
-  const empty = (): BandCounts => ({ veryEasy: 0, easy: 0, medium: 0, hard: 0 });
-  const prompts: Record<PromptType, BandCounts> = { contains: empty(), starts: empty(), ends: empty() };
+  const empty = (): LevelCounts => ({ veryEasy: 0, easy: 0, medium: 0, hard: 0 });
+  const prompts: Record<PromptType, LevelCounts> = { contains: empty(), starts: empty(), ends: empty() };
   for (const p of data.prompts) prompts[p.type][levelOf(p)]++;
   return {
     counts: {

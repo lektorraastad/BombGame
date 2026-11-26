@@ -44,10 +44,11 @@ export const THEME_IDS = ["workshop", "enamel", "night-fuse"] as const;
 export const CORE_SETTINGS: SettingDecl[] = [
   // Options for "mode" and "knockout" are filled by withChoices (see registry.ts settingsFor).
   { key: "mode", label: "Mode", help: "How the game is played.", kind: "choice", default: "classic", options: [] },
-  { key: "band", label: "Difficulty", help: "How many words fit each prompt.", kind: "choice", default: "mixed",
+  { key: "band", label: "Difficulty", help: "How hard the letters are. Rising starts easy and gets harder each lap.",
+    kind: "choice", default: "normal",
     options: [
-      { value: "easy", label: "Easy" }, { value: "medium", label: "Medium" },
-      { value: "hard", label: "Hard" }, { value: "mixed", label: "Mixed" },
+      { value: "easy", label: "Easy" }, { value: "normal", label: "Normal" },
+      { value: "rising", label: "Rising" }, { value: "hard", label: "Hard" },
     ] },
   { key: "promptTypes", label: "Prompt types", help: "Where the letters must appear in the word.", kind: "multi",
     default: ["contains"], options: PROMPT_TYPES },

@@ -67,10 +67,15 @@ test("the loader's checker accepts a known word, rejects a blocked word, and the
   assert.ok(!checker.isWord("fuck"));
   assert.ok(checker.isWord("fan"), "the Norwegian list must not block English answers");
   assert.ok(blockedNames.includes("jævla"));
-  for (const band of ["easy", "medium", "hard", "mixed"] as const) {
-    assert.ok(bank.size(band, ["contains"]) > 0, band);
-    const p = bank.next({ band, types: ["contains"], random: Math.random, avoid: [] });
-    assert.ok(checker.examples(p, 3, Math.random).length > 0);
+  const types = [["contains"], ["starts"], ["ends"]] as const;
+  for (const band of ["easy", "normal", "rising", "hard"] as const) {
+    for (const t of types) {
+      assert.ok(bank.size(band, [...t]) > 0, `${band} ${t}`);
+      for (const stage of band === "rising" ? [1, 2, 3] : [1]) {
+        const p = bank.next({ band, types: [...t], random: Math.random, avoid: [], stage });
+        assert.ok(checker.examples(p, 3, Math.random).length > 0, `${band} ${t} stage ${stage}`);
+      }
+    }
   }
 });
 

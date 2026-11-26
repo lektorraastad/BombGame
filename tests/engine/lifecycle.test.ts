@@ -115,9 +115,7 @@ test("cannot start when band/types have no prompts", () => {
   room.updateSettings({ promptTypes: ["ends"] });
   assert.deepEqual(room.start(), { ok: false, reason: "no-prompts" });
   assert.equal(room.phase, "lobby");
-  room.updateSettings({ promptTypes: ["contains"], band: "medium" });
-  assert.deepEqual(room.start(), { ok: false, reason: "no-prompts" });
-  room.updateSettings({ band: "easy" });
+  room.updateSettings({ promptTypes: ["contains"], band: "easy" });
   assert.deepEqual(room.start(), { ok: true });
 });
 
@@ -189,7 +187,7 @@ test("pause freezes remaining time", async () => {
 });
 
 test("skip prompt deals a new prompt without losing a life", async () => {
-  const bank = [ST, { text: "re", type: "contains", count: 480, common: 0 } as Prompt];
+  const bank = [ST, { text: "re", type: "contains", count: 480, common: 20 } as Prompt];
   const { room, clock } = setup({ prompts: bank });
   const [a] = joinAll(room, "Ann", "Ben");
   room.start();

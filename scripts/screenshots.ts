@@ -369,7 +369,7 @@ async function classOf15(): Promise<void> {
   for (const n of names.slice(7)) bots.push(await bot(code, n));
   const kristian = await joinStudent(code, "Kristian Johnsen");
   await host.locator(".seat").nth(14).waitFor({ timeout: WAIT });
-  await ctl.settings({ mode: "classic", timerStyle: "visible", turnTime: 60, startLives: 3, maxLives: 3, promptTypes: ["contains"], band: "mixed", liveTyping: true });
+  await ctl.settings({ mode: "classic", timerStyle: "visible", turnTime: 60, startLives: 3, maxLives: 3, promptTypes: ["contains"], band: "hard", liveTyping: true });
   await ctl.cmd({ cmd: "start" });
 
   // One lap, so every seat has a last word; then it's Thea's turn and she is typing.
@@ -434,7 +434,7 @@ async function classOf30(): Promise<void> {
   await everyTheme(ctl, [[host, "04-projector-lobby-30"], [selma, "05-student-lobby-30"]]);
 
   // Classic: one lap, so every seat has a word, then someone is typing.
-  await ctl.settings({ mode: "classic", timerStyle: "visible", turnTime: 60, startLives: 3, maxLives: 3, promptTypes: ["contains"], band: "mixed", liveTyping: true });
+  await ctl.settings({ mode: "classic", timerStyle: "visible", turnTime: 60, startLives: 3, maxLives: 3, promptTypes: ["contains"], band: "hard", liveTyping: true });
   await ctl.cmd({ cmd: "start" });
   const who: Players = { bots, pages: new Map([["Selma", selma]]) };
   const used = new Set<string>();

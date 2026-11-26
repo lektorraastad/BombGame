@@ -22,7 +22,7 @@ const MAX_MSGS_PER_WINDOW = 20;
 const MAX_TYPING_PER_WINDOW = 10;
 export const CLOSE_KICKED = 4003;
 export const CLOSE_ROOM_CLOSED = 4004;
-const BANDS: Band[] = ["easy", "medium", "hard", "mixed"];
+const BANDS: Band[] = ["easy", "normal", "rising", "hard"];
 const PROMPT_TYPES: PromptType[] = ["contains", "starts", "ends"];
 
 /** How many prompts the shared bank has for each band and single type, for the control panel's warning. */

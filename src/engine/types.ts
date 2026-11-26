@@ -10,7 +10,8 @@ export type PromptType = "contains" | "starts" | "ends";
 /** `count` is the number of fitting known words; `common` the number of fitting beginner words (CEFR-J A1–A2 and known names). */
 export type Prompt = { text: string; type: PromptType; count: number; common: number };
 
-export type Band = "easy" | "medium" | "hard" | "mixed";
+/** The Difficulty setting. Rising deals easier levels in the first laps (see prompts.ts). */
+export type Band = "easy" | "normal" | "rising" | "hard";
 
 type SettingBase = { key: string; label: string; help: string };
 type Option = { value: string; label: string };

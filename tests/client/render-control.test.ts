@@ -10,9 +10,9 @@ import type { SettingDecl } from "../../src/engine/types.ts";
 
 const COUNTS = {
   easy: { contains: 20, starts: 3, ends: 40 },
-  medium: { contains: 30, starts: 30, ends: 30 },
+  normal: { contains: 30, starts: 30, ends: 30 },
+  rising: { contains: 12, starts: 2, ends: 20 },
   hard: { contains: 0, starts: 16, ends: 15 },
-  mixed: { contains: 50, starts: 49, ends: 85 },
 };
 
 function view(settings: Record<string, unknown> = {}, phase = "lobby"): any {
@@ -91,7 +91,10 @@ test("few-prompts warning appears for starts/easy", () => {
   assert.ok(easyStarts.includes(`class="warning"`));
   assert.ok(easyStarts.includes("Only 3 &quot;Starts with&quot; prompts at Easy"));
   assert.ok(!easyStarts.includes("Contains&quot; prompts"), "contains/easy has 20");
-  assert.ok(!renderControl(view({ band: "medium", promptTypes: ["starts"] }), ui()).includes(`class="warning"`));
+  assert.ok(!renderControl(view({ band: "normal", promptTypes: ["starts"] }), ui()).includes(`class="warning"`));
+  assert.deepEqual(promptWarnings(COUNTS, "rising", ["starts"]), [
+    `Only 2 "Starts with" prompts at Rising. They will repeat often`,
+  ]);
   assert.deepEqual(promptWarnings(COUNTS, "hard", ["contains", "ends"]), [
     `No "Contains" prompts at Hard`,
   ]);

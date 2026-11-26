@@ -363,7 +363,7 @@ test("control views carry promptCounts for every band and type; other views do n
 
   const bank = createPromptBank(fixturePrompts);
   const expected: Record<string, Record<string, number>> = {};
-  for (const band of ["easy", "medium", "hard", "mixed"] as const) {
+  for (const band of ["easy", "normal", "rising", "hard"] as const) {
     expected[band] = {};
     for (const type of ["contains", "starts", "ends"] as const) expected[band][type] = bank.size(band, [type]);
   }
