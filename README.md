@@ -97,7 +97,7 @@ In the control panel you can:
 - **Lock** the room so nobody new can join.
 - **Rename** a player with an unsuitable nickname, or **Kick** a player (click **Kick**, then **Really kick?**). A kicked student can't join that room again from the same browser, even in a new tab. A determined student could still get back in from a private window as a new player, so if you kick someone, **Lock** the room straight after.
 
-Sound plays only on the projector. Use the **Mute** button at the bottom of the projector screen to turn it off.
+Sound plays only on the projector. The **Sound** button at the bottom of the projector screen switches between **Normal**, **Quiet** and **Off**. The projector browser remembers your choice for the next lesson.
 
 Things that are fine during a lesson:
 

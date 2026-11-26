@@ -2,7 +2,7 @@
 // control panel as an overlay on demand and a button to open it in its own window.
 import { createConnection } from "./net.js";
 import { createCountdown, URGENT_MS } from "./countdown.js";
-import { createSound, createSoundDriver } from "./sound.js";
+import { createSound, createSoundDriver, nextLevel, readLevel } from "./sound.js";
 import { renderProjector } from "./render-projector.js";
 import { reasonText } from "./render-player.js";
 import { CREDITS } from "./credits.js";
@@ -217,13 +217,25 @@ $("windowbtn").addEventListener("click", () => {
 document.addEventListener("pointerdown", () => sound.unlock());
 document.addEventListener("keydown", () => sound.unlock());
 
-// Mute is off by default.
-$("mutebtn").addEventListener("click", () => {
-  const muted = $("mutebtn").getAttribute("aria-pressed") !== "true";
-  sound.setMuted(muted);
-  $("mutebtn").setAttribute("aria-pressed", String(muted));
-  $("mutebtn").textContent = muted ? "Unmute" : "Mute";
-  document.body.dataset.muted = String(muted);
+// Sound: Normal → Quiet → Off. A projector control, remembered in this browser; it stores only the level.
+const SOUND_KEY = "bombgame.sound";
+/** @type {Record<string, string>} */
+const SOUND_TEXT = { normal: "Sound: Normal", quiet: "Sound: Quiet", off: "Sound: Off" };
+/** @param {import("./sound.js").SoundLevel} l */
+function showLevel(l) {
+  sound.setLevel(l);
+  $("soundbtn").textContent = SOUND_TEXT[l];
+  $("soundbtn").dataset.level = l;
+}
+showLevel(readLevel(() => localStorage.getItem(SOUND_KEY)));
+$("soundbtn").addEventListener("click", () => {
+  const l = nextLevel($("soundbtn").dataset.level ?? "normal");
+  showLevel(l);
+  try {
+    localStorage.setItem(SOUND_KEY, l);
+  } catch {
+    // Storage blocked: the level still applies until the page is closed.
+  }
 });
 
 // A refresh rejoins the room this tab is hosting.

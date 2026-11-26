@@ -1,11 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createSound, createSoundDriver } from "../../public/app/sound.js";
+import { createSound, createSoundDriver, nextLevel, readLevel, LEVEL_GAIN } from "../../public/app/sound.js";
 
 /** A fake AudioContext that records which sounds were built and started. */
 function fakeAudio() {
   const log: string[] = [];
   let made = 0;
+  const gains: any[] = [];
   const param = () => ({ value: 0, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} });
   const node = (kind: string) => ({
     kind,
@@ -26,16 +27,20 @@ function fakeAudio() {
       destination: {},
       resume() { log.push("resume"); return Promise.resolve(); },
       createOscillator: () => node("osc"),
-      createGain: () => node("gain"),
+      createGain: () => {
+        const g = node("gain");
+        gains.push(g);
+        return g;
+      },
       createBiquadFilter: () => node("filter"),
       createBufferSource: () => node("noise"),
       createBuffer: (_ch: number, length: number) => ({ getChannelData: () => new Float32Array(length) }),
     };
   };
-  return { factory: factory as any, log, made: () => made };
+  return { factory: factory as any, log, made: () => made, gains };
 }
 
-test("sound does nothing until unlocked and when muted", () => {
+test("sound does nothing until unlocked and when off", () => {
   const a = fakeAudio();
   const s = createSound(a.factory);
   s.tick(false);
@@ -55,21 +60,81 @@ test("sound does nothing until unlocked and when muted", () => {
   s.explode();
   assert.ok(a.log.includes("start:noise"), "an explosion plays a noise burst");
 
-  s.setMuted(true);
+  s.setLevel("off");
   a.log.length = 0;
   s.tick(true);
   s.explode();
-  assert.deepEqual([...a.log], [], "silent while muted");
+  assert.deepEqual([...a.log], [], "silent while off");
 
-  s.setMuted(false);
+  s.setLevel("normal");
   s.tick(true);
-  assert.ok(a.log.includes("start:osc"), "unmuted again");
+  assert.ok(a.log.includes("start:osc"), "on again");
+});
+
+test("nextLevel and readLevel fall back to normal", () => {
+  assert.equal(nextLevel("normal"), "quiet");
+  assert.equal(nextLevel("quiet"), "off");
+  assert.equal(nextLevel("off"), "normal");
+  assert.equal(nextLevel("x"), "normal");
+  assert.equal(readLevel(() => "quiet"), "quiet");
+  assert.equal(readLevel(() => "off"), "off");
+  assert.equal(readLevel(() => null), "normal");
+  assert.equal(readLevel(() => "loud"), "normal");
+  assert.equal(readLevel(() => { throw new Error(); }), "normal");
+  assert.deepEqual(LEVEL_GAIN, { normal: 1, quiet: 0.33, off: 0 });
+});
+
+test('setLevel("off") silences and "quiet" lowers', () => {
+  const a = fakeAudio();
+  const s = createSound(a.factory);
+  s.setLevel("quiet"); // before unlock: applied when the master gain is made
+  s.unlock();
+  const master = a.gains[0];
+  assert.ok(master, "a master gain node is made on unlock");
+  assert.equal(master.gain.value, 0.33);
+  s.setLevel("off");
+  assert.equal(master.gain.value, 0);
+  s.setLevel("quiet");
+  assert.equal(master.gain.value, 0.33);
+  s.setLevel("normal");
+  assert.equal(master.gain.value, 1);
+});
+
+test("tick uses the given style, and every sound goes through the master gain", () => {
+  const a = fakeAudio();
+  const calls: { out: unknown; urgent: boolean }[] = [];
+  const style = { label: "Fake", play: (_ctx: unknown, out: unknown, urgent: boolean) => { calls.push({ out, urgent }); } };
+  const s = createSound(a.factory, style);
+  s.unlock();
+  const master = a.gains[0];
+  s.tick(false);
+  s.tick(true);
+  assert.deepEqual(calls, [{ out: master, urgent: false }, { out: master, urgent: true }]);
+  s.setLevel("off");
+  s.tick(true);
+  assert.equal(calls.length, 2, "no tick while off");
+});
+
+test("the explosion connects to the master gain, not the destination", () => {
+  const a = fakeAudio();
+  const s = createSound(a.factory);
+  s.unlock();
+  const master = a.gains[0];
+  const targets: unknown[] = [];
+  const realPush = a.gains.push.bind(a.gains);
+  a.gains.push = (...gs: any[]) => {
+    for (const g of gs) g.connect = (t: unknown) => { targets.push(t); };
+    return realPush(...gs);
+  };
+  s.explode();
+  assert.equal(targets.length, 2, "the noise and the thump each have a gain");
+  assert.ok(targets.every((t) => t === master), "both go to the master gain");
 });
 
 /** A fake sound that counts calls. */
 function countingSound() {
   const calls = { tick: [] as boolean[], explode: 0 };
-  return { calls, sound: { unlock() {}, setMuted() {}, tick: (u: boolean) => calls.tick.push(u), explode: () => { calls.explode++; } } };
+  return { calls, sound: { unlock() {}, setLevel() {}, tick: (u: boolean) => calls.tick.push(u), explode: () => { calls.explode++; } } };
 }
 
 test("explode fires once per explosion event", () => {
