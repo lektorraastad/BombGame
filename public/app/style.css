@@ -397,7 +397,10 @@ main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
 .p-count, .p-locked { font-size: 3.6vh; margin: 1vh 0 0; }
 .p-count { color: var(--muted); }
 .p-locked { color: var(--refusal); font-weight: 600; }
-.p-credits { position: absolute; bottom: 1vh; left: 2vw; right: calc(2vw + 440px); text-align: left; font-size: 1.8vh; color: var(--muted); margin: 0; }
+/* Small print in the bottom-left, at most two lines. It stops short of the toolbar (fixed size: about
+   520px wide, 10px from the edge, measured with "Sound: Normal") and of the count above it (which
+   starts at 75vw at most), whichever reaches further left, so neither is covered on any projector. */
+.p-credits { position: absolute; bottom: 1vh; left: 2vw; right: max(25vw, 560px); text-align: left; font-size: 1.6vh; line-height: 1.3; color: var(--muted); margin: 0; }
 
 /* Results: the trophy and the winner's emoji where the bomb was, the name on tiles. Shared winners
    sit side by side, smaller as there are more; a long name wraps onto a second row of tiles. "safe":
