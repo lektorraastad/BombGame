@@ -1,6 +1,6 @@
 # Bomb game: ready-made setups and housekeeping (batch 3)
 
-Status: draft for Roy's approval, 2026-11-27.
+Status: approved by Roy, 2026-11-27.
 
 Batch 3 of Roy's improvements, agreed in the conversation of 26–27 November 2026. Items marked **(Claude's call)** are proposals Roy hasn't confirmed. Everything else he chose.
 
