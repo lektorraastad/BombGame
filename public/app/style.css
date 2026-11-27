@@ -566,6 +566,12 @@ main.results h1 { color: var(--muted); margin: 4px 0 0; }
 .ctl fieldset.multi legend { font-family: var(--font-read); font-weight: 600; padding: 0; }
 .ctl .choices { display: flex; flex-wrap: wrap; gap: 4px 14px; }
 .ctl .choices label, .ctl .lettergrid label { margin: 0; font-weight: 400; }
+.ctl .presets .preset-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 6px 0 4px; }
+.ctl .presets button[aria-pressed="true"] { border-color: var(--tile-ink); box-shadow: 0 0 0 4px var(--spark), inset 0 -4px 0 var(--tile-edge); }
+.ctl .presets .using { display: block; font-weight: 600; color: var(--names); }
+.ctl details.more { margin: 14px 0 0; border-top: 2px solid var(--muted); padding-top: 8px; }
+.ctl details.more > summary { cursor: pointer; font-family: var(--font-display); font-weight: 800; font-size: 17px; padding: 6px 0; }
+.ctl details.more > summary:focus-visible { outline: 3px solid var(--names); outline-offset: 2px; }
 .ctl .lettergrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap: 4px; font-size: 14px; }
 
 @media (max-width: 480px) {

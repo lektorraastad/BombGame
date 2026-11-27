@@ -8,12 +8,13 @@ import { createPromptBank } from "../../src/engine/prompts.ts";
 import { PRESETS, PRESET_IDS, presetOf } from "../../src/engine/presets.ts";
 import { CORE_SETTINGS } from "../../src/engine/settings.ts";
 import type { Prompt } from "../../src/engine/types.ts";
+import { noopActivity, type KnockoutActivity } from "../../src/engine/knockout/activity.ts";
 import { controlView } from "../../src/engine/views.ts";
 import { makeDeps, makeTestChecker, fixtureBlocked } from "./helpers.ts";
 
 const ST: Prompt = { text: "st", type: "contains", count: 480, common: 40 };
 
-function makeRoom() {
+function makeRoom(extraActivities: KnockoutActivity[] = []) {
   const { deps } = makeDeps(3);
   return new Room({
     code: "ABCD",
@@ -22,7 +23,7 @@ function makeRoom() {
     bank: createPromptBank([ST]),
     blockedNames: fixtureBlocked,
     modes: [classicMode, everyoneMode],
-    activities: [ghostActivity],
+    activities: [ghostActivity, ...extraActivities],
   });
 }
 
@@ -204,4 +205,28 @@ test("the control view reports the active setup", () => {
   assert.equal(controlView(room).settings.preset, "normal");
   room.updateSettings({ preset: "fast" });
   assert.equal(controlView(room).settings.preset, "fast");
+});
+
+test("choosing each setup in Everyone at once sets roundTime", () => {
+  const room = makeRoom();
+  room.updateSettings({ mode: "everyone" });
+  for (const [id, roundTime] of [["gentle", 25], ["normal", 15], ["fast", 10]] as const) {
+    room.updateSettings({ preset: id });
+    assert.equal(room.settings.roundTime, roundTime, id);
+    assert.equal(room.settings.preset, id);
+  }
+});
+
+test("changing knockout keeps the setup", () => {
+  const room = makeRoom([noopActivity]);
+  room.updateSettings({ preset: "gentle" });
+  const before = pick(room.settings, CLASSIC_KEYS);
+  room.updateSettings({ knockout: "none" });
+  assert.equal(room.settings.knockout, "none");
+  assert.equal(room.settings.preset, "gentle");
+  assert.deepEqual(pick(room.settings, CLASSIC_KEYS), before);
+  room.updateSettings({ knockout: "ghost" });
+  assert.equal(room.settings.knockout, "ghost");
+  assert.equal(room.settings.preset, "gentle");
+  assert.deepEqual(pick(room.settings, CLASSIC_KEYS), before);
 });

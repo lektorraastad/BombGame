@@ -44,6 +44,7 @@ test("control form is generated from settingDecls", () => {
     const decls: SettingDecl[] = settingsFor(mode, knockout);
     assert.deepEqual(v.settingDecls.map((d: SettingDecl) => d.key), decls.map((d) => d.key));
     for (const d of decls) {
+      if (d.key === "preset") continue; // drawn as buttons, see below
       const tag = control(html, d.key);
       if (d.kind === "number") {
         assert.ok(tag.startsWith("<input") && tag.includes(`type="number"`), d.key);
@@ -167,5 +168,66 @@ test("each player row shows the player's emoji, in overlay mode too", () => {
       const row = html.split("<tr>").find((r) => r.includes(`data-pid="${p.id}"`)) ?? "";
       assert.ok(row.includes(`<img class="avatar`) && row.includes(`alt="${AVATARS[p.avatar].label}"`), `${p.nickname} overlay=${overlay}`);
     }
+  }
+});
+
+/** The Settings fieldset's inner HTML. */
+const settingsSet = (html: string) => html.match(/<fieldset class="settings"[^>]*>([\s\S]*)<\/fieldset><\/form>/)![1];
+const presetBtn = (html: string, id: string) => html.match(new RegExp(`<button[^>]*data-preset="${id}"[^>]*>([^<]*)</button>`));
+
+test("settings: Mode, the setup buttons, Using, the warnings, then More settings holding the rest", () => {
+  for (const mode of ["classic", "everyone"]) {
+    const v = view({ mode, band: "easy", promptTypes: ["contains", "starts"] });
+    const html = renderControl(v, ui());
+    const set = settingsSet(html);
+    const at = (s: string) => {
+      const i = set.indexOf(s);
+      assert.ok(i >= 0, `${mode}: ${s}`);
+      return i;
+    };
+    const order = [at(`<select name="mode">`), at(`data-preset="gentle"`), at(`data-preset="normal"`), at(`data-preset="fast"`),
+      at("Using: "), at(`class="warning"`), at(`<details class="more"><summary>More settings</summary>`)];
+    assert.deepEqual(order, [...order].sort((a, b) => a - b), `${mode}: in order`);
+    const more = set.slice(set.indexOf(`<details class="more">`));
+    assert.ok(more.endsWith("</details>"), "the fold closes the fieldset");
+    const keys = v.settingDecls.map((d: SettingDecl) => d.key).filter((k: string) => !["mode", "preset", "theme"].includes(k));
+    const inMore = [...more.matchAll(/<(?:input|select)[^>]*name="([^"]+)"/g)].map((m) => m[1]);
+    assert.deepEqual([...new Set(inMore)], keys, `${mode}: every other setting, in today's order`);
+    assert.ok(!more.includes(`class="warning"`), "warnings are never folded away");
+    assert.ok(!set.includes(`name="theme"`), "theme stays under Look");
+  }
+});
+
+test("the setup is three buttons, never a select, pressed to match the view", () => {
+  for (const id of ["gentle", "normal", "fast"]) {
+    const html = renderControl(view({ preset: id }), ui());
+    assert.ok(!html.includes(`name="preset"`), "no form control for preset");
+    for (const [other, label] of [["gentle", "Gentle"], ["normal", "Normal"], ["fast", "Fast"]]) {
+      const b = presetBtn(html, other);
+      assert.ok(b, other);
+      assert.ok(b[0].startsWith(`<button type="button" data-preset="${other}" aria-pressed="${other === id}"`), b[0]);
+      assert.equal(b[1], label);
+    }
+    assert.ok(!html.includes(`data-preset="custom"`), "Custom is never a button");
+    assert.ok(html.includes(`Using: ${id[0].toUpperCase()}${id.slice(1)}`));
+  }
+  const custom = renderControl(view({ preset: "gentle", fuseMin: 20 }), ui());
+  assert.ok(custom.includes("Using: Custom"));
+  assert.ok(!custom.includes(`aria-pressed="true"`), "nothing pressed under Custom");
+});
+
+test("while a game runs the setup buttons are disabled and the locked note shows", () => {
+  for (const phase of ["playing", "paused"]) {
+    const html = renderControl(view({}, phase), ui());
+    for (const id of ["gentle", "normal", "fast"]) assert.ok(presetBtn(html, id)![0].includes(" disabled"), `${phase} ${id}`);
+    assert.ok(html.includes("Settings are locked while a game is running"));
+  }
+  for (const id of ["gentle", "normal", "fast"]) assert.ok(!presetBtn(renderControl(view(), ui()), id)![0].includes("disabled"));
+});
+
+test("More settings is folded unless the page says it is open, in overlay mode too", () => {
+  for (const overlay of [false, true]) {
+    assert.ok(renderControl(view(), ui({ overlay })).includes(`<details class="more"><summary>`));
+    assert.ok(renderControl(view(), ui({ overlay, moreOpen: true })).includes(`<details class="more" open><summary>`));
   }
 });

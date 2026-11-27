@@ -55,7 +55,7 @@ export function applySettingsInput(
   const modeChanged = resolve({ ...current, ...rest }).mode !== current.mode;
 
   const apply = isPresetId(active) && (isPresetId(chosen) || modeChanged);
-  const next = resolve({ ...current, ...(apply ? PRESETS[active as PresetId] : {}), ...rest, preset: active });
+  const next = resolve({ ...current, ...(apply ? PRESETS[active] : {}), ...rest, preset: active });
 
   const touched = isPresetId(chosen) || modeChanged || Object.keys(rest).some((k) => PRESET_KEYS.has(k));
   if (touched) next.preset = presetOf(next);

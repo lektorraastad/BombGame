@@ -16,6 +16,8 @@ export function mountPanel(root, opts) {
   /** @type {any} */ let kickTimer = null;
   /** @type {string | null} */ let renaming = null;
   let message = "";
+  // Whether "More settings" is open. The panel redraws on every view, so the fold's state lives here.
+  let moreOpen = false;
 
   function draw() {
     if (!view) return;
@@ -24,7 +26,10 @@ export function mountPanel(root, opts) {
     const keep = active && root.contains(active) && (active.type === "text" || active.type === "number")
       ? { sel: active.classList.contains("rename") ? "input.rename" : `input[name="${active.name}"]`, value: active.value }
       : null;
-    root.innerHTML = renderControl(view, { overlay: opts.overlay, confirmKick, renaming, message });
+    // Roy opens and closes the fold with the browser's own <details>: read it before it is replaced.
+    const fold = /** @type {HTMLDetailsElement | null} */ (root.querySelector("details.more"));
+    if (fold) moreOpen = fold.open;
+    root.innerHTML = renderControl(view, { overlay: opts.overlay, confirmKick, renaming, message, moreOpen });
     if (keep) {
       const box = /** @type {HTMLInputElement | null} */ (root.querySelector(keep.sel));
       if (box && !box.disabled) {
@@ -57,6 +62,8 @@ export function mountPanel(root, opts) {
     if (!el || !root.contains(el)) return;
     const cmd = el.dataset.cmd;
     if (cmd) return send({ t: "cmd", cmd });
+    const preset = el.dataset.preset;
+    if (preset) return send({ t: "cmd", cmd: "settings", settings: { preset } });
     const pid = el.dataset.pid ?? "";
     switch (el.dataset.action) {
       case "kick": {

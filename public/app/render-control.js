@@ -8,7 +8,7 @@ import { avatarImg } from "./avatars.js";
 export const FEW_PROMPTS = 15;
 
 /**
- * @typedef {{ overlay: boolean, confirmKick?: string | null, renaming?: string | null, message?: string }} ControlUi
+ * @typedef {{ overlay: boolean, confirmKick?: string | null, renaming?: string | null, message?: string, moreOpen?: boolean }} ControlUi
  * @typedef {Record<string, Record<string, number>>} PromptCounts
  */
 
@@ -18,6 +18,10 @@ const TYPE_LABEL = { contains: "Contains", starts: "Starts with", ends: "Ends wi
 const BAND_LABEL = { easy: "Easy", normal: "Normal", rising: "Rising", hard: "Hard" };
 /** Settings that change only how the game looks: never locked, shown under "Look". */
 const LOOK_KEYS = ["theme"];
+/** Shown at the top of "Settings", above the setup buttons; the rest go under "More settings". */
+const TOP_KEYS = ["mode"];
+/** The setting drawn as the setup buttons. Its "custom" option is never a button. */
+const PRESET_KEY = "preset";
 /** @type {Record<string, string>} */
 const PHASE_LABEL = { lobby: "Lobby", playing: "Playing", paused: "Paused", results: "Game over" };
 
@@ -65,7 +69,7 @@ export function renderControl(view, ui) {
   const msg = ui.message ? `<p class="ctl-msg" role="alert">${esc(ui.message)}</p>` : "";
   return `<div class="ctl${ui.overlay ? " ctl-overlay" : ""}">
 <header class="ctl-head"><span>Room <strong>${esc(view.code)}</strong></span><span>${PHASE_LABEL[view.phase] ?? ""}${view.locked ? " · Locked" : ""}</span></header>
-${msg}${buttons(view)}${status(view)}${players(view, ui)}${settings(view)}
+${msg}${buttons(view)}${status(view)}${players(view, ui)}${settings(view, ui)}
 </div>`;
 }
 
@@ -107,8 +111,8 @@ function players(view, ui) {
   return `<section class="ctl-players"><h2>Players (${view.players.length})</h2>${list}</section>`;
 }
 
-/** @param {any} view */
-function settings(view) {
+/** @param {any} view @param {ControlUi} ui */
+function settings(view, ui) {
   const locked = running(view);
   const s = view.settings ?? {};
   const types = Array.isArray(s.promptTypes) ? s.promptTypes : [];
@@ -119,10 +123,30 @@ function settings(view) {
   const decls = view.settingDecls ?? [];
   // The look can change at any time, so it sits outside the fieldset that a running game disables.
   const isLook = (/** @type {any} */ d) => LOOK_KEYS.includes(d.key);
-  const look = decls.filter(isLook).map((/** @type {any} */ d) => field(d, s[d.key])).join("");
-  const fields = decls.filter((/** @type {any} */ d) => !isLook(d)).map((/** @type {any} */ d) => field(d, s[d.key])).join("");
+  const draw = (/** @type {any[]} */ list) => list.map((d) => field(d, s[d.key])).join("");
+  const look = draw(decls.filter(isLook));
+  const top = draw(decls.filter((/** @type {any} */ d) => TOP_KEYS.includes(d.key)));
+  const presetDecl = decls.find((/** @type {any} */ d) => d.key === PRESET_KEY);
+  const setup = presetDecl ? presetButtons(presetDecl, s[PRESET_KEY], locked) : "";
+  const rest = draw(decls.filter((/** @type {any} */ d) => !isLook(d) && !TOP_KEYS.includes(d.key) && d.key !== PRESET_KEY));
+  const more = `<details class="more"${ui.moreOpen ? " open" : ""}><summary>More settings</summary>${rest}</details>`;
   const lookSet = look ? `<fieldset class="look"><legend>Look</legend>${look}</fieldset>` : "";
-  return `<form class="ctl-form" autocomplete="off">${lookSet}<fieldset class="settings"${locked ? " disabled" : ""}><legend>Settings</legend>${note}${warnings}${fields}</fieldset></form>`;
+  return `<form class="ctl-form" autocomplete="off">${lookSet}<fieldset class="settings"${locked ? " disabled" : ""}><legend>Settings</legend>${note}${top}${setup}${warnings}${more}</fieldset></form>`;
+}
+
+/**
+ * The setup buttons (every option but Custom), the pressed one matching `value`, and a "Using:" line.
+ * @param {any} d the preset SettingDecl @param {any} value @param {boolean} locked
+ */
+function presetButtons(d, value, locked) {
+  const opts = d.options ?? [];
+  const btns = opts
+    .filter((/** @type {any} */ o) => o.value !== "custom")
+    .map((/** @type {any} */ o) => `<button type="button" data-preset="${esc(o.value)}" aria-pressed="${o.value === value}"${locked ? " disabled" : ""}>${esc(o.label)}</button>`)
+    .join("");
+  const using = opts.find((/** @type {any} */ o) => o.value === value)?.label ?? "Custom";
+  const help = d.help ? `<small class="help">${esc(d.help)}</small>` : "";
+  return `<div class="field presets" role="group" aria-label="${esc(d.label)}"><span>${esc(d.label)}</span><div class="preset-buttons">${btns}</div><small class="using">Using: ${esc(using)}</small>${help}</div>`;
 }
 
 /** @param {any} d a SettingDecl @param {any} value */

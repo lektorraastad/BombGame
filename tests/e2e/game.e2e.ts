@@ -1,6 +1,6 @@
 // End-to-end tests: the real dev server, driven through Chromium with Playwright.
 // Run with `npm run test:e2e`. Fails with a message when Playwright isn't found (scripts/playwright-path.ts).
-import { test, before, after, afterEach, describe } from "node:test";
+import { test, before, after, beforeEach, afterEach, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { startDevServer } from "../../scripts/dev-server.ts";
@@ -481,15 +481,22 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
   before(async () => {
     pw = await import(PLAYWRIGHT!);
     browser = await pw.chromium.launch();
+  });
+  // A fresh server for each test: rooms stay in memory for 30 minutes, and one server holds at most
+  // MAX_ROOMS (20), which this suite has more tests than.
+  beforeEach(async () => {
     server = await startDevServer(0);
   });
   // Runs even when a test throws, so one failure doesn't leave pages open for the next test.
   afterEach(async () => {
-    await closeContexts();
+    try {
+      await closeContexts();
+    } finally {
+      await server?.close();
+    }
   });
   after(async () => {
     await browser?.close();
-    await server?.close();
   });
 
   test("host creates a room and three players join", async () => {
@@ -784,6 +791,39 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     await host.locator(".p-paused").waitFor({ state: "detached", timeout: WAIT });
     await phone.locator('button[data-cmd="pause"]').waitFor({ timeout: WAIT });
   });
+  test("control panel: Gentle gives 3 hearts; a change under More settings makes it Custom and the fold stays open", async () => {
+    const { host, code } = await hostRoom();
+    const players = [await joinPlayer(code, "Ann"), await joinPlayer(code, "Ben")];
+    const ctl = await newPage("/control", { width: 1366, height: 768 });
+    await ctl.fill("#code", code);
+    await ctl.fill("#passcode", PASSCODE);
+    await ctl.click("#controlbtn");
+    await ctl.locator("#panel .ctl").waitFor({ timeout: WAIT });
+    await ctl.locator(".ctl", { hasText: "Using: Normal" }).waitFor({ timeout: WAIT });
+    assert.equal(await ctl.locator('select[name="mode"]').inputValue(), "classic");
+
+    await ctl.click('button[data-preset="gentle"]');
+    await ctl.locator('button[data-preset="gentle"][aria-pressed="true"]').waitFor({ timeout: WAIT });
+    await ctl.locator(".ctl", { hasText: "Using: Gentle" }).waitFor({ timeout: WAIT });
+    await ctl.click('button[data-cmd="start"]');
+    await host.locator(".p-classic").waitFor({ timeout: WAIT });
+    for (const p of players) await p.locator(".corner .lives", { hasText: /^❤❤❤$/ }).waitFor({ timeout: WAIT });
+    assert.ok(await ctl.locator('button[data-preset="fast"]').isDisabled(), "locked while the game runs");
+
+    await ctl.click('button[data-cmd="end"]');
+    await ctl.locator('button[data-cmd="playAgain"]:not([disabled])').waitFor({ timeout: WAIT });
+    const more = ctl.locator("details.more");
+    assert.equal(await more.getAttribute("open"), null, "folded at first");
+    await ctl.click("details.more > summary");
+    await ctl.locator("details.more[open]").waitFor({ timeout: WAIT });
+    const fuse = ctl.getByLabel("Shortest fuse");
+    await fuse.fill("12");
+    await fuse.press("Enter");
+    await ctl.locator(".ctl", { hasText: "Using: Custom" }).waitFor({ timeout: WAIT });
+    assert.equal(await ctl.locator('input[name="fuseMin"]').inputValue(), "12");
+    assert.notEqual(await ctl.locator("details.more").getAttribute("open"), null, "still open after the panel redraws");
+  });
+
   test("two rings for 24 players: seats clear of each other and the bomb, inside the circle, on the projector and a laptop", async () => {
     const LAPTOP = { width: 1366, height: 768 };
     // A realistic class: ordinary names, two of the longest allowed (16 characters), one with a space.
