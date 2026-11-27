@@ -64,7 +64,7 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
    Each one needs a short design that Roy approves before any building.
    - **Batch 1 is live** (difficulty, words and names, the tick-tock sound and the Sound button; merged on 26 November 2026 at Roy's request, PR lektorraastad/BombGame#2). Things for Roy to watch in the first lesson: whether Normal feels right for the class, and whether the tick-tock is loud enough on the classroom speakers.
    - **Batch 2 is live** (layout: the spotlight, smaller bomb, bigger names; merged on 27 November 2026 at Roy's request, PR lektorraastad/BombGame#3).
-   - **Batch 3** (the Gentle, Normal and Fast setups, More settings, and housekeeping) is built on branch `claude/elegant-newton-cozbue`, waiting for Roy's go-ahead to merge.
+   - **Batch 3 is live** (the Gentle, Normal and Fast setups, More settings, and housekeeping; merged on 27 November 2026 at Roy's request, PR lektorraastad/BombGame#4). All three of Roy's improvements are now done. Things to watch in the first lesson: whether Normal suits the class, the tick-tock volume, and whether names and the spotlight read well from the back.
 3. **Later:**
    - the "Slate and violet" theme;
    - the Teams and Class vs the bomb modes;
