@@ -41,9 +41,10 @@ test("render escapes nicknames and words", () => {
   );
   assert.ok(!playing.includes("<img src=x"));
   assert.ok(playing.includes("&lt;"));
-  // The last word sits under the player's name on the circle, as tiles; the current player's typing too.
+  // The last word sits under the player's name on the circle, as tiles; the current player's typing
+  // in the spotlight under the bomb.
   assert.ok(playing.includes(`<span class="last-word">${matchedTiles(evil, { text: "an", type: "contains" })}</span>`));
-  assert.ok(playing.includes(`<span class="typing">${tiles(evil)}<span class="caret"></span></span>`));
+  assert.ok(playing.includes(`<div class="spotlight">${tiles(evil)}<span class="caret"></span></div>`));
   assert.ok(playing.includes("&lt;img src=x onerror=alert(1)&gt;'s turn"));
 });
 
@@ -335,11 +336,12 @@ test("the status lines keep their wording", () => {
   assert.ok(ghost.includes("Comeback: not available"));
 });
 
-test("the waiting screen shows the current player's typing on their seat", () => {
+test("the waiting screen shows the current player's typing in the spotlight, not on their seat", () => {
   const html = renderPlayer(waitingView({ typing: "ban" }), ui());
   const seat = html.match(/<div class="seat on[^"]*"[^>]*>.*?<\/div>(?=<div class="(?:seat|circle-centre))/s)?.[0] ?? "";
   assert.ok(seat.includes(">Jon<"), "Jon's seat is the current one");
-  assert.ok(seat.includes(`<span class="typing">${tiles("ban")}<span class="caret"></span></span>`));
+  assert.ok(!seat.includes('class="typing"'), seat);
+  assert.ok(html.includes(`<div class="spotlight">${tiles("ban")}<span class="caret"></span></div>`));
 });
 
 test("own hearts and score sit in the corner; nobody else's score is shown", () => {

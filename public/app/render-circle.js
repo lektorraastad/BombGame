@@ -22,11 +22,24 @@ import { tiles, matchedTiles } from "./tiles.js";
 const hearts = (n) => "❤".repeat(Math.max(0, Math.min(Math.floor(Number(n)) || 0, 10)));
 
 /**
- * The word under a player's name: their live typing during their own turn, otherwise the last word
- * they played, with the prompt's letters raised.
- * @param {any} view @param {any} p
+ * The spotlight: the current player's live typing, large under the bomb. It shows in Classic (someone
+ * is on) while there is typing, with one ring of seats; with two rings the inner ring sits there, so
+ * the typing stays under the seat.
+ * @param {any} view @param {number} seatCount
+ * @returns {string | null} the typed text, or null when there is no spotlight
  */
-function word(view, p) {
+export function spotlightText(view, seatCount) {
+  if (typeof view?.mode?.current !== "string" || typeof view.typing !== "string") return null;
+  return seatCount <= ONE_RING_MAX ? view.typing : null;
+}
+
+/**
+ * The word under a player's name: their live typing during their own turn (unless the spotlight
+ * shows it, then nothing), otherwise the last word they played, with the prompt's letters raised.
+ * @param {any} view @param {any} p @param {string | null} spot
+ */
+function word(view, p, spot) {
+  if (p.id === view.mode?.current && spot !== null) return "";
   if (p.id === view.mode?.current && typeof view.typing === "string") {
     return `<span class="typing">${tiles(view.typing)}<span class="caret"></span></span>`;
   }
@@ -44,6 +57,7 @@ export function renderCircle(view, opts) {
   const seated = seatedPlayers(view);
   const n = seated.length;
   const current = view?.mode?.current;
+  const spot = spotlightText(view, n);
   const seats = seated
     .map((p, i) => {
       const pos = seatPosition(i, n);
@@ -61,10 +75,11 @@ export function renderCircle(view, opts) {
       const lives = `<span class="lives">${p.alive ? hearts(p.lives) : "out"}</span>`;
       const away = p.connected ? "" : `<span class="away">offline</span>`;
       const answered = p.answered ? `<span class="answered" aria-label="answered">✓</span>` : "";
-      return `<div class="${cls}" style="${style}">${avatarImg(p.avatar)}<span class="name">${esc(p.nickname)}</span>${lives}${away}${answered}${word(view, p)}</div>`;
+      return `<div class="${cls}" style="${style}">${avatarImg(p.avatar)}<span class="name">${esc(p.nickname)}</span>${lives}${away}${answered}${word(view, p, spot)}</div>`;
     })
     .join("");
-  return `<div class="circle${opts.compact ? " compact" : ""}">${seats}<div class="circle-centre">${renderBomb(onScreen(opts, seated, current), opts.centre)}</div></div>`;
+  const spotlight = spot === null ? "" : `<div class="spotlight">${tiles(spot)}<span class="caret"></span></div>`;
+  return `<div class="circle${opts.compact ? " compact" : ""}">${seats}<div class="circle-centre">${renderBomb(onScreen(opts, seated, current), opts.centre)}</div>${spotlight}</div>`;
 }
 
 /**

@@ -9,8 +9,9 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
   - `docs/superpowers/specs/2026-11-21-bomb-game-design.md` is the original design, approved by Roy.
   - `docs/superpowers/specs/2026-11-23-redesign-design.md` is the redesign, approved by Roy, and `docs/superpowers/plans/2026-11-23-redesign.md` is its plan.
   - `docs/superpowers/specs/2026-11-26-difficulty-words-sound-design.md` is batch 1 of Roy's improvements (difficulty, words and names, sound), approved by Roy, and `docs/superpowers/plans/2026-11-26-difficulty-words-sound.md` is its plan.
+  - `docs/superpowers/specs/2026-11-26-spotlight-layout-design.md` is batch 2 of Roy's improvements (smaller bomb, bigger names, the current player's typing large under the bomb), approved by Roy, and `docs/superpowers/plans/2026-11-26-spotlight-layout.md` is its plan.
   - `docs/design-principles.md` holds the **visual design principles and the chosen "Workshop" theme**. Read it before any visual work.
-  - `docs/superpowers/plans/` has the six implementation plans already built: connection test, engine, word lists, playable game, the redesign and batch 1.
+  - `docs/superpowers/plans/` has the seven implementation plans already built: connection test, engine, word lists, playable game, the redesign, batch 1 and batch 2.
   - `docs/EXTENDING.md` explains how to add game modes, knocked-out activities, settings, prompt types and themes, and how to swap the bomb.
   - `README.md` is Roy's setup guide and how to run a lesson.
   - `docs/improvements.md` lists Roy's requested improvements, with leads into the code.
@@ -61,7 +62,8 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
 
    Each one needs a short design that Roy approves before any building.
    - **Batch 1 is live** (difficulty, words and names, the tick-tock sound and the Sound button; merged on 26 November 2026 at Roy's request, PR lektorraastad/BombGame#2). Things for Roy to watch in the first lesson: whether Normal feels right for the class, and whether the tick-tock is loud enough on the classroom speakers.
-   - **Batch 2** (layout) and **batch 3** (settings presets and housekeeping) follow, each with its own design for Roy to approve.
+   - **Batch 2 is live** (layout: the spotlight, smaller bomb, bigger names; merged on 27 November 2026 at Roy's request, PR lektorraastad/BombGame#3).
+   - **Batch 3** (settings presets and housekeeping) follows, with its own design for Roy to approve.
 3. **Small follow-ups:** in `docs/EXTENDING.md` privacy rules, say "player words" (the dictionary examples are also shown), and note that the control screen receives typing but doesn't draw it.
 4. **Later:**
    - the "Slate and violet" theme;

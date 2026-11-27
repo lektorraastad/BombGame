@@ -4,7 +4,7 @@ Roy's notes after testing the redesign at home (25 November 2026), with leads fo
 
 ## 1. A smaller bomb, with bigger names and typing
 
-**Coming in batch 2 (layout).**
+**Done in batch 2 (live 2026-11-27).** The bomb is smaller, the names are bigger, and the current player's typing shows large under the bomb (the spotlight). Design: `docs/superpowers/specs/2026-11-26-spotlight-layout-design.md`.
 
 **Roy:** "The bomb should be a bit smaller, to allow for the students' names and what they are typing to be bigger."
 
