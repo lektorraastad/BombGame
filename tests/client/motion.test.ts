@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createMotion, POP_MS } from "../../public/app/motion.js";
+import {
+  createMotion, POP_MS, WORD_MS, REFUSED_MS, HEART_MS, WIN_MS, RESULTS_HOLD_MS, EXAMPLES_MS, TENSION_FULL_MS,
+} from "../../public/app/motion.js";
 import { seatPosition, seatedPlayers, arrowAngle, screenAngle } from "../../public/app/circle-geometry.js";
 import { ARROW_SWING_MS, EXPLOSION_MS } from "../../public/app/bomb.js";
 
@@ -239,6 +241,255 @@ test("bombState passes the countdown and lit through", () => {
 
 test("bombState before any view is a still, unlit-safe bomb", () => {
   const { m } = tracker();
-  assert.deepEqual(m.bombState(null, false), { lit: false, arrow: null, countdownMs: null, fuse: null, explosion: null });
+  assert.deepEqual(m.bombState(null, false), { lit: false, arrow: null, countdownMs: null, fuse: null, explosion: null, tension: 0 });
   assert.equal(m.busy(), false);
+});
+
+// ---- moments ----
+
+const WORD = { word: "stone", prompt: { text: "st", type: "contains" } };
+/** The players, with b's last word set. */
+const withWord = (pid = "b") => PLAYERS.map((p) => (p.id === pid ? { ...p, lastWord: WORD } : p));
+const ALL_MOMENTS = [
+  { kind: "word", pid: "b" }, { kind: "hearts", pids: ["a"] }, { kind: "explosion" },
+  { kind: "refused", pid: "c" }, { kind: "all-answered" }, { kind: "win", pids: ["b"] },
+];
+
+test("word moment runs for WORD_MS with the last word and prompt", () => {
+  const { clock, m } = tracker();
+  m.view(classicView("b", { moments: [] }));
+  assert.equal(m.word(), null);
+  clock.t += 2_000;
+  m.view(classicView("c", { players: withWord("b"), mode: { seats: ["a", "b", "c", "d"], current: "c", lastWord: "stone" }, moments: [{ kind: "word", pid: "b" }] }));
+  assert.deepEqual(m.word(), { pid: "b", word: "stone", prompt: { text: "st", type: "contains" }, fromSpotlight: false, elapsedMs: 0 });
+  assert.equal(m.busy(), true);
+  clock.t += WORD_MS - 1;
+  assert.equal(m.word()!.elapsedMs, WORD_MS - 1);
+  // A later view without the moment doesn't cut it short.
+  m.view(classicView("c", { players: withWord("b"), moments: [] }));
+  assert.equal(m.word()!.elapsedMs, WORD_MS - 1);
+  clock.t += 1;
+  assert.equal(m.word(), null);
+  assert.equal(m.busy(), false);
+  // A word moment for a player without a last word starts nothing.
+  m.view(classicView("a", { moments: [{ kind: "word", pid: "d" }] }));
+  assert.equal(m.word(), null);
+});
+
+test("fromSpotlight only when the player was typing", () => {
+  const { m } = tracker();
+  m.view(classicView("b", { typing: "ston" }));
+  m.view(classicView("c", { players: withWord("b"), moments: [{ kind: "word", pid: "b" }] }));
+  assert.equal(m.word()!.fromSpotlight, true);
+  // c's typing was shown, but b answered: not from the spotlight.
+  m.view(classicView("c", { typing: "s" }));
+  m.view(classicView("d", { players: withWord("b"), moments: [{ kind: "word", pid: "b" }] }));
+  assert.equal(m.word()!.fromSpotlight, false);
+  // No typing before (live typing off).
+  m.view(classicView("b"));
+  m.view(classicView("c", { players: withWord("b"), moments: [{ kind: "word", pid: "b" }] }));
+  assert.equal(m.word()!.fromSpotlight, false);
+});
+
+test("refused, hearts and win time from arrival and end", () => {
+  const { clock, m } = tracker();
+  m.view(classicView("c"));
+  clock.t += 1_000;
+  m.view(classicView("c", { moments: [{ kind: "refused", pid: "c" }] }));
+  assert.deepEqual(m.refused(), { pid: "c", elapsedMs: 0 });
+  clock.t += REFUSED_MS - 1;
+  assert.deepEqual(m.refused(), { pid: "c", elapsedMs: REFUSED_MS - 1 });
+  assert.equal(m.busy(), true);
+  clock.t += 1;
+  assert.equal(m.refused(), null);
+
+  m.view(classicView("d", { moments: [{ kind: "hearts", pids: ["c", "a"] }] }));
+  assert.deepEqual([...m.hearts()], [["c", 0], ["a", 0]]);
+  clock.t += 500;
+  m.view(classicView("a", { moments: [{ kind: "hearts", pids: ["d"] }] }));
+  assert.deepEqual([...m.hearts()].sort(), [["a", 500], ["c", 500], ["d", 0]]);
+  clock.t += HEART_MS - 500;
+  assert.deepEqual([...m.hearts()], [["d", HEART_MS - 500]]);
+  clock.t += 500;
+  assert.equal(m.hearts().size, 0);
+  assert.equal(m.busy(), false);
+
+  // A win without an explosion (the host ended it, or a shared win): no hold, it starts at once.
+  m.view({ ...classicView(null), phase: "results", moments: [{ kind: "win", pids: ["a", "b"] }] });
+  assert.deepEqual(m.win(), { pids: ["a", "b"], elapsedMs: 0 });
+  clock.t += WIN_MS - 1;
+  assert.deepEqual(m.win(), { pids: ["a", "b"], elapsedMs: WIN_MS - 1 });
+  assert.equal(m.busy(), true);
+  clock.t += 1;
+  assert.equal(m.win(), null);
+  assert.equal(m.busy(), false);
+});
+
+test("the first view never starts a moment", () => {
+  const { m } = tracker();
+  m.view(classicView("b", { phase: "results", players: withWord("b"), examples: ["stone"], moments: ALL_MOMENTS }));
+  assert.equal(m.word(), null);
+  assert.equal(m.refused(), null);
+  assert.equal(m.hearts().size, 0);
+  assert.equal(m.win(), null);
+  assert.equal(m.examplesShown(classicView("b", { examples: ["stone"] })), false);
+  const v = { ...classicView("b"), phase: "results", moments: ALL_MOMENTS };
+  assert.equal(m.heldView(v), v);
+  assert.equal(m.popElapsed("b"), null);
+  assert.equal(m.busy(), false);
+});
+
+test("results are held for 1.5 s after a final explosion", () => {
+  const { clock, m } = tracker();
+  const playing = classicView("b", { bombRemainingMs: 3_000, typing: "sto" });
+  m.view(playing);
+  clock.t += 1_000;
+  const losers = PLAYERS.map((p) => (p.id === "b" ? { ...p, lives: 0, alive: false } : p));
+  const results = {
+    ...classicView(null), phase: "results", players: losers, examples: ["stone"], lastEvent: "explosion",
+    results: { winners: ["a"] }, moments: [{ kind: "hearts", pids: ["b"] }, { kind: "explosion" }, { kind: "win", pids: ["a"] }],
+  };
+  m.view(results);
+  const held = m.heldView(results);
+  assert.deepEqual(held, { ...playing, players: losers, examples: ["stone"], phase: "playing", paused: false, moments: [] });
+  assert.equal(m.win(), null, "the win waits for the results");
+  assert.equal(m.busy(), true);
+  clock.t += RESULTS_HOLD_MS - 1;
+  assert.equal(m.heldView(results).phase, "playing");
+  assert.equal(m.win(), null);
+  clock.t += 1;
+  assert.equal(m.heldView(results), results);
+  assert.deepEqual(m.win(), { pids: ["a"], elapsedMs: 0 });
+  clock.t += WIN_MS;
+  assert.equal(m.win(), null);
+  // Another view (a new lobby) is never held.
+  const lobby = { phase: "lobby", paused: false, players: PLAYERS, prompt: null, mode: null, lastEvent: null, moments: [] };
+  m.view(lobby);
+  assert.equal(m.heldView(lobby), lobby);
+});
+
+test("results from a paused game are held too, drawn unpaused", () => {
+  const { m } = tracker();
+  m.view(classicView("b", { paused: true }));
+  const results = { ...classicView(null), phase: "results", moments: [{ kind: "explosion" }, { kind: "win", pids: ["a"] }] };
+  m.view(results);
+  const held = m.heldView(results);
+  assert.equal(held.phase, "playing");
+  assert.equal(held.paused, false);
+  assert.equal(held.mode.current, "b");
+});
+
+test("examples show for 4 s or until the next player types", () => {
+  const { clock, m } = tracker();
+  m.view(classicView("a"));
+  clock.t += 1_000;
+  let v = classicView("b", { examples: ["stone", "stand"], lastEvent: "explosion", moments: [{ kind: "explosion" }] });
+  m.view(v);
+  assert.equal(m.examplesShown(v), true);
+  assert.equal(m.busy(), true);
+  clock.t += EXAMPLES_MS - 1;
+  v = classicView("b", { examples: ["stone", "stand"] });
+  m.view(v);
+  assert.equal(m.examplesShown(v), true);
+  clock.t += 1;
+  assert.equal(m.examplesShown(v), false);
+  assert.equal(m.busy(), false);
+
+  // The next player types: gone, and they stay gone if the typing is deleted.
+  clock.t += 1_000;
+  v = classicView("c", { examples: ["stone"], moments: [{ kind: "explosion" }] });
+  m.view(v);
+  assert.equal(m.examplesShown(v), true);
+  clock.t += 100;
+  v = classicView("c", { examples: ["stone"], typing: "s" });
+  m.view(v);
+  assert.equal(m.examplesShown(v), false);
+  v = classicView("c", { examples: ["stone"] });
+  m.view(v);
+  assert.equal(m.examplesShown(v), false);
+
+  // No examples, or junk: never shown.
+  clock.t += 1_000;
+  m.view(classicView("d", { moments: [{ kind: "explosion" }] }));
+  assert.equal(m.examplesShown(classicView("d")), false);
+  assert.equal(m.examplesShown(classicView("d", { examples: [] })), false);
+  assert.equal(m.examplesShown(classicView("d", { examples: "stone" })), false);
+  assert.equal(m.examplesShown(null), false);
+
+  // Everyone at once: 4 s, whatever anyone types.
+  const { clock: c2, m: m2 } = tracker();
+  m2.view(everyoneView());
+  const e = everyoneView({ examples: ["stone"], moments: [{ kind: "explosion" }] });
+  m2.view(e);
+  c2.t += EXAMPLES_MS - 1;
+  assert.equal(m2.examplesShown(e), true);
+  c2.t += 1;
+  assert.equal(m2.examplesShown(e), false);
+});
+
+test("tension grows from turnElapsedMs and freezes while paused", () => {
+  const { clock, m } = tracker();
+  assert.equal(m.tension(), 0);
+  m.view(classicView("a", { turnElapsedMs: 5_000 }));
+  assert.equal(m.tension(), 5_000 / TENSION_FULL_MS);
+  assert.equal(m.bombState(null, true).tension, 5_000 / TENSION_FULL_MS);
+  assert.equal(m.busy(), true, "the flame keeps growing");
+  clock.t += 5_000;
+  assert.equal(m.tension(), 10_000 / TENSION_FULL_MS);
+  // Paused: frozen at the server's age.
+  m.view(classicView("a", { paused: true, turnElapsedMs: 10_000 }));
+  clock.t += 60_000;
+  assert.equal(m.tension(), 10_000 / TENSION_FULL_MS);
+  assert.equal(m.busy(), false);
+  // Running again, then full, and it stays at 1.
+  m.view(classicView("a", { turnElapsedMs: 10_000 }));
+  clock.t += 60_000;
+  assert.equal(m.tension(), 1);
+  assert.equal(m.busy(), false);
+  // The bomb passes: back to the new turn's age.
+  m.view(classicView("b", { turnElapsedMs: 0 }));
+  assert.equal(m.tension(), 0);
+  // Junk is ignored.
+  m.view(classicView("b", { turnElapsedMs: "lots" }));
+  assert.equal(m.tension(), 0);
+  m.view(classicView("b", { turnElapsedMs: -50 }));
+  assert.equal(m.tension(), 0);
+});
+
+test("tension is 0 with a visible countdown", () => {
+  const { clock, m } = tracker();
+  m.view(classicView("a", { turnElapsedMs: 20_000 }));
+  m.view(classicView("a", { bombRemainingMs: 8_000 }));
+  clock.t += 5_000;
+  assert.equal(m.tension(), 0);
+  assert.equal(m.bombState(8_000, true).tension, 0);
+});
+
+test("an Everyone word moment pops that seat", () => {
+  const { clock, m } = tracker();
+  m.view(everyoneView());
+  clock.t += 1_000;
+  m.view(everyoneView({ players: withWord("c"), mode: { round: 1, answered: ["c"] }, moments: [{ kind: "word", pid: "c" }] }));
+  assert.equal(m.popElapsed("c"), 0);
+  assert.equal(m.word(), null, "no flight in Everyone at once");
+  clock.t += POP_MS - 1;
+  assert.equal(m.popElapsed("c"), POP_MS - 1);
+  clock.t += 1;
+  assert.equal(m.popElapsed("c"), null);
+  assert.equal(m.busy(), false);
+});
+
+test("malformed moments never throw", () => {
+  const { m } = tracker();
+  m.view(classicView("a"));
+  for (const moments of [null, "x", [null, 3, "word", {}, { kind: "word" }, { kind: "hearts", pids: "a" }, { kind: "hearts", pids: [1, null] }, { kind: "refused", pid: 7 }, { kind: "win", pids: null }]]) {
+    m.view(classicView("a", { moments, players: [{ id: "a", lastWord: "junk" }, { id: "b", lastWord: { word: 5, prompt: null } }] }));
+  }
+  m.view(null);
+  assert.equal(m.word(), null);
+  assert.equal(m.refused(), null);
+  assert.equal(m.hearts().size, 0);
+  assert.equal(m.win(), null);
+  assert.equal(m.heldView(null), null);
+  assert.equal(m.tension(), 0);
 });
