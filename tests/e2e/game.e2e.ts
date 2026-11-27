@@ -446,7 +446,7 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     assert.equal(await on.locator("#word-tiles").textContent(), "qz");
     assert.equal(await on.evaluate(() => document.activeElement?.id), "word");
     const other = players.find((p) => p !== on);
-    await other.locator(".seat.on .typing", { hasText: "qz" }).waitFor({ timeout: WAIT });
+    await other.locator(".circle .spotlight", { hasText: "qz" }).waitFor({ timeout: WAIT });
     // After the views that typing brings (each one redraws the screen), the box still shows the letters.
     await on.waitForTimeout(300);
     assert.equal(await on.locator("#word").inputValue(), "qz");
@@ -455,8 +455,8 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     // A long word being typed stays one row of tiles on the others' circles.
     await on.locator("#word").pressSequentially("qzqzqzqzqzqz");
     const long = "qz".repeat(7);
-    await other.locator(".seat.on .typing", { hasText: long }).waitFor({ timeout: WAIT });
-    assert.deepEqual(await tileRows(other, ".seat.on .typing"), [1]);
+    await other.locator(".circle .spotlight", { hasText: long }).waitFor({ timeout: WAIT });
+    assert.deepEqual(await tileRows(other, ".circle .spotlight"), [1]);
 
     // A long last word stays one row of tiles on every student's circle.
     await on.fill("#word", "");

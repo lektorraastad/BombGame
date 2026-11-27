@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { renderCircle } from "../../public/app/render-circle.js";
+import { renderCircle, spotlightText } from "../../public/app/render-circle.js";
 import { seatPosition, screenAngle } from "../../public/app/circle-geometry.js";
 import { renderBomb, type BombState } from "../../public/app/bomb.js";
 import { avatarImg } from "../../public/app/avatars.js";
@@ -74,9 +74,9 @@ test("seats sit where circle-geometry puts them, in seat order", () => {
   });
 });
 
-test("current player shows typing with a caret instead of the last word", () => {
+test("two rings: the current player shows typing with a caret instead of the last word", () => {
   const lastWord = { word: "best", prompt: { text: "st", type: "ends" } };
-  const ps = [player("a", { lastWord }), player("b", { lastWord })];
+  const ps = [player("a", { lastWord }), player("b", { lastWord }), ...Array.from({ length: 22 }, (_, i) => player(`x${i}`))];
   const [a, b] = seats(draw(classic(ps, "a", { typing: "sta<" })));
   assert.ok(a.cls.includes("on") && !b.cls.includes("on"));
   assert.ok(a.inner.includes(`<span class="typing">${tiles("sta<")}<span class="caret"></span></span>`));
@@ -201,4 +201,78 @@ test("style.css: on the projector a last word is one row of tiles, never split",
   assert.match(rule(".p-ring .seat .last-word .tiles"), /max-width:\s*none/);
   assert.match(rule(".p-ring .seat .last-word"), /max-width:\s*none/);
   assert.match(rule(".p-ring .circle .seat"), /max-width:\s*none/);
+});
+
+const fifteen = (over: P = {}) => Array.from({ length: 15 }, (_, i) => player(`p${i}`, { lastWord: { word: `word${i}`, prompt: { text: "or", type: "contains" } }, ...over }));
+/** The spotlight elements: each one's inner HTML. The spotlight holds no nested <div>. */
+const spotlights = (html: string) => [...html.matchAll(/<div class="spotlight">(.*?)<\/div>/gs)].map((m) => m[1]);
+
+test("the spotlight shows the current player's typing with a caret, and the seat shows nothing under the name", () => {
+  const view = classic(fifteen(), "p3", { typing: "himse" });
+  const html = draw(view);
+  const spots = spotlights(html);
+  assert.equal(spots.length, 1);
+  assert.equal(spots[0], `${tiles("himse")}<span class="caret"></span>`);
+  assert.deepEqual([...spots[0].matchAll(/class="tile">([^<]*)</g)].map((m) => m[1]), ["h", "i", "m", "s", "e"]);
+  assert.match(html, /<div class="spotlight">.*<\/div><\/div>$/s, "the circle's last child");
+  assert.equal(spotlightText(view, 15), "himse");
+  const s = seats(html);
+  assert.ok(s[3].cls.includes("on"));
+  assert.ok(!s[3].inner.includes('class="typing"') && !s[3].inner.includes('class="last-word"'), s[3].inner);
+  assert.ok(s[4].inner.includes('class="last-word"'), "the others keep their last words");
+});
+
+test("no spotlight when typing is absent or not a string", () => {
+  for (const over of [{}, { typing: 42 }]) {
+    const view = classic(fifteen(), "p3", over);
+    const html = draw(view);
+    assert.equal(spotlights(html).length, 0, JSON.stringify(over));
+    assert.ok(!html.includes("spotlight"));
+    assert.equal(spotlightText(view, 15), null);
+    const s = seats(html);
+    assert.ok(s[3].inner.includes(`<span class="last-word">${matchedTiles("word3", { text: "or", type: "contains" })}</span>`));
+    assert.ok(!s[3].inner.includes("caret"));
+  }
+});
+
+test("no spotlight in Everyone at once", () => {
+  const view = { ...everyone(fifteen()), typing: "abc" };
+  const html = draw(view);
+  assert.ok(!html.includes("spotlight") && !html.includes("caret"));
+  assert.equal(spotlightText(view, 15), null);
+});
+
+test("no spotlight with more than 20 seats; the typing stays under the seat", () => {
+  const ps = Array.from({ length: 24 }, (_, i) => player(`p${i}`));
+  const view = classic(ps, "p3", { typing: "abc" });
+  const html = draw(view);
+  assert.ok(!html.includes("spotlight"));
+  assert.equal(spotlightText(view, 24), null);
+  assert.equal(spotlightText(view, 20), "abc", "20 seats is still one ring");
+  assert.ok(seats(html)[3].inner.includes(`<span class="typing">${tiles("abc")}<span class="caret"></span></span>`));
+  // 20 seats: one ring, so the spotlight.
+  assert.equal(spotlights(draw(classic(ps.slice(0, 20), "p3", { typing: "abc" }))).length, 1);
+});
+
+test("spotlight text is escaped", () => {
+  const html = draw(classic(fifteen(), "p3", { typing: "<b>&" }));
+  assert.ok(!html.includes("<b>"));
+  assert.equal(spotlights(html)[0], `${tiles("<b>&")}<span class="caret"></span>`);
+  assert.ok(spotlights(html)[0].includes("&lt;") && spotlights(html)[0].includes("&amp;"));
+  const masked = spotlights(draw(classic(fifteen(), "p3", { typing: "★★★★" })))[0];
+  assert.equal((masked.match(/<span class="tile">★<\/span>/g) ?? []).length, 4);
+});
+
+test("style.css: the spotlight never animates and never wraps", () => {
+  const rules = [...CSS.matchAll(/([^{}]*\.spotlight[^{}]*)\{([^}]*)\}/g)];
+  assert.ok(rules.length > 0, "a .spotlight rule");
+  for (const m of rules) assert.ok(!/animation/.test(m[2]), m[1]);
+  assert.ok(rules.some((m) => /white-space:\s*nowrap|flex-wrap:\s*nowrap/.test(m[2])), "nowrap");
+  const base = rules.find((m) => /(^|\n|\*\/)\s*\.spotlight\s*$/.test(m[1]))?.[2] ?? "";
+  assert.match(base, /position:\s*absolute/);
+  assert.match(base, /left:\s*50%/);
+  assert.match(base, /top:\s*calc\(50% \+ var\(--bomb-size\) \* 0\.62\)/);
+  assert.match(base, /transform:\s*translateX\(-50%\)/);
+  assert.match(base, /font-size:\s*[\d.]+cqh/);
+  assert.match(base, /z-index:\s*3/);
 });

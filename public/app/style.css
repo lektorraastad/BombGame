@@ -182,8 +182,8 @@ main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
    bomb are scaled up to stay readable. */
 .arena .circle.compact:not(:has(> .seat:nth-child(11))) { --seat-size: max(12px, 3.4cqh); }
 .arena .circle.compact:has(> .seat:nth-child(11)):not(:has(> .seat:nth-child(21))) { --seat-size: max(11px, 2.7cqh); }
-.arena .circle-centre { --bomb-size: 44cqh; }
-.arena .circle:has(.seat.small) .circle-centre { --bomb-size: 37cqh; }
+.arena .circle { --bomb-size: 44cqh; }
+.arena .circle:has(.seat.small) { --bomb-size: 37cqh; }
 /* A last word is one row of tiles, never split mid-word (as on the projector): the seat grows to fit. */
 .circle.compact .seat { max-width: none; }
 .circle.compact .seat .last-word { max-width: none; }
@@ -245,9 +245,11 @@ main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
   position: relative; width: var(--circle-size, 100%); max-width: 100%; aspect-ratio: 1; margin: 0 auto;
   container-type: inline-size; --seat-size: 2.2cqw;
 }
-.circle-centre { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); --bomb-size: 36cqw; }
+/* --bomb-size sits on the circle, so the bomb and the spotlight under it both read it. */
+.circle { --bomb-size: 36cqw; }
+.circle-centre { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
 /* Two rings: a smaller bomb, so its flame stays clear of the inner ring. */
-.circle:has(.seat.small) .circle-centre { --bomb-size: 28cqw; }
+.circle:has(.seat.small) { --bomb-size: 28cqw; }
 
 /* A seat is a small card: the emoji beside the name and hearts, the word underneath. Wide rather
    than tall, so seats down the sides of the circle don't run into each other. max-content: an
@@ -291,6 +293,14 @@ main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
 /* Live typing is one row of tiles on every circle, never split mid-word: the seat grows to fit. */
 .circle .seat .typing { display: inline-flex; align-items: center; flex-wrap: nowrap; justify-content: center; max-width: none; }
 .circle .seat .typing .tiles { flex-wrap: nowrap; max-width: none; }
+/* The spotlight: the current player's typing, large under the bomb (render-circle.js). Its top is
+   0.62 x the bomb's size below the centre, past the arrow's tip (0.6 x). One row, never animated. */
+.spotlight {
+  position: absolute; left: 50%; top: calc(50% + var(--bomb-size) * 0.62); transform: translateX(-50%);
+  font-size: 6.5cqh; z-index: 3; display: inline-flex; align-items: center; flex-wrap: nowrap; white-space: nowrap;
+}
+.spotlight .tiles { flex-wrap: nowrap; max-width: none; }
+.arena .spotlight { font-size: 6cqh; }
 /* The typing cursor, after the typed tiles. Steady: only the bomb and the join pop move. */
 .caret {
   display: inline-block; width: 0.14em; height: 1.2em; margin-left: 0.12em; border-radius: 0.07em;
@@ -352,8 +362,8 @@ main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
 .p-ring .seat .last-word { max-width: none; }
 .p-ring .seat .last-word .tiles { flex-wrap: nowrap; max-width: none; }
 /* The bomb: big with one ring, smaller with two so the arrow and flame clear the inner ring. */
-.p-ring .circle-centre { --bomb-size: 47cqh; }
-.p-ring .circle:has(.seat.small) .circle-centre { --bomb-size: 37cqh; }
+.p-ring .circle { --bomb-size: 47cqh; }
+.p-ring .circle:has(.seat.small) { --bomb-size: 37cqh; }
 
 /* On the bomb: the prompt type, then the prompt on tiles (and bomb.js's countdown number below).
    Sized in cqw of the bomb, so they fit whatever the bomb's size. The tiles are the biggest thing
@@ -388,8 +398,8 @@ main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
 .p-lobby .p-ring .circle:not(:has(> .seat:nth-child(11))) { --seat-size: 5.5cqh; }
 .p-lobby .p-ring .circle:has(> .seat:nth-child(11)):not(:has(> .seat:nth-child(17))) { --seat-size: 4.3cqh; }
 .p-lobby .p-ring .circle:has(> .seat:nth-child(17)):not(:has(> .seat:nth-child(21))) { --seat-size: 3.4cqh; }
-.p-lobby .p-ring .circle-centre { --bomb-size: 36cqh; }
-.p-lobby .p-ring .circle:has(.seat.small) .circle-centre { --bomb-size: 30cqh; }
+.p-lobby .p-ring .circle { --bomb-size: 36cqh; }
+.p-lobby .p-ring .circle:has(.seat.small) { --bomb-size: 30cqh; }
 /* Nobody has lives before the game. */
 .p-lobby .seat .lives { display: none; }
 /* Beside the circle, above the toolbar, so the circle keeps the height. */
