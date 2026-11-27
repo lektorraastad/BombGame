@@ -1,6 +1,6 @@
 # Bomb game: look and moments (batch 4)
 
-Status: draft for Roy's approval, 2026-11-27.
+Status: approved by Roy, 2026-11-27.
 
 Batch 4 of the second round of improvements. It builds on the redesign (`2026-11-23-redesign-design.md`), batch 2's spotlight (`2026-11-26-spotlight-layout-design.md`) and `docs/design-principles.md`. Read those first.
 
