@@ -449,7 +449,8 @@ main:not(.p-lobby) .circle .seat:not(.small) .answered { left: 0.8em; }
    can reach about 17px below the circle at 1920x1080) stays clear of it. */
 .p-examples { flex: none; min-height: 1.35em; font-size: 2.8vh; color: var(--muted); position: relative; top: 2vh; }
 /* With one ring the examples show under the bomb instead (the moments, below), and the line is
-   gone; its space stays, so the circle keeps the size its seats were measured at. */
+   gone; its space stays, so the circle keeps the size its seats were measured at. The padding is
+   the line's height from the rule above (min-height 1.35em at font-size 2.8vh): change them together. */
 .projector main.p-classic:not(:has(> .p-examples)), .projector main.p-everyone:not(:has(> .p-examples)) { padding-bottom: calc(1.35 * 2.8vh); }
 /* In the corner, out of the circle's way. */
 .p-round { position: absolute; top: 6.6vh; left: 3vw; font-size: 3.2vh; color: var(--muted); font-weight: 600; }

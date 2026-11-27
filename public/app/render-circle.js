@@ -25,6 +25,16 @@ import { tiles, matchedTiles } from "./tiles.js";
 /** @typedef {ReturnType<Motion["word"]>} WordMoment */
 /** @typedef {ReturnType<Motion["refused"]>} RefusedMoment */
 
+/**
+ * The moments for the circle, from a page's UI options (the projector's or the laptop's). The
+ * examples are only the ones the page says to show now (motion.examplesShown): left out, none.
+ * @param {{ word?: WordMoment, refused?: RefusedMoment, hearts?: Map<string, number>, examples?: string[] | null }} ui
+ * @returns {Pick<CircleOptions, "word" | "refused" | "hearts" | "examples">}
+ */
+export function circleMoments(ui) {
+  return { word: ui.word ?? null, refused: ui.refused ?? null, hearts: ui.hearts, examples: ui.examples ?? null };
+}
+
 /** @param {unknown} n */
 const hearts = (n) => "❤".repeat(Math.max(0, Math.min(Math.floor(Number(n)) || 0, 10)));
 
@@ -95,8 +105,10 @@ export function renderCircle(view, opts) {
   const current = view?.mode?.current;
   const oneRing = n <= ONE_RING_MAX;
   // The example words take the spotlight's place under the bomb (one ring only: with two, the inner
-  // ring sits there and the projector keeps them on its bottom line).
-  const examples = oneRing && Array.isArray(opts.examples) ? opts.examples.filter((w) => typeof w === "string" && w !== "") : [];
+  // ring sits there and the projector keeps them on its bottom line). Live typing always wins the
+  // spotlight back: the examples show only until the next player starts typing.
+  const typing = typeof view?.typing === "string" && view.typing.length > 0;
+  const examples = oneRing && !typing && Array.isArray(opts.examples) ? opts.examples.filter((w) => typeof w === "string" && w !== "") : [];
   const spot = examples.length ? null : spotlightText(view, n);
 
   // The refused shake: the spotlight, else the typing under the seat, else the name plate.

@@ -69,7 +69,8 @@ test("projector never contains scores, ghost points or tokens", async () => {
   assert.equal(room.players().find((p) => p.id === victim)!.alive, false);
   room.submit(victim, "storm");
   assert.ok(room.players().find((p) => p.id === victim)!.ghostPoints > 0, "the ghost has ghost points");
-  const between = draw(room);
+  // The page passes the examples while they show (here, straight after the explosion).
+  const between = draw(room, { examples: projectorView(room).examples });
   assert.ok(projectorView(room).examples!.length > 0);
   assert.ok(between.includes("Could have said"), "example answers after an explosion");
   screens.push(between);
@@ -191,16 +192,16 @@ test("classic: example answers after an explosion, under the bomb in the spotlig
   await c.clock.advance(5_000);
   const examples = projectorView(c.room).examples!;
   assert.ok(examples.length > 0);
-  // The page passes the examples while motion.js shows them; without a motion tracker (as here and
-  // before the pages are wired) the view's own examples show.
-  for (const html of [draw(c.room), draw(c.room, { examples })]) {
-    assert.ok(html.includes('<div class="spot-examples">'));
-    assert.ok(examples.every((w) => html.includes(tiles(w))));
-    assert.ok(!html.includes("p-examples"), "the faint line is gone with one ring");
+  // The page passes the examples while motion.js shows them (motion.examplesShown).
+  const html = draw(c.room, { examples });
+  assert.ok(html.includes('<div class="spot-examples">'));
+  assert.ok(examples.every((w) => html.includes(tiles(w))));
+  assert.ok(!html.includes("p-examples"), "the faint line is gone with one ring");
+  // While they are not shown (null), or not passed at all, nothing extra is drawn: the view's own
+  // examples last until the next explosion, so they are never shown on their own.
+  for (const hidden of [draw(c.room, { examples: null }), draw(c.room)]) {
+    assert.ok(!hidden.includes("spot-examples") && !hidden.includes("p-examples"));
   }
-  // While they are not shown, nothing extra is drawn.
-  const hidden = draw(c.room, { examples: null });
-  assert.ok(!hidden.includes("spot-examples") && !hidden.includes("p-examples"));
 });
 
 test("with more than 20 seats the examples stay on the bottom line, bigger, and not under the bomb", () => {

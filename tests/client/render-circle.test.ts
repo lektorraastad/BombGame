@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { renderCircle, spotlightText } from "../../public/app/render-circle.js";
+import { renderCircle, spotlightText, circleMoments } from "../../public/app/render-circle.js";
 import { seatPosition, screenAngle } from "../../public/app/circle-geometry.js";
 import { renderBomb, type BombState } from "../../public/app/bomb.js";
 import { avatarImg } from "../../public/app/avatars.js";
@@ -377,6 +377,19 @@ test("examples show under the bomb in place of the spotlight and never cover the
   assert.ok(draw(everyone([player("a"), player("b")]), { examples: ["stone"] }).includes('<div class="spot-examples">'));
 });
 
+test("live typing always wins the spotlight, even when examples are passed", () => {
+  const html = draw(afterWord({ typing: "ro" }), { examples: ["stone"] });
+  assert.ok(html.includes(`<div class="spotlight">${tiles("ro")}<span class="caret"></span></div>`));
+  assert.ok(!html.includes("spot-examples"));
+});
+
+test("circleMoments passes the moments on, and examples left out mean none", () => {
+  const view = afterWord({ examples: ["stone"] });
+  assert.equal(circleMoments({}).examples, null);
+  assert.deepEqual(circleMoments({ examples: ["card"] }).examples, ["card"]);
+  assert.ok(!draw(view, circleMoments({})).includes("spot-examples"), "the view's own examples are never used");
+});
+
 test("with more than 20 seats the examples are not drawn under the bomb", () => {
   const many = Array.from({ length: 24 }, (_, i) => player(`x${i}`));
   assert.ok(!draw(classic(many, "x0"), { examples: ["stone"] }).includes("spot-examples"));
@@ -395,17 +408,30 @@ test("all moment text is escaped", () => {
   assert.ok(!html.includes("<b>"));
 });
 
-test("every moment's keyframes are inside the no-preference media query", () => {
+test("every moment's keyframes and animations are inside the no-preference media query", () => {
   const start = CSS.indexOf("/* ---- The moments");
   assert.ok(start >= 0, "a moments section");
-  const section = CSS.slice(start);
-  for (const name of ["fly-word", "fly-hop", "seat-land", "word-land", "word-pop-in", "shake", "dull", "crack-swell", "crack-l", "crack-r", "win-pop", "win-drop", "burst-tile"]) {
-    const at = section.indexOf(`@keyframes ${name} `);
-    assert.ok(at >= 0, `@keyframes ${name}`);
-    const before = section.slice(0, at);
-    assert.ok(before.lastIndexOf("@media (prefers-reduced-motion: no-preference)") > before.lastIndexOf("\n}\n"), `${name} under no-preference`);
+  const section = CSS.slice(start).replace(/\/\*[^]*?\*\//g, "");
+  // Walk the braces: note which blocks are "@media (prefers-reduced-motion: no-preference)".
+  const stack: boolean[] = [];
+  let found = 0;
+  const re = /@keyframes [\w-]+|animation\s*:|\{|\}/g;
+  let lastHead = 0;
+  for (let m; (m = re.exec(section)); ) {
+    if (m[0] === "{") {
+      stack.push(section.slice(lastHead, m.index).includes("@media (prefers-reduced-motion: no-preference)"));
+      lastHead = m.index + 1;
+    } else if (m[0] === "}") {
+      stack.pop();
+      lastHead = m.index + 1;
+    } else {
+      found++;
+      assert.ok(stack.some(Boolean), `${m[0]} at ${m.index} is outside the no-preference media query`);
+    }
   }
-  // Without it, the end states: no flying word, no cracking heart.
+  assert.ok(found >= 20, "the moments' keyframes and animations were found");
+  // Without it, the end states: no flying word, no cracking heart, no burst.
   assert.match(section, /\.fly-word \{[^}]*display: none/);
   assert.match(section, /\.crack \{[^}]*display: none/);
+  assert.match(section, /\.win-burst \{[^}]*display: none/);
 });

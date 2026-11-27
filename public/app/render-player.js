@@ -5,8 +5,8 @@
 // screen shows only their own score.
 import { AVATARS, avatarImg } from "./avatars.js";
 import { esc } from "./escape.js";
-import { renderCircle } from "./render-circle.js";
-import { onBomb, resultParts, momentsOf } from "./render-projector.js";
+import { renderCircle, circleMoments } from "./render-circle.js";
+import { onBomb, resultParts } from "./render-projector.js";
 import { tiles } from "./tiles.js";
 import { renderLogo } from "./logo.js";
 
@@ -116,7 +116,7 @@ function resultLine(r, prompt) {
 function arena(view, ui) {
   const bomb = ui.bomb ?? { lit: view.phase === "playing" && !view.paused, arrow: null, countdownMs: ui.countdownMs, fuse: null, explosion: null, tension: null };
   const nobodyOn = typeof view.mode?.current !== "string";
-  const opts = { compact: true, bomb: nobodyOn ? { ...bomb, arrow: null } : bomb, centre: onBomb(view), aspect: ui.ringAspect, ...momentsOf(view, ui) };
+  const opts = { compact: true, bomb: nobodyOn ? { ...bomb, arrow: null } : bomb, centre: onBomb(view), aspect: ui.ringAspect, ...circleMoments(ui) };
   return `<div class="arena">${renderCircle(view, opts)}</div>`;
 }
 

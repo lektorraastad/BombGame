@@ -3,7 +3,7 @@
 // projector view has no scores, ghost points or tokens to show: the results' ghost ranking is names
 // in order, without points.
 import { esc } from "./escape.js";
-import { renderCircle } from "./render-circle.js";
+import { renderCircle, circleMoments } from "./render-circle.js";
 import { tiles } from "./tiles.js";
 import { ONE_RING_MAX, seatedPlayers } from "./circle-geometry.js";
 import { renderLogo } from "./logo.js";
@@ -20,7 +20,7 @@ import { avatarImg, trophyImg, EMOJI_CREDIT } from "./avatars.js";
  *   word?: import("./render-circle.js").CircleOptions["word"],         // the moments from motion.js,
  *   refused?: import("./render-circle.js").CircleOptions["refused"],   // passed on to the circle
  *   hearts?: Map<string, number>,
- *   examples?: string[] | null,                    // the examples to show now, or null; left out (no motion tracker): the view's
+ *   examples?: string[] | null,                    // the example words to show now (motion.examplesShown), else null or left out
  *   win?: WinMoment,                               // motion.win(): the winner's moment on the results
  * }} ProjectorUi
  */
@@ -62,20 +62,8 @@ function screen(view, ui) {
  * @param {any} view @param {ProjectorUi} ui @param {BombState} bomb @param {string} centre
  */
 function ring(view, ui, bomb, centre) {
-  const opts = { compact: false, bomb, centre, popElapsed: ui.popElapsed, aspect: ui.ringAspect, ...momentsOf(view, ui) };
+  const opts = { compact: false, bomb, centre, popElapsed: ui.popElapsed, aspect: ui.ringAspect, ...circleMoments(ui) };
   return `<div class="p-ring">${renderCircle(view, opts)}</div>`;
-}
-
-/**
- * The moments for the circle, shared with the student screens. The examples are the ones the page
- * says to show now (motion.examplesShown), or without a motion tracker the view's own.
- * @param {any} view
- * @param {{ word?: any, refused?: any, hearts?: Map<string, number>, examples?: string[] | null }} ui
- * @returns {Pick<import("./render-circle.js").CircleOptions, "word" | "refused" | "hearts" | "examples">}
- */
-export function momentsOf(view, ui) {
-  const examples = ui.examples === undefined ? (Array.isArray(view?.examples) ? view.examples : null) : ui.examples;
-  return { word: ui.word ?? null, refused: ui.refused ?? null, hearts: ui.hearts, examples };
 }
 
 /** @param {any} view @param {ProjectorUi} ui */
@@ -123,7 +111,7 @@ export function onBomb(view) {
  */
 function examples(view, ui) {
   if (seatedPlayers(view).length <= ONE_RING_MAX) return "";
-  const words = momentsOf(view, ui).examples;
+  const words = circleMoments(ui).examples;
   if (!Array.isArray(words) || words.length === 0) return `<div class="p-examples big"></div>`;
   return `<div class="p-examples big">Could have said: ${words.map(esc).join(", ")}</div>`;
 }
