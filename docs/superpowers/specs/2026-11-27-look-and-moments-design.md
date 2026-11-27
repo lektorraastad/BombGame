@@ -62,10 +62,10 @@ Rejected: 1, letter tiles ("WORD" plain, "FIRE" yellow); 3, a bomb badge. Roy as
 ## 4. The design
 ### 4.1 Name plates and the turn
 - **Names** sit on **smooth plates**: fully rounded ends, no chunky bottom edge, a soft drop shadow, the name in Rubik on a light fill. Only letters and words keep the chunky tile style (prompt, last words, typing, the text box, the room code).
-- **The current player's plate** takes the theme's turn colour, with a light ring around it. It doesn't grow (no scaling, so nothing moves into a neighbour).
+- **The current player's plate** takes the theme's turn colour, with a light ring around it in `--plate`. It doesn't grow (no scaling, so nothing moves into a neighbour). **(Claude's call, after review)** Workshop's red turn colour is only about 2.6:1 against the stage, so the light ring is the plate's edge, the way the bomb's rim is the bomb's edge. The contrast test checks the ring against the stage (at least 3:1) and the turn plate's text against the turn colour (at least 4.5:1).
 - **Knocked-out players** keep today's look (faded with a dashed edge), redrawn as a plate.
 - **Each theme gets new colour tokens** in `public/app/themes.css`. Names are the builder's, for example: `--plate` and `--plate-ink` (the name plate), `--turn-ink` (text on the turn plate: Night fuse's turn colour is yellow, so it needs dark text), and `--stage-light` (the soft light in the middle).
-- **The theme contrast test** covers every new text pair at 4.5:1 or more, and the turn plate against the stage at 3:1 or more.
+- **The theme contrast test** covers every new text pair at 4.5:1 or more, and the turn plate's ring against the stage at 3:1 or more.
 - **Laptops:** the same plates and soft light (Roy's decision). Their sizes follow today's seat sizes.
 
 ### 4.2 The soft light
@@ -98,7 +98,7 @@ These hold only with this font file, this letter-spacing and this text. If any o
 **Colours, per theme:**
 - text: `--names`;
 - fuse: `--tile-edge`;
-- flame: the same colours as the bomb's flame in that theme.
+- flame: the bomb's flame colours in that theme (`--lives` outside, `--spark` inside) **(Claude's call, after review)**. The logo has its own copy of the flame *path* given above, which is the mockup's flame. `bomb.js` and the bomb's own flame don't change.
 
 **Where it lives.** It's one self-contained file, `public/app/logo.js`, a pure function returning SVG markup (like `bomb.js`). It uses the page's Rubik font, which is already loaded.
 
@@ -121,11 +121,11 @@ These are the rules for every moment:
 
 | Moment | When | What the screens show | Sound (projector) |
 |---|---|---|---|
-| **Correct word** | The current player's word is accepted (Classic). | The matched letters of the spotlight word light up one after another (about 90 ms apart), then the word shrinks and flies to the player's seat (about 400 ms), the seat gives a small pop, and the arrow swings on as today. Without a spotlight (live typing off, or more than 20 players) the word just pops in at the seat. | A soft two-note chime (triangle wave, G5 then C6, about 0.3 s). |
+| **Correct word** | The current player's word is accepted (Classic). | The matched letters of the spotlight word light up together with a small hop (about 200 ms), then the word shrinks and flies to the player's seat (about 350 ms), and the seat gives a small pop. The whole moment stays under 700 ms whatever the word's length. **It overlaps the new turn (Claude's call, after review):** the server moves the turn the moment a word is accepted, so the arrow swings and the new prompt appears at once, as today. The flying word is drawn on top and never holds the game back. If the next player starts typing during the flight, their typing takes the spotlight and the flying word carries on to its seat. Without a spotlight (live typing off, or more than 20 players) the word just pops in at the seat. | A soft two-note chime (triangle wave, G5 then C6, about 0.3 s). |
 | **Refused word** | The current Classic player's word is refused because it's not a word, doesn't fit, was already used, or is blocked. | A gentle sideways shake (about 0.4 s), and the tiles dull for about half a second. It shakes the spotlight, or the typing under the seat when there's no spotlight, or the current player's name plate when live typing is off. There's no text and the word is not sent. | None. |
-| **Lost heart** | A player loses a life (Classic explosion, or Everyone at once at the end of a round). | That heart swells, cracks in two and the halves fall away (about 0.9 s), for every player who lost one. | One soft falling note (sine, about 560 to 230 Hz, 0.45 s), once per broadcast however many lost a heart. |
+| **Lost heart** | A player loses a life (Classic explosion, or Everyone at once at the end of a round). | That heart swells, cracks in two and the halves fall away (about 0.9 s), for every player who lost one. | One soft falling note (sine, about 560 to 230 Hz, 0.45 s), once per broadcast however many lost a heart. It starts about 0.35 s after the explosion's boom, so the two don't land together **(Claude's call, after review)**. |
 | **Explosion and example words** | Today's explosion, unchanged. | **The example words move from the faint bottom line to the middle of the circle, much bigger.** Where exactly is an open question for Roy (section 7). | Today's explosion sound. |
-| **Win** | The game ends with a winner. | On the results screen, the winner's avatar pops up, their name drops in tile by tile, and a burst of about 16 letter tiles (the letters of "WORDFIRE") flies out and falls (about 1.5 s). Batch 5 redesigns this screen and keeps this moment. | A short rising tune: C5, E5, G5, then C6 (about 1 s). |
+| **Win** | The game ends with a winner. The projector keeps showing the circle for about 1.5 s after the last explosion, so the class sees the bomb go off and the last heart crack, then switches to results **(Claude's call, after review; display only, the server's phase changes at once as today)**. Laptops do the same. With no single winner (a shared win) the avatars pop together and the burst plays once. | On the results screen, the winner's avatar pops up, their name drops in tile by tile, and a burst of about 16 letter tiles (the letters of "WORDFIRE") flies out and falls (about 1.5 s). Batch 5 redesigns this screen and keeps this moment. | A short rising tune: C5, E5, G5, then C6 (about 1 s). |
 | **Hidden-fuse tension** | Classic with a hidden fuse, while a turn goes on. | The flame grows slowly (up to about 1.45× its size) and flickers faster, based only on how long the current turn has lasted. It reaches full size at 25 s **(Claude's call)** and resets when the bomb passes. | The steady tick-tock speeds up slightly, from one every 1000 ms to one every 700 ms over the same 25 s. |
 
 **Everyone at once** (Roy's choice (c)):
@@ -192,7 +192,7 @@ Section 6's typefaces, and the "Agreed layout" section, are updated to describe 
 
 ## 7. Open question for Roy
 **Where the big example words go after an explosion.** The mockup showed them in the bomb's place. But in today's game the next turn starts the instant the bomb explodes, with a new prompt on the bomb, so covering the bomb would hide the new letters. Options:
-- **(a) Under the bomb, in the spotlight's place (Claude's pick).** The words show there, big, until the next player types their first letter. They don't hide the prompt, need no rule change, and in Everyone at once they show under the bomb for a few seconds of the new round.
+- **(a) Under the bomb, in the spotlight's place (Claude's pick).** The words show there, big, for about 4 s, or until the next player types their first letter if that comes sooner. That also covers live typing being off and a slow start with a hidden fuse. They don't hide the prompt and need no rule change. In Everyone at once they show under the bomb for the first 4 s of the new round. With more than 20 players, the inner ring sits there, so the words stay on today's bottom line, made bigger.
 - **(b) In the bomb's place, with a short pause (about 3 s) before the next turn.** It's closest to the mockup, but it changes the game's timing, which is a rule change.
 
 ## 8. Decided for later batches
