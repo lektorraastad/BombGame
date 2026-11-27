@@ -35,6 +35,8 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 
+/* The soft light behind the bomb: fades to nothing inside its box, so it has no edge. */
+:root { --bomb-glow: radial-gradient(ellipse 46% 56% at 50% 50%, var(--stage-light), transparent); }
 body {
   margin: 0;
   font-family: var(--font-read);
@@ -43,6 +45,9 @@ body {
   line-height: 1.35;
   color: var(--names);
   background-color: var(--stage);
+  /* Slightly darker towards the screen's corners; the light behind the bomb is --bomb-glow. */
+  background-image: radial-gradient(ellipse at 50% 50%, transparent 55%, color-mix(in srgb, var(--stage) 60%, black) 130%);
+  background-attachment: fixed;
   min-height: 100vh;
 }
 
@@ -134,9 +139,7 @@ main.turn-on, main.waiting, main.ghost {
    measures its shape (ui.ringAspect) so the arrow still points at the seat. */
 .arena { flex: 1 1 0; min-height: 140px; width: 100%; container-type: size; display: flex; align-items: center; justify-content: center; }
 .arena .circle {
-  background:
-    radial-gradient(ellipse 46% 56% at 50% 50%, var(--stage-light), transparent),
-    radial-gradient(ellipse at 50% 50%, transparent 55%, color-mix(in srgb, var(--stage) 60%, black) 130%);
+  background: var(--bomb-glow);
   aspect-ratio: auto; width: min(100cqw, 210cqh); height: min(100cqh, 100cqw); max-width: none; container-type: size;
 }
 
@@ -389,10 +392,7 @@ main:not(.p-lobby) .circle .seat:not(.small) .answered { left: 0.8em; }
    so the arrow still points at the seat. The student screen does the same (.arena .circle). */
 .p-ring {
   flex: 1; min-height: 0; width: 100%; container-type: size; display: flex; align-items: center; justify-content: center;
-  /* The soft light behind the bomb, and slightly darker corners. */
-  background:
-    radial-gradient(ellipse 46% 56% at 50% 50%, var(--stage-light), transparent),
-    radial-gradient(ellipse at 50% 50%, transparent 55%, color-mix(in srgb, var(--stage) 60%, black) 130%);
+  background: var(--bomb-glow);
 }
 .p-ring .circle {
   aspect-ratio: auto; width: min(100cqw, 250cqh); height: 100cqh; max-width: none; container-type: size; --seat-size: 3.2cqh;
