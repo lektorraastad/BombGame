@@ -4,6 +4,7 @@ import { isBlockedName, normalise } from "./words.ts";
 import type { PromptBank } from "./prompts.ts";
 import { promptKey } from "./prompts.ts";
 import { CORE_SETTINGS, resolveSettings, withChoices } from "./settings.ts";
+import { applySettingsInput } from "./presets.ts";
 import type { GameMode, ModeContext, SubmitResult } from "./modes/mode.ts";
 import type { KnockoutActivity } from "./knockout/activity.ts";
 import { noopActivity } from "./knockout/activity.ts";
@@ -249,7 +250,7 @@ export class Room {
 
   updateSettings(input: Record<string, unknown>): { ok: boolean; reason?: "game-running" } {
     if (this.running() && !Object.keys(input).every((k) => LIVE_SETTINGS.has(k))) return { ok: false, reason: "game-running" };
-    this.settings = this.resolve({ ...this.settings, ...input });
+    this.settings = applySettingsInput(this.settings, input, (i) => this.resolve(i));
     this.changed();
     return { ok: true };
   }

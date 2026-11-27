@@ -44,6 +44,12 @@ export const THEME_IDS = ["workshop", "enamel", "night-fuse"] as const;
 export const CORE_SETTINGS: SettingDecl[] = [
   // Options for "mode" and "knockout" are filled by withChoices (see registry.ts settingsFor).
   { key: "mode", label: "Mode", help: "How the game is played.", kind: "choice", default: "classic", options: [] },
+  // The values of each setup live in presets.ts; Room.updateSettings applies them. "custom" means none matches.
+  { key: "preset", label: "Setup", help: "Ready-made timing, lives and difficulty.", kind: "choice", default: "normal",
+    options: [
+      { value: "gentle", label: "Gentle" }, { value: "normal", label: "Normal" },
+      { value: "fast", label: "Fast" }, { value: "custom", label: "Custom" },
+    ] },
   { key: "band", label: "Difficulty", help: "How hard the letters are. Rising starts easy and gets harder each lap.",
     kind: "choice", default: "normal",
     options: [
