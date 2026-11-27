@@ -913,7 +913,7 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
         if (overlay) await openOverlay(host);
         await host.waitForTimeout(300);
         const where = `${names.length} seats${overlay ? ", overlay open" : ""}`;
-        const l = await checkSpotlight(host, "#projector", typed, where, { seats: names.length, within: "screen" });
+        const l = await checkSpotlight(host, "#projector", typed, where, { seats: names.length, within: overlay || names.length === 6 ? "screen" : "circle" });
         assert.ok(l.minName >= before, `${where}: names are ${l.minName.toFixed(1)} px, before ${before} px`);
       }
       await closeContexts();

@@ -63,6 +63,8 @@ The bomb, its animated flame and the turn arrow are one self-contained drawing i
 ## Agreed layout (redesign)
 - **The circle:** a bomb in the middle with the prompt on it as letter tiles and an animated lit fuse. In Classic, an arrow rotates to the student whose turn it is.
 - **Each player:** their chosen emoji avatar (from a fixed set of 60), name, lives and last word, with the prompt letters highlighted as tiles. Live typing is shown with a cursor (Roy accepts an occasional rude word as a tradeoff), and known rude words from the block list are masked (★★★★) as they're typed.
+- **The spotlight:** in Classic with live typing on and up to 20 players, what the current player is typing shows large under the bomb, so the whole class can read it. The seat whose turn it is shows nothing under the name. Above 20 players the typing stays under the seat, as before.
+- **Bomb and names:** the bomb is smaller than before (about 31% of the stage height on the projector) so the names can be bigger (about 41 px at 1920×1080 with up to 16 players, never smaller than before). Last words are 0.72 times the size of the name.
 - **Student screens:** students see the same circle and bomb, with their own tile-style text box along the bottom.
 - **Everyone at once:** there's no arrow. The bomb stays in the middle with its fuse burning down for the round, names tick off with ✓ as students answer, and words are shown after the round.
 - **Large classes:** names and avatars shrink, and above 20 players they sit in two rings. On student laptops, above 20 players the circle shows names and hearts but not last words (the projector still shows them all).

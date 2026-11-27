@@ -380,7 +380,7 @@ async function classOf15(): Promise<void> {
   const { word: theasWord, typed } = halfTyped(t.prompt, used);
   await thea.locator("main.turn-on").waitFor({ timeout: WAIT });
   await thea.locator("#word").pressSequentially(typed, { delay: 40 });
-  await host.locator(".seat.on .typing").waitFor({ timeout: WAIT });
+  await host.locator(".spotlight").waitFor({ timeout: WAIT });
   await sleep(800);
   await everyTheme(ctl, [[thea, "06-student-classic-turn"], [kristian, "07-student-classic-waiting"], [host, "08-projector-classic"]]);
 
