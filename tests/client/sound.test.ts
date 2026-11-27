@@ -312,3 +312,24 @@ test("hidden ticks speed up with tension", () => {
     assert.equal(at[2] - at[1], gap);
   }
 });
+
+test("a null or junk entry in moments is skipped, never thrown on", () => {
+  const { calls, sound } = countingSound();
+  const d = createSoundDriver(sound, () => 0);
+  d.view(classic([]));
+  assert.doesNotThrow(() => d.view(classic([null, 7, "word", undefined, { kind: "word", pid: "a" }])));
+  assert.deepEqual(calls.order, ["chime"]);
+});
+
+test("a falling note still pending when a new game starts is dropped", () => {
+  const { calls, sound } = countingSound();
+  let now = 0;
+  const d = createSoundDriver(sound, () => now);
+  d.view(classic([]));
+  d.view({ phase: "results", paused: false, lastEvent: "explosion", mode: { seats: [] }, moments: [{ kind: "explosion" }, { kind: "hearts", pids: ["a"] }] });
+  now = 100;
+  d.view({ phase: "lobby", paused: false, lastEvent: null, moments: [] });
+  d.view(classic([])); // the new game starts before the note was due
+  now = 400; d.step(9000);
+  assert.deepEqual(calls.order, ["explode"]);
+});

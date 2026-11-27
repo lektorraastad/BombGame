@@ -154,6 +154,40 @@ function paintWord() {
   mirror.scrollLeft = caret ? Math.max(0, caret.offsetLeft - mirror.clientWidth + 40) : 0;
 }
 
+/**
+ * Redraws the screen around the text box, keeping the box (and its tile mirror) as the very same
+ * element: replacing it would lose a dead-key accent half typed (é on a Norwegian keyboard), and the
+ * moments redraw the screen many times a second. Works when the old and the new screen both have
+ * the box directly in their <main>; returns false otherwise, and the caller redraws everything.
+ * @param {HTMLElement} root @param {string} html @param {HTMLInputElement} oldBox
+ */
+function replaceAround(root, html, oldBox) {
+  const oldWrap = oldBox.parentElement;
+  const oldMain = oldWrap?.parentElement;
+  if (!oldWrap?.classList.contains("wordbox") || !oldMain || oldMain.tagName !== "MAIN" || oldMain.parentElement !== root) return false;
+  const tpl = document.createElement("template");
+  tpl.innerHTML = html;
+  const newBox = tpl.content.querySelector("#word");
+  const newWrap = newBox?.parentElement;
+  const newMain = newWrap?.parentElement;
+  if (!newBox || !newWrap?.classList.contains("wordbox") || !newMain || newMain.tagName !== "MAIN" || newMain.parentNode !== tpl.content) return false;
+  // Inside <main>: everything before and after the box's wrapper is replaced; the wrapper stays.
+  for (const n of [...oldMain.childNodes]) if (n !== oldWrap) n.remove();
+  const kids = [...newMain.childNodes];
+  const at = kids.indexOf(newWrap);
+  oldWrap.before(...kids.slice(0, at));
+  oldWrap.after(...kids.slice(at + 1));
+  oldMain.className = newMain.className;
+  oldBox.className = /** @type {HTMLInputElement} */ (newBox).className;
+  // Outside <main> (the banner, the top bar): replaced.
+  for (const n of [...root.childNodes]) if (n !== oldMain) n.remove();
+  const outside = [...tpl.content.childNodes];
+  const m = outside.indexOf(newMain);
+  oldMain.before(...outside.slice(0, m));
+  oldMain.after(...outside.slice(m + 1));
+  return true;
+}
+
 /** The circle's shape on screen (width / height), measured after each draw, so the arrow points at the seat. */
 let ringAspect = 1;
 
@@ -167,18 +201,28 @@ function draw(again = true) {
   // A keyboard user moving around the emoji picker keeps their place when the screen is redrawn.
   const active = document.activeElement;
   const pickFocus = active instanceof HTMLElement && root.contains(active) ? active.dataset.avatar : undefined;
+  // For a moment after the last explosion the circle stays up (motion.heldView), then the results show.
+  const shown = motion.heldView(view);
   const countdownMs = countdown.remainingMs();
-  const bomb = motion.bombState(countdownMs, view.phase === "playing" && !view.paused);
-  root.innerHTML = renderPlayer(view, { countdownMs, lastResult, status, bomb, ringAspect });
-  const box = /** @type {HTMLInputElement | null} */ (root.querySelector("#word"));
-  if (box) {
-    box.value = text;
-    box.focus();
-    // Where the cursor was (a redraw keeps it), and the typed letters on their tiles straight away.
-    box.setSelectionRange(Math.min(selStart, text.length), Math.min(selEnd, text.length));
-    paintWord();
-  } else if (pickFocus !== undefined) {
-    /** @type {HTMLElement | null} */ (root.querySelector(`button[data-avatar="${Number(pickFocus)}"]`))?.focus();
+  const bomb = motion.bombState(countdownMs, shown.phase === "playing" && !shown.paused);
+  const html = renderPlayer(shown, {
+    countdownMs, lastResult, status, bomb, ringAspect,
+    word: motion.word(), refused: motion.refused(), hearts: motion.hearts(), win: motion.win(),
+    examples: motion.examplesShown(shown) ? shown.examples : null,
+  });
+  // Kept as it is when it can be, the text box keeps its text, cursor, focus and any half-typed accent.
+  if (!old || !replaceAround(root, html, old)) {
+    root.innerHTML = html;
+    const box = /** @type {HTMLInputElement | null} */ (root.querySelector("#word"));
+    if (box) {
+      box.value = text;
+      box.focus();
+      // Where the cursor was (a redraw keeps it), and the typed letters on their tiles straight away.
+      box.setSelectionRange(Math.min(selStart, text.length), Math.min(selEnd, text.length));
+      paintWord();
+    } else if (pickFocus !== undefined) {
+      /** @type {HTMLElement | null} */ (root.querySelector(`button[data-avatar="${Number(pickFocus)}"]`))?.focus();
+    }
   }
   // A new screen or window size can change the oval's shape: then draw once more with the real one.
   const ring = root.querySelector(".arena .circle")?.getBoundingClientRect();

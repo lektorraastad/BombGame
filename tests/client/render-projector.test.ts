@@ -194,7 +194,7 @@ test("classic: example answers after an explosion, under the bomb in the spotlig
   assert.ok(examples.length > 0);
   // The page passes the examples while motion.js shows them (motion.examplesShown).
   const html = draw(c.room, { examples });
-  assert.ok(html.includes('<div class="spot-examples">'));
+  assert.ok(html.includes('<div class="spot-examples" '));
   assert.ok(examples.every((w) => html.includes(tiles(w))));
   assert.ok(!html.includes("p-examples"), "the faint line is gone with one ring");
   // While they are not shown (null), or not passed at all, nothing extra is drawn: the view's own

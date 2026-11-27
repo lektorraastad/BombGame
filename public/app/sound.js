@@ -202,6 +202,7 @@ export function createSoundDriver(sound, now) {
   let nextHiddenTick = 0;
   let lastPatter = -Infinity;
   /** @type {number | null} when the pending falling note is due */ let fallAt = null;
+  /** @type {string | undefined} */ let lastPhase;
 
   return {
     /** @param {{ phase?: string, paused?: boolean, lastEvent?: string | null, bombRemainingMs?: number, mode?: any, moments?: any[] }} view a projector view */
@@ -210,6 +211,9 @@ export function createSoundDriver(sound, now) {
       running = view.phase === "playing" && view.paused !== true;
       if (running && !was) nextHiddenTick = now() + HIDDEN_GAP_MS;
       if (view.phase === "playing" || view.phase === "lobby") fanfared = false;
+      // A new game: a falling note still waiting from the last one's final explosion is dropped.
+      if (view.phase === "playing" && lastPhase !== undefined && lastPhase !== "playing") fallAt = null;
+      lastPhase = view.phase;
       if (!seen) {
         seen = true;
         return;
@@ -225,9 +229,9 @@ export function createSoundDriver(sound, now) {
       let hearts = false;
       let all = false;
       for (const m of moments) {
-        if (m.kind === "word") word = true;
-        else if (m.kind === "hearts") hearts = true;
-        else if (m.kind === "all-answered") all = true;
+        if (m?.kind === "word") word = true;
+        else if (m?.kind === "hearts") hearts = true;
+        else if (m?.kind === "all-answered") all = true;
       }
       if (word) {
         if (!everyone) sound.chime();

@@ -90,7 +90,8 @@ function word(view, p, spot, shake, land) {
  */
 function spotExamples(words) {
   const n = words.reduce((sum, w) => sum + Array.from(w).length, 0) + 2 * (words.length - 1);
-  return `<div class="spot-examples"><div class="spot-examples-row" style="--n:${n}">${words.map((w) => tiles(w)).join("")}</div>`
+  // --n sits on the outer box, whose font size reads it (the row and the label inherit the size).
+  return `<div class="spot-examples" style="--n:${n}"><div class="spot-examples-row">${words.map((w) => tiles(w)).join("")}</div>`
     + `<span class="spot-examples-label">Could have said</span></div>`;
 }
 

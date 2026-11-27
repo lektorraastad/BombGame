@@ -155,11 +155,24 @@ function onStatus(s) {
 /** The circle's shape on screen (width / height), measured after each draw, so the arrow points at the seat. */
 let ringAspect = 1;
 
+/** Whether the results were already on screen at the last draw: the winner's tune plays once as they appear. */
+let resultsDrawn = false;
+
 function draw(again = true) {
   if (!view || !hosting) return;
+  // For a moment after the last explosion the circle stays up (motion.heldView), then the results show.
+  const shown = motion.heldView(view);
   const countdownMs = countdown.remainingMs();
-  const bomb = motion.bombState(countdownMs, view.phase === "playing" && !view.paused);
-  $("projector").innerHTML = renderProjector(view, { countdownMs, credits: CREDITS, site: location.host, bomb, popElapsed: motion.popElapsed, ringAspect });
+  const bomb = motion.bombState(countdownMs, shown.phase === "playing" && !shown.paused);
+  $("projector").innerHTML = renderProjector(shown, {
+    countdownMs, credits: CREDITS, site: location.host, bomb, popElapsed: motion.popElapsed, ringAspect,
+    word: motion.word(), refused: motion.refused(), hearts: motion.hearts(), win: motion.win(),
+    examples: motion.examplesShown(shown) ? shown.examples : null,
+  });
+  // The winner's tune, as the results appear after a win (never after a refresh: then there is no win moment).
+  const onResults = shown.phase === "results";
+  if (onResults && !resultsDrawn && motion.win()) sounds.resultsShown();
+  resultsDrawn = onResults;
   // A new screen or window size can change the oval's shape: then draw once more with the real one.
   const box = document.querySelector("#projector .circle")?.getBoundingClientRect();
   if (box && box.width > 0 && box.height > 0 && Math.abs(box.width / box.height - ringAspect) > 0.005) {
@@ -252,7 +265,8 @@ $("soundbtn").addEventListener("click", () => {
 // Count the bomb down locally between views, and tick. 50 ms, so the last 3 s can tick 4 times a second.
 setInterval(() => {
   const ms = countdown.remainingMs();
-  if (hosting) sounds.step(ms);
+  // Every loop while hosting, results included: a falling note after the final explosion is due from here.
+  if (hosting) sounds.step(ms, motion.tension());
   if (ms === null) return;
   for (const el of document.querySelectorAll("#projector [data-countdown]")) el.textContent = String(Math.ceil(ms / 1000));
   for (const el of document.querySelectorAll("#projector [data-bomb]")) el.classList.toggle("urgent", ms <= URGENT_MS);

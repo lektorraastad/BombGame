@@ -384,9 +384,9 @@ const LAPTOP_VIEWPORT = { width: 1366, height: 768 };
  * Classic with `names` (the class of 15 unless given) and live typing. One lap, so every seat holds
  * a last word: every third seat, from the second (a top corner), a long one of 10 to 12 letters, the
  * others 7 to 9 letters. Then a player over the API (so the laptop student is waiting) is on and has
- * typed `typed`.
+ * typed `typed`. `extra` changes more settings (a shorter turn, say).
  */
-async function spotlightRoom(typed: string, names = SPOT_NAMES): Promise<{ host: any; student: any }> {
+async function spotlightRoom(typed: string, names = SPOT_NAMES, extra: Record<string, unknown> = {}): Promise<{ host: any; student: any }> {
   const { host, code } = await hostRoom();
   const bots: Awaited<ReturnType<typeof wsPlayer>>[] = [];
   for (const name of names.slice(0, -1)) bots.push(await wsPlayer(code, name));
@@ -394,7 +394,7 @@ async function spotlightRoom(typed: string, names = SPOT_NAMES): Promise<{ host:
   const student = await joinPlayer(code, studentName, LAPTOP_VIEWPORT);
   await host.locator(".seat").nth(names.length - 1).waitFor({ timeout: WAIT });
   await host.setViewportSize({ width: 1920, height: 1080 });
-  await settings(host, code, { mode: "classic", timerStyle: "visible", turnTime: 60, promptTypes: ["contains"], liveTyping: true });
+  await settings(host, code, { mode: "classic", timerStyle: "visible", turnTime: 60, promptTypes: ["contains"], liveTyping: true, ...extra });
   await startFromOverlay(host);
   const order = await host.locator("#projector .seat .name").allTextContents();
   const long = new Set(order.filter((_: string, i: number) => i % 3 === 1));
@@ -460,6 +460,58 @@ async function checkSpotlight(
   const c = await countdownClearance(page, root);
   assert.ok(c.clear >= 1, `${where}: "${c.text}" is ${(-c.clear).toFixed(1)} px over the rim`);
   return l;
+}
+
+/** A class of 30 with ordinary names, two with a space. */
+const CLASS_30 = ["Aleksandra Berg", "Kristian Johnsen", "Ingrid", "Ola", "Jonas", "Emil", "Aisha", "Mats", "Nora", "Filip", "Ella", "Oskar", "Maja", "Henrik", "Leah",
+  "Sander", "Emma", "Sofie", "Lukas", "Kari", "Tuva", "Mohammed", "Christoffer", "Ada", "Iben", "Jakob", "Selma", "Vetle", "Hanna", "Theo"];
+
+/**
+ * Each element matching each selector, as one box covering everything drawn in it (its parts too),
+ * measured in one step. A selector starting with "=" measures the element's own box only (the logo:
+ * its drawing is exactly its viewBox, while its letters' line box reaches past it). Elements with
+ * nothing drawn are left out.
+ */
+async function drawnBoxes(page: any, sels: Record<string, string>): Promise<Record<string, Box[]>> {
+  return page.evaluate((all: Record<string, string>) => {
+    const out: Record<string, { left: number; top: number; right: number; bottom: number }[]> = {};
+    for (const [key, sel] of Object.entries(all)) {
+      const own = sel.startsWith("=");
+      out[key] = [...document.querySelectorAll(own ? sel.slice(1) : sel)].map((el) => {
+        const r0 = el.getBoundingClientRect();
+        const b = { left: r0.left, top: r0.top, right: r0.right, bottom: r0.bottom };
+        if (!own) for (const d of el.querySelectorAll("*")) {
+          const r = d.getBoundingClientRect();
+          if (r.width === 0 && r.height === 0) continue;
+          b.left = Math.min(b.left, r.left);
+          b.top = Math.min(b.top, r.top);
+          b.right = Math.max(b.right, r.right);
+          b.bottom = Math.max(b.bottom, r.bottom);
+        }
+        return b;
+      }).filter((b) => b.right > b.left && b.bottom > b.top);
+    }
+    return out;
+  }, sels);
+}
+
+/** Every overlap between the named groups of boxes, each pair of groups once (and within "seat" none). */
+function boxProblems(groups: Record<string, Box[]>, pairs: [string, string][]): string[] {
+  const out: string[] = [];
+  for (const [a, b] of pairs) {
+    for (const [i, x] of groups[a].entries()) for (const [j, y] of groups[b].entries()) {
+      if (overlaps(x, y)) out.push(`${a} ${i} overlaps ${b} ${j} ${by(x, y)}`);
+    }
+  }
+  return out;
+}
+
+/** Animations running now on the page (paused ones, like a reduced-motion fuse, don't count). */
+async function runningAnimations(page: any): Promise<string[]> {
+  return page.evaluate(() =>
+    document.getAnimations()
+      .filter((a) => a.playState === "running")
+      .map((a) => `${(a as CSSAnimation).animationName ?? "?"} on ${((a.effect as KeyframeEffect)?.target as Element)?.getAttribute("class") ?? "?"}`));
 }
 
 describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright is not installed" }, () => {
@@ -551,9 +603,9 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     assert.equal(await on.locator(".corner .lives").textContent(), "❤❤");
     // Nobody answers: the 5 s bomb goes off.
     await on.locator(".corner .lives", { hasText: /^❤$/ }).waitFor({ timeout: WAIT });
-    // The example answers show under the bomb only when the page passes them (motion.examplesShown):
-    // Task 7 wires host-page.js and puts back the check that the projector shows them here:
-    //   await host.locator(".spot-examples", { hasText: "Could have said" }).waitFor({ timeout: WAIT });
+    // The example answers show big under the bomb, on the projector and the laptops.
+    await host.locator(".spot-examples", { hasText: "Could have said" }).waitFor({ timeout: WAIT });
+    await on.locator(".spot-examples", { hasText: "Could have said" }).waitFor({ timeout: WAIT });
   });
 
   test("ghost: knocked-out player sees the ghost panel", async () => {
@@ -1066,5 +1118,223 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     await players[0].waitForTimeout(300);
     const err = await arrowError(players[0], "main");
     assert.ok(err < 3, `after the resize: the arrow is ${err.toFixed(1)}° off the seat`);
+  });
+
+  // ---- Batch 4: the logo and the moments ----
+
+  test("logo and round label clear of seats with 30 players (and 15), and of the ⚙ buttons", async () => {
+    for (const n of [15, 30]) {
+      const { host, code } = await hostRoom();
+      const bots: Awaited<ReturnType<typeof wsPlayer>>[] = [];
+      for (const name of CLASS_30.slice(0, n)) bots.push(await wsPlayer(code, name));
+      await host.locator(".seat").nth(n - 1).waitFor({ timeout: WAIT });
+      await settings(host, code, { mode: "everyone", roundTime: 60, promptTypes: ["contains"] });
+      await startFromOverlay(host);
+      await host.locator("#projector .p-round").waitFor({ timeout: WAIT });
+      // Half the class answers, so seats carry their ✓ and word.
+      const prompt = await projectorPrompt(host);
+      const used = new Set<string>();
+      for (const b of bots.slice(0, Math.floor(n / 2))) {
+        const t = prompt.text.toLowerCase();
+        const w = KNOWN.find((x) => x.length >= 4 && x.length <= 9 && x.includes(t) && !used.has(x));
+        assert.ok(w, `no word for ${t}`);
+        used.add(w);
+        b.send({ t: "submit", word: w });
+      }
+      await host.locator("#projector .seat .answered").nth(Math.floor(n / 2) - 1).waitFor({ timeout: WAIT });
+      for (const viewport of [{ width: 1920, height: 1080 }, { width: 1280, height: 720 }]) {
+        await host.setViewportSize(viewport);
+        await host.waitForTimeout(600); // the pops and redraws settle
+        const g = await drawnBoxes(host, { logo: "=#projector .logo-small", round: "#projector .p-round", seat: "#projector .circle > .seat", button: "#toolbar button" });
+        assert.equal(g.logo.length, 1, "the small logo shows");
+        assert.equal(g.round.length, 1, "the round label shows");
+        assert.equal(g.seat.length, n);
+        const where = `${n} players at ${viewport.width}×${viewport.height}`;
+        assert.deepEqual(boxProblems(g, [["logo", "round"], ["logo", "seat"], ["round", "seat"], ["logo", "button"], ["round", "button"], ["seat", "button"]]), [], where);
+        const height = await host.evaluate(() => document.querySelector("#projector .logo-small")!.getBoundingClientRect().height);
+        if (viewport.height === 1080) assert.ok(height >= 24, `${where}: the logo is ${height.toFixed(1)} px tall`);
+      }
+      await closeContexts();
+    }
+  });
+
+  test("the lobby logo overlaps nothing, with 15 and 30 players", async () => {
+    for (const n of [15, 30]) {
+      const { host, code } = await hostRoom();
+      for (const name of CLASS_30.slice(0, n)) await wsPlayer(code, name);
+      await host.locator(".seat").nth(n - 1).waitFor({ timeout: WAIT });
+      for (const viewport of [{ width: 1920, height: 1080 }, { width: 1280, height: 720 }]) {
+        await host.setViewportSize(viewport);
+        await host.waitForTimeout(600);
+        const g = await drawnBoxes(host, {
+          logo: "=#projector .logo-large", goto: "#projector .p-goto", code: "#projector .p-code", seat: "#projector .circle > .seat",
+          bomb: "#projector [data-bomb]", count: "#projector .p-count", button: "#toolbar button",
+        });
+        assert.equal(g.logo.length, 1, "the large logo shows");
+        const where = `lobby with ${n} at ${viewport.width}×${viewport.height}`;
+        // The logo's own box (its letters' line box reaches a little past the drawing).
+        const height = await host.evaluate(() => document.querySelector("#projector .logo-large")!.getBoundingClientRect().height);
+        if (viewport.height === 1080) assert.ok(height >= 90 && height <= 110, `${where}: the logo is ${height.toFixed(1)} px tall`);
+        assert.deepEqual(boxProblems(g, [
+          ["logo", "goto"], ["logo", "code"], ["logo", "seat"], ["logo", "bomb"], ["logo", "count"], ["logo", "button"],
+          ["goto", "code"], ["goto", "seat"], ["code", "seat"], ["code", "bomb"],
+        ]), [], where);
+      }
+      await closeContexts();
+    }
+  });
+
+  /** Three in Classic with live typing: two over the API and a laptop student. Returns them with whoever over the API is on. */
+  async function classicTrio(extra: Record<string, unknown> = {}, laptopOptions: { reducedMotion?: boolean } = {}) {
+    const { host, code } = await hostRoom();
+    const bots = [await wsPlayer(code, "Ann"), await wsPlayer(code, "Ben")];
+    const student = await joinPlayer(code, "Cat", LAPTOP_VIEWPORT);
+    if (laptopOptions.reducedMotion) for (const p of [host, student]) await p.emulateMedia({ reducedMotion: "reduce" });
+    await host.locator(".seat").nth(2).waitFor({ timeout: WAIT });
+    await host.setViewportSize({ width: 1920, height: 1080 });
+    await settings(host, code, { mode: "classic", timerStyle: "visible", turnTime: 60, promptTypes: ["contains"], liveTyping: true, ...extra });
+    await startFromOverlay(host);
+    /** The player over the API who is on now, after the laptop student plays if it's theirs. */
+    const botOn = async () => {
+      const deadline = Date.now() + WAIT;
+      while (Date.now() < deadline) {
+        const b = bots.find((x) => x.view()?.phase === "playing" && x.view()?.me?.isOn);
+        if (b) return b;
+        if ((await student.locator("main.turn-on").count()) > 0) {
+          const word = wordFor(await projectorPrompt(host));
+          await student.fill("#word", word);
+          await student.press("#word", "Enter");
+          await host.locator(".seat .last-word", { hasText: new RegExp(`^${word}$`) }).waitFor({ timeout: WAIT });
+        }
+        await host.waitForTimeout(50);
+      }
+      throw new Error("nobody over the API is on");
+    };
+    return { host, code, bots, student, botOn };
+  }
+
+  test("a correct word flies to the seat, on the projector and the laptops", async () => {
+    const { host, student, botOn } = await classicTrio();
+    const bot = await botOn();
+    await host.waitForTimeout(800); // the arrow's swing is over
+    const word = wordFor(await projectorPrompt(host));
+    bot.send({ t: "typing", text: word });
+    await host.locator(".circle > .spotlight", { hasText: word }).waitFor({ timeout: WAIT });
+    await student.locator(".circle > .spotlight", { hasText: word }).waitFor({ timeout: WAIT });
+    const name = bot.view().me.nickname;
+    bot.send({ t: "submit", word });
+    const flying = new RegExp(`^${word}$`, "i");
+    await Promise.all([host, student].map((p) => p.locator(".circle > .fly-word", { hasText: flying }).waitFor({ timeout: WAIT })));
+    // It lands: the flight is gone and the word sits under the player's name.
+    for (const p of [host, student]) {
+      await p.locator(".circle > .fly-word").waitFor({ state: "detached", timeout: WAIT });
+      await p.locator(".seat", { hasText: name }).locator(".last-word", { hasText: flying }).waitFor({ timeout: WAIT });
+    }
+  });
+
+  test("a refused word shakes the spotlight, and its text never reaches the projector", async () => {
+    const { host, student, botOn } = await classicTrio();
+    const bot = await botOn();
+    await host.waitForTimeout(800);
+    bot.send({ t: "typing", text: "zq" });
+    await host.locator(".circle > .spotlight", { hasText: "zq" }).waitFor({ timeout: WAIT });
+    const refused = "zqxwvyk";
+    // Watch every change to the projector from now on for the refused text.
+    await host.evaluate((w: string) => {
+      (window as any).__sawRefused = false;
+      new MutationObserver(() => {
+        if (document.body.innerHTML.toLowerCase().includes(w)) (window as any).__sawRefused = true;
+      }).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true });
+    }, refused);
+    bot.send({ t: "submit", word: refused });
+    await host.locator(".circle > .spotlight.refused").waitFor({ timeout: WAIT });
+    await student.locator(".circle > .spotlight.refused").waitFor({ timeout: WAIT });
+    await host.waitForTimeout(600); // the shake is over
+    assert.equal(await host.locator(".circle > .spotlight.refused").count(), 0, "the shake ends");
+    assert.equal(await host.evaluate(() => (window as any).__sawRefused), false, "the projector never showed the refused word");
+    assert.ok(!(await host.content()).toLowerCase().includes(refused));
+  });
+
+  test("reduced motion: a word, a lost heart and the end of the game reach their end states with nothing running", async () => {
+    const { host, student, botOn } = await classicTrio({ turnTime: 5, startLives: 2, maxLives: 2, exampleAnswers: true }, { reducedMotion: true });
+    const pages = [host, student];
+    /** No animation is running 50 ms after a moment starts (the explosion's own still flash aside: it is today's reduced-motion explosion, not a moment). */
+    const still = async (what: string) => {
+      await host.waitForTimeout(50);
+      for (const [i, p] of pages.entries()) {
+        const running = (await runningAnimations(p)).filter((a) => !a.startsWith("bomb-flash"));
+        assert.deepEqual(running, [], `${what}, ${i === 0 ? "projector" : "laptop"}`);
+      }
+    };
+    // A word: it sits in its seat at once, with no flight.
+    const bot = await botOn();
+    const word = wordFor(await projectorPrompt(host));
+    bot.send({ t: "typing", text: word });
+    await host.locator(".circle > .spotlight", { hasText: word }).waitFor({ timeout: WAIT });
+    bot.send({ t: "submit", word });
+    await host.locator(".seat .last-word", { hasText: new RegExp(`^${word}$`) }).waitFor({ timeout: WAIT });
+    await still("after a word");
+    for (const p of pages) assert.equal(await p.locator(".fly-word:visible").count(), 0, "no flying word");
+    // Nobody answers: the 5 s bomb goes off and a heart is gone at once, with no crack.
+    const hearts = () => host.evaluate(() => [...document.querySelectorAll("#projector .seat .lives")].map((el) => (el.textContent ?? "").replace(/[^❤]/g, "").length).reduce((a, b) => a + b, 0));
+    assert.equal(await hearts(), 6);
+    await host.waitForFunction(() => [...document.querySelectorAll("#projector .seat .lives")].map((el) => (el.textContent ?? "").replace(/[^❤]/g, "").length).reduce((a, b) => a + b, 0) === 5, null, { timeout: WAIT });
+    await still("after a lost heart");
+    for (const p of pages) assert.equal(await p.locator(".crack:visible").count(), 0, "no cracking heart");
+    // Two left on their hearts: nobody answers until only one is in. The results come after the hold.
+    await host.locator(".p-results").waitFor({ timeout: 60_000 });
+    await student.locator("main.results").waitFor({ timeout: WAIT });
+    await still("on the results");
+    for (const p of pages) {
+      assert.equal(await p.locator(".win-burst:visible").count(), 0, "no burst");
+      assert.ok((await p.locator(".p-winner").count()) >= 1, "the winner shows");
+    }
+  });
+
+  test("the text box keeps its text, cursor and focus while a moment redraws the laptop", async () => {
+    const { host, student, botOn } = await classicTrio();
+    const bot = await botOn();
+    await host.waitForTimeout(800);
+    // The laptop student starts typing (a silent answer, say) and marks the box.
+    const box = student.locator("#word");
+    await box.click();
+    await box.pressSequentially("hel");
+    await student.evaluate(() => ((document.getElementById("word") as any).__mark = 1));
+    // Another player's word is accepted: the flight and the arrow's swing redraw the screen many times.
+    const word = wordFor(await projectorPrompt(host));
+    bot.send({ t: "typing", text: word });
+    await student.locator(".circle > .spotlight", { hasText: word }).waitFor({ timeout: WAIT });
+    bot.send({ t: "submit", word });
+    await student.locator(".circle > .fly-word").waitFor({ timeout: WAIT });
+    // Typing during the moment, and a dead-key accent (an IME composition, as a Norwegian keyboard's é).
+    await box.pressSequentially("lo", { delay: 60 });
+    const cdp = await student.context().newCDPSession(student);
+    await cdp.send("Input.imeSetComposition", { text: "´", selectionStart: 1, selectionEnd: 1 });
+    await student.waitForTimeout(250); // redraws land while the accent is pending
+    await cdp.send("Input.insertText", { text: "é" });
+    await student.waitForTimeout(700); // the moment ends
+    const state = await student.evaluate(() => {
+      const el = document.getElementById("word") as HTMLInputElement & { __mark?: number };
+      return { value: el.value, same: el.__mark === 1, focused: document.activeElement === el, at: el.selectionStart };
+    });
+    assert.deepEqual(state, { value: "helloé", same: true, focused: true, at: 6 });
+  });
+
+  test("the example words under the bomb overlap no seat and never cover the prompt, with 15 players", async () => {
+    const { host, student } = await spotlightRoom("champ", SPOT_NAMES, { turnTime: 5 });
+    // The player on doesn't answer: the bomb goes off and the example words show under the bomb.
+    for (const p of [host, student]) await p.locator(".circle > .spot-examples").waitFor({ timeout: WAIT });
+    await host.waitForTimeout(1000); // a lost heart's crack and the arrow's swing are over
+    for (const [p, root] of [[host, "#projector"], [student, "main"]] as const) {
+      const l = await spotlightLayout(p, root);
+      const ex = await drawnBoxes(p, { ex: `${root} .circle > .spot-examples`, prompt: `${root} .p-prompt`, ask: `${root} .p-ask` });
+      assert.equal(ex.ex.length, 1, `${root}: the example words show`);
+      const e = ex.ex[0];
+      const out: string[] = [];
+      for (const seat of l.parts) for (const b of seat.boxes) if (overlaps(e, b)) out.push(`the examples overlap ${seat.name} ${by(e, b)}`);
+      for (const b of [...ex.prompt, ...ex.ask, l.bomb]) if (overlaps(e, b)) out.push(`the examples overlap the bomb or its prompt ${by(e, b)}`);
+      if (l.arrow && overlaps(e, l.arrow)) out.push(`the examples overlap the arrow ${by(e, l.arrow)}`);
+      assert.deepEqual(out, [], root);
+    }
   });
 });

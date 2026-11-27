@@ -469,7 +469,7 @@ test("the laptop's circle draws the same moments", () => {
     examples: ["band"],
   }));
   assert.ok(html.includes('class="fly-word"') && html.includes("name shake") && html.includes('class="crack"'));
-  assert.ok(html.includes('<div class="spot-examples">'));
+  assert.ok(html.includes('<div class="spot-examples" '));
   // Nothing extra without them (the page passes null while the examples aren't shown).
   const plain = renderPlayer(view({ players: ps, examples: ["band"] }), ui({ examples: null }));
   assert.ok(!/fly-word|shake|crack|spot-examples/.test(plain));

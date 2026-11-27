@@ -363,10 +363,10 @@ test("a lost heart draws one .crack heart after the remaining hearts", () => {
 test("examples show under the bomb in place of the spotlight and never cover the prompt", () => {
   const centre = `<div class="p-prompt">${tiles("ST")}</div>`;
   const html = draw(afterWord(), { examples: ["stone", "<b>"], centre });
-  assert.ok(html.includes(`<div class="spot-examples"><div class="spot-examples-row" style="--n:10">${tiles("stone")}${tiles("<b>")}</div><span class="spot-examples-label">Could have said</span></div>`), html);
+  assert.ok(html.includes(`<div class="spot-examples" style="--n:10"><div class="spot-examples-row">${tiles("stone")}${tiles("<b>")}</div><span class="spot-examples-label">Could have said</span></div>`), html);
   assert.ok(!html.includes('class="spotlight'));
   // The bomb still holds the prompt, and the examples sit outside the bomb, after it.
-  const bomb = html.slice(html.indexOf('<div class="circle-centre">'), html.indexOf('<div class="spot-examples">'));
+  const bomb = html.slice(html.indexOf('<div class="circle-centre">'), html.indexOf('<div class="spot-examples" '));
   assert.ok(bomb.includes(centre));
   // Live typing takes the place back (the page stops passing examples then), and without examples
   // nothing extra is drawn.
@@ -374,7 +374,7 @@ test("examples show under the bomb in place of the spotlight and never cover the
   assert.ok(!draw(afterWord(), { examples: null }).includes("spot-examples"));
   assert.ok(!draw(afterWord(), { examples: [] }).includes("spot-examples"));
   // Everyone at once has no spotlight, but the examples still show there.
-  assert.ok(draw(everyone([player("a"), player("b")]), { examples: ["stone"] }).includes('<div class="spot-examples">'));
+  assert.ok(draw(everyone([player("a"), player("b")]), { examples: ["stone"] }).includes('<div class="spot-examples" '));
 });
 
 test("live typing always wins the spotlight, even when examples are passed", () => {
