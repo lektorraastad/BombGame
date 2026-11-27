@@ -353,6 +353,7 @@ test("results are held for 1.5 s after a final explosion", () => {
   const held = m.heldView(results);
   const { typing: _t, bombRemainingMs: _b, ...still } = playing;
   assert.deepEqual(held, { ...still, players: losers, examples: ["stone"], phase: "playing", paused: false, moments: [] });
+  assert.equal(held.me, undefined, "no player view here, so no me is invented");
   assert.equal(m.win(), null, "the win waits for the results");
   assert.equal(m.busy(), true);
   clock.t += RESULTS_HOLD_MS - 1;
@@ -524,4 +525,22 @@ test("an explosion without example words doesn't keep the page busy", () => {
   m.view(classicView("b", { lastEvent: "explosion", moments: [{ kind: "explosion" }] }));
   clock.t += EXPLOSION_MS;
   assert.equal(m.busy(), false);
+});
+
+test("a laptop's held view has the results' hearts and score, and is nobody's turn", () => {
+  const { clock, m } = tracker();
+  const me = (over: Record<string, unknown>) => ({ id: "b", nickname: "B", lives: 1, score: 2, alive: true, isOn: true, canAnswerSilently: false, bonusLeft: ["x"], activity: null, ...over });
+  m.view(classicView("b", { me: me({}) }));
+  clock.t += 1_000;
+  const results = {
+    ...classicView(null), phase: "results", lastEvent: "explosion", me: me({ lives: 0, alive: false, isOn: false, score: 2 }),
+    moments: [{ kind: "hearts", pids: ["b"] }, { kind: "explosion" }, { kind: "win", pids: ["a"] }],
+  };
+  m.view(results);
+  const held = m.heldView(results);
+  assert.equal(held.phase, "playing");
+  assert.equal(held.me.lives, 0, "the last heart is gone");
+  assert.equal(held.me.isOn, false, "no live text box turn during the hold");
+  assert.equal(held.me.alive, true, "still drawn as the playing circle, not the out screen");
+  assert.deepEqual(held.me.bonusLeft, ["x"]);
 });

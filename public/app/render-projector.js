@@ -111,7 +111,9 @@ export function onBomb(view) {
  */
 function examples(view, ui) {
   if (seatedPlayers(view).length <= ONE_RING_MAX) return "";
-  const words = circleMoments(ui).examples;
+  // The view's own words, not the page's: typing under a seat doesn't take this place, so they stay
+  // until the next explosion (the page's list is nulled once typing appears).
+  const words = view.examples;
   if (!Array.isArray(words) || words.length === 0) return `<div class="p-examples big"></div>`;
   return `<div class="p-examples big">Could have said: ${words.map(esc).join(", ")}</div>`;
 }

@@ -210,8 +210,12 @@ test("with more than 20 seats the examples stay on the bottom line, bigger, and 
   const html = renderProjector(view, ui({ examples: ["stone", "<b>"] }));
   assert.ok(html.includes('<div class="p-examples big">Could have said: stone, &lt;b&gt;</div>'));
   assert.ok(!html.includes("spot-examples") && !html.includes("<b>"));
-  // Kept, empty, while they are not shown, so the circle doesn't jump.
-  assert.ok(renderProjector(view, ui({ examples: null })).includes('<div class="p-examples big"></div>'));
+  // Typing under the seat does not take this place, so the words stay (the page nulls ui.examples
+  // once typing appears; the view's own examples last until the next explosion).
+  const typing = renderProjector({ ...view, typing: "st" }, ui({ examples: null }));
+  assert.ok(typing.includes('<div class="p-examples big">Could have said: stone, &lt;b&gt;</div>'), typing);
+  const none = renderProjector({ ...view, examples: [] }, ui({ examples: ["x"] }));
+  assert.ok(none.includes('<div class="p-examples big"></div>'));
   assert.match(CSS, /\.p-examples\.big \{[^}]*font-size: 4vh/);
 });
 

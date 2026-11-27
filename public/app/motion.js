@@ -240,14 +240,19 @@ export function createMotion(now) {
 
     /**
      * The view to draw: for RESULTS_HOLD_MS after the last explosion, the circle as it was while
-     * playing, with the results' players (so the last heart cracks) and example words, and without
+     * playing, with the results' players and own hearts (so the last heart cracks) and example words, and without
      * the old typing, timer or turn age; otherwise the view itself. Display only: the server's phase
      * has already changed. @param {any} v
      */
     heldView(v) {
       if (v?.phase !== "results" || !holding() || !holdBase) return v;
       const { typing: _t, bombRemainingMs: _b, turnElapsedMs: _e, ...base } = holdBase;
-      return { ...base, players: v.players, examples: v.examples, phase: "playing", paused: false, moments: [] };
+      const held = { ...base, players: v.players, examples: v.examples, phase: "playing", paused: false, moments: [] };
+      // A laptop's own view: the results' hearts and score, but still the playing circle (not the
+      // out screen) and nobody's turn, so the text box isn't live. Enter then does nothing harmful:
+      // the server refuses a word outside a game.
+      if (base.me && v.me) held.me = { ...base.me, lives: v.me.lives, score: v.me.score, isOn: false, canAnswerSilently: false };
+      return held;
     },
 
     /**
