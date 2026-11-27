@@ -134,6 +134,9 @@ main.turn-on, main.waiting, main.ghost {
    measures its shape (ui.ringAspect) so the arrow still points at the seat. */
 .arena { flex: 1 1 0; min-height: 140px; width: 100%; container-type: size; display: flex; align-items: center; justify-content: center; }
 .arena .circle {
+  background:
+    radial-gradient(ellipse 46% 56% at 50% 50%, var(--stage-light), transparent),
+    radial-gradient(ellipse at 50% 50%, transparent 55%, color-mix(in srgb, var(--stage) 60%, black) 130%);
   aspect-ratio: auto; width: min(100cqw, 210cqh); height: min(100cqh, 100cqw); max-width: none; container-type: size;
 }
 
@@ -272,13 +275,13 @@ main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
 /* More than 20 on the circle: two rings, everything smaller. */
 .circle .seat.small { font-size: calc(var(--seat-size) * 0.8); }
 .circle .seat .avatar { width: 1.9em; height: 1.9em; }
-/* The name on a light tile label with a dark outline. */
+/* The name on a smooth cream plate: fully rounded ends, no border, a soft shadow. */
 /* Never cut short: students find their seat by name. A long name wraps onto a second line at a
    space; only a single word too long for the label (wider than "Mohammed" or "Christoffer") breaks. */
 .circle .seat .name {
   max-width: 6.8em; overflow-wrap: break-word; line-height: 1.05;
-  font-family: var(--font-display); font-weight: 800; background: var(--tile); color: var(--tile-ink);
-  border: 0.08em solid var(--tile-ink); border-radius: 0.3em; padding: 0.04em 0.35em 0.1em;
+  font-family: var(--font-display); font-weight: 800; background: var(--plate); color: var(--plate-ink);
+  border-radius: 999px; padding: 0.08em 0.55em 0.12em; box-shadow: 0 0.08em 0.22em color-mix(in srgb, var(--stage) 60%, black);
 }
 .circle .seat .lives { font-size: 0.75em; color: var(--lives); letter-spacing: 0.05em; line-height: 1; white-space: nowrap; }
 .circle .seat .away { font-size: 0.65em; color: var(--muted); }
@@ -343,14 +346,15 @@ main:not(.p-lobby) .circle .seat:not(.small) .answered { left: 0.8em; }
   display: inline-block; width: 0.14em; height: 1.2em; margin-left: 0.12em; border-radius: 0.07em;
   background: var(--spark); vertical-align: middle;
 }
-/* Whose turn: a little bigger, and the name ringed in the turn colour, so not by colour alone. Only
-   a little: the arrow points at the seat too, and a much bigger seat runs into its neighbours. */
+/* Whose turn: a little bigger, and the plate in the turn colour with a light ring (the plate colour),
+   so not by colour alone. Only a little: the arrow points at the seat too, and a much bigger seat
+   runs into its neighbours. */
 .circle .seat.on { font-size: calc(var(--seat-size) * 1.12); z-index: 2; }
 .circle .seat.small.on { font-size: calc(var(--seat-size) * 0.84); } /* 1.05 x the two-ring seat */
-.circle .seat.on .name { box-shadow: 0 0 0 0.14em var(--turn); }
+.circle .seat.on .name { background: var(--turn); color: var(--turn-ink); box-shadow: 0 0 0 0.14em var(--plate); }
 /* Knocked out: greyed, with a dashed outline on the name. */
 .circle .seat.out .avatar { filter: grayscale(1); opacity: 0.5; }
-.circle .seat.out .name { background: transparent; color: var(--muted); border: 0.08em dashed var(--muted); }
+.circle .seat.out .name { background: transparent; color: var(--muted); border: 0.08em dashed var(--muted); box-shadow: none; }
 .circle .seat.out .lives { color: var(--muted); }
 /* A new arrival pops in (the one animation outside the bomb). Lasts POP_MS from motion.js. */
 .circle .seat.pop { animation: seat-pop 400ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
@@ -383,7 +387,13 @@ main:not(.p-lobby) .circle .seat:not(.small) .answered { left: 0.8em; }
    The ring box is a size container, and so is the oval, so every size inside is in cqh of the oval:
    the height sets how big things can be read. The page measures the oval's shape (ui.ringAspect)
    so the arrow still points at the seat. The student screen does the same (.arena .circle). */
-.p-ring { flex: 1; min-height: 0; width: 100%; container-type: size; display: flex; align-items: center; justify-content: center; }
+.p-ring {
+  flex: 1; min-height: 0; width: 100%; container-type: size; display: flex; align-items: center; justify-content: center;
+  /* The soft light behind the bomb, and slightly darker corners. */
+  background:
+    radial-gradient(ellipse 46% 56% at 50% 50%, var(--stage-light), transparent),
+    radial-gradient(ellipse at 50% 50%, transparent 55%, color-mix(in srgb, var(--stage) 60%, black) 130%);
+}
 .p-ring .circle {
   aspect-ratio: auto; width: min(100cqw, 250cqh); height: 100cqh; max-width: none; container-type: size; --seat-size: 3.2cqh;
 }

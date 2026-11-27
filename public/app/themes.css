@@ -1,5 +1,5 @@
 /* Bomb game: the colour themes. The only file with colour values in it.
-   Each theme is one list of the same 15 named colours; style.css uses only these names.
+   Each theme is one list of the same 19 named colours; style.css uses only these names.
    The host picks the theme in the settings and the page sets <html data-theme="…">.
    A new theme is one more block here, plus its id in THEME_IDS (src/engine/settings.ts and
    public/app/theme.js). tests/client/themes.test.ts checks every theme is readable.
@@ -11,7 +11,10 @@
    --turn        whose turn it is               --answered  answered, accepted
    --lives       hearts                         --refusal   errors, refusals, banners
    --bomb        the bomb                       --bomb-shade  its darker side
-   --bomb-rim    the bomb's outline: at least 3:1 on the stage, so a dark bomb still shows */
+   --bomb-rim    the bomb's outline: at least 3:1 on the stage, so a dark bomb still shows
+   --plate       the name plates; the turn plate is ringed in it     --plate-ink  names on the plates
+   --turn-ink    the current player's name on the turn colour
+   --stage-light the soft light behind the bomb (a little lighter than the stage) */
 
 /* Workshop: Roy's choice and the default, also used before the first view arrives. */
 :root, :root[data-theme="workshop"] {
@@ -30,6 +33,10 @@
   --lives: #FF6B6B;
   --answered: #6BD49A;
   --refusal: #FF8F87;
+  --plate: #F3EDE2;
+  --plate-ink: #2B1D10;
+  --turn-ink: #FFF4E6;
+  --stage-light: #253240;
 }
 
 /* Enamel: white enamel tiles, a dark bomb, a coral turn. */
@@ -49,6 +56,10 @@
   --lives: #FF7A8C;
   --answered: #62D6A0;
   --refusal: #FF9D94;
+  --plate: #F3F0E8;
+  --plate-ink: #1A2430;
+  --turn-ink: #1A2430;
+  --stage-light: #273749;
 }
 
 /* Night fuse: pale tiles, a black bomb, a red spark. */
@@ -68,4 +79,8 @@
   --lives: #FF7486;
   --answered: #5ED6A2;
   --refusal: #FF8C8C;
+  --plate: #E4ECE8;
+  --plate-ink: #13201B;
+  --turn-ink: #13201B;
+  --stage-light: #1A2631;
 }
