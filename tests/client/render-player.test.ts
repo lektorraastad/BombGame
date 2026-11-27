@@ -454,3 +454,35 @@ test("the top bar shows the small logo next to the name", () => {
   assert.ok(top.includes("logo-small"));
   assert.ok(top.indexOf("logo-small") < top.indexOf("Mia"));
 });
+
+// ---- the moments on a student screen ----
+
+test("the laptop's circle draws the same moments", () => {
+  const ps = [
+    { ...players[0], lastWord: { word: "banana", prompt: { text: "an", type: "contains" } } },
+    players[1],
+  ];
+  const html = renderPlayer(view({ players: ps, mode: { seats: ["p1", "p2"], current: "p2" } }, { isOn: false }), ui({
+    word: { pid: "p1", word: "banana", prompt: { text: "an", type: "contains" }, fromSpotlight: true, elapsedMs: 30 },
+    refused: { pid: "p2", elapsedMs: 30 },
+    hearts: new Map([["p2", 30]]),
+    examples: ["band"],
+  }));
+  assert.ok(html.includes('class="fly-word"') && html.includes("name shake") && html.includes('class="crack"'));
+  assert.ok(html.includes('<div class="spot-examples">'));
+  // Nothing extra without them (the page passes null while the examples aren't shown).
+  const plain = renderPlayer(view({ players: ps, examples: ["band"] }), ui({ examples: null }));
+  assert.ok(!/fly-word|shake|crack|spot-examples/.test(plain));
+});
+
+test("the win burst on the laptop's results, only while win() runs", () => {
+  const r = { winners: ["p2"], ghostRanking: [], longestWord: null };
+  const v = view({ phase: "results", prompt: null, players: withIds, results: r }, { id: "p1" });
+  const html = renderPlayer(v, ui({ countdownMs: null, win: { pids: ["p2"], elapsedMs: 200 } }));
+  assert.equal((html.match(/class="burst-tile"/g) ?? []).length, 16);
+  assert.ok(html.includes('<div class="p-winner winning" style="animation-delay:-200ms">'));
+  const after = renderPlayer(v, ui({ countdownMs: null, win: null }));
+  assert.ok(!after.includes("win-burst") && !after.includes("winning"));
+  const none = renderPlayer(view({ phase: "results", prompt: null, players: withIds, results: { winners: [], ghostRanking: [], longestWord: null } }, { id: "p1" }), ui({ countdownMs: null, win: { pids: [], elapsedMs: 0 } }));
+  assert.ok(!none.includes("win-burst"));
+});

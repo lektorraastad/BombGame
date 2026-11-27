@@ -151,12 +151,13 @@ test("style.css: the pop lasts POP_MS and is off under reduced motion", () => {
   assert.match(reduced, /\.seat\.pop[^{]*\{[^}]*animation: none/);
 });
 
-test("style.css: the caret is steady; the pop is the only animation outside the bomb", () => {
+test("style.css: the caret is steady; outside the bomb only the pop and the moments animate", () => {
   assert.ok(!/caret-blink/.test(CSS), "no caret keyframes");
   const caret = [...CSS.matchAll(/([^{}]*\.caret[^{}]*)\{([^}]*)\}/g)];
   assert.ok(caret.length > 0, "a .caret rule");
   for (const m of caret) assert.ok(!/animation/.test(m[2]), m[1]);
-  assert.deepEqual([...CSS.matchAll(/@keyframes ([\w-]+)/g)].map((m) => m[1]), ["seat-pop"]);
+  const moments = CSS.indexOf("/* ---- The moments");
+  assert.deepEqual([...CSS.slice(0, moments).matchAll(/@keyframes ([\w-]+)/g)].map((m) => m[1]), ["seat-pop"]);
 });
 
 test("style.css: seat names are never cut short", () => {
@@ -263,10 +264,10 @@ test("spotlight text is escaped", () => {
   assert.equal((masked.match(/<span class="tile">★<\/span>/g) ?? []).length, 4);
 });
 
-test("style.css: the spotlight never animates and never wraps", () => {
+test("style.css: the spotlight never animates (but for the refused shake) and never wraps", () => {
   const rules = [...CSS.matchAll(/([^{}]*\.spotlight[^{}]*)\{([^}]*)\}/g)];
   assert.ok(rules.length > 0, "a .spotlight rule");
-  for (const m of rules) assert.ok(!/animation/.test(m[2]), m[1]);
+  for (const m of rules) if (!m[1].includes(".spotlight.refused")) assert.ok(!/animation/.test(m[2]), m[1]);
   assert.ok(rules.some((m) => /white-space:\s*nowrap|flex-wrap:\s*nowrap/.test(m[2])), "nowrap");
   const base = rules.find((m) => /(^|\n|\*\/)\s*\.spotlight\s*$/.test(m[1]))?.[2] ?? "";
   assert.match(base, /position:\s*absolute/);
@@ -276,4 +277,135 @@ test("style.css: the spotlight never animates and never wraps", () => {
   // In cqh of the circle, and no wider than a share of it (a long word gets smaller tiles).
   assert.match(base, /font-size:\s*min\([\d.]+cqh,\s*calc\([\d.]+cqw/);
   assert.match(base, /z-index:\s*3/);
+});
+
+// ---- the moments (motion.js's word, refused, hearts and examples, passed in by the pages) ----
+
+const ST_PROMPT = { text: "st", type: "contains" };
+/** Ann just played "station" and the turn moved to Ben. */
+const afterWord = (over: P = {}) =>
+  classic([player("a", { lastWord: { word: "station", prompt: ST_PROMPT } }), player("b"), player("c")], "b", over);
+const flying = (over: Record<string, unknown> = {}) =>
+  ({ pid: "a", word: "station", prompt: ST_PROMPT, fromSpotlight: true, elapsedMs: 120, ...over });
+
+test("a word moment draws one .fly-word with the word's tiles and a negative delay of its elapsed time", () => {
+  const html = draw(afterWord(), { word: flying() });
+  const fly = [...html.matchAll(/<div class="fly-word" style="([^"]*)" aria-hidden="true">(.*?)<\/div>/gs)];
+  assert.equal(fly.length, 1);
+  const [, style, inner] = fly[0];
+  assert.equal(inner, matchedTiles("station", ST_PROMPT));
+  assert.match(style, /^animation-delay:-120ms;/);
+  // It flies to Ann's seat, in percentages of the ring box.
+  const pos = seatPosition(0, 3);
+  assert.ok(style.includes(`--x:${pos.left.toFixed(1)}%`) && style.includes(`--y:${pos.top.toFixed(1)}%`), style);
+  // Ann's seat pops when it lands, and her last word appears there; the next turn draws as normal.
+  const [a, b] = seats(html);
+  assert.ok(a.cls.includes("landing") && a.style.endsWith(";animation-delay:-120ms"));
+  assert.ok(a.inner.includes(`<span class="last-word landing" style="animation-delay:-120ms">${matchedTiles("station", ST_PROMPT)}</span>`));
+  assert.ok(b.cls.includes("on"));
+  // Ben's typing still takes the spotlight while the word flies.
+  const typing = draw(afterWord({ typing: "ro" }), { word: flying() });
+  assert.ok(typing.includes(`<div class="spotlight">${tiles("ro")}<span class="caret"></span></div>`));
+  assert.equal((typing.match(/class="fly-word"/g) ?? []).length, 1);
+  // Nothing extra without a moment.
+  assert.ok(!draw(afterWord()).includes("fly-word") && !draw(afterWord()).includes("landing"));
+});
+
+test("without a spotlight the correct word only pops in at the seat", () => {
+  // Live typing off: the word didn't come from the spotlight.
+  const off = draw(afterWord(), { word: flying({ fromSpotlight: false, elapsedMs: 50 }) });
+  assert.ok(!off.includes("fly-word"));
+  const [a] = seats(off);
+  assert.ok(!a.cls.includes("landing"));
+  assert.ok(a.inner.includes(`<span class="last-word pop-in" style="animation-delay:-50ms">`));
+  // More than 20 on the circle: no spotlight, so no flight either.
+  const many = [player("a", { lastWord: { word: "station", prompt: ST_PROMPT } }), ...Array.from({ length: 22 }, (_, i) => player(`x${i}`))];
+  const two = draw(classic(many, "x0"), { word: flying() });
+  assert.ok(!two.includes("fly-word"));
+  assert.ok(seats(two)[0].inner.includes(`class="last-word pop-in"`));
+});
+
+test("refused shakes the spotlight, else the seat's typing, else the name", () => {
+  const refused = { pid: "b", elapsedMs: 200 };
+  // A spotlight: it shakes, and no seat does.
+  const spot = draw(afterWord({ typing: "xq" }), { refused });
+  assert.ok(spot.includes(`<div class="spotlight refused" style="animation-delay:-200ms">${tiles("xq")}<span class="caret"></span></div>`));
+  assert.ok(!spot.includes("shake") && seats(spot).every((s) => !s.cls.includes("refused")));
+  // Two rings: the typing under Ben's seat shakes.
+  const many = [player("a"), player("b"), ...Array.from({ length: 22 }, (_, i) => player(`x${i}`))];
+  const two = draw(classic(many, "b", { typing: "xq" }), { refused });
+  const b2 = seats(two)[1];
+  assert.ok(b2.cls.includes("refused"));
+  assert.ok(b2.inner.includes(`<span class="typing shake" style="animation-delay:-200ms">${tiles("xq")}<span class="caret"></span></span>`));
+  assert.ok(!two.includes("spotlight"));
+  // Live typing off: Ben's name plate shakes.
+  const off = draw(afterWord(), { refused });
+  const b3 = seats(off)[1];
+  assert.ok(b3.cls.includes("refused"));
+  assert.ok(b3.inner.includes(`<span class="name shake" style="animation-delay:-200ms">b</span>`));
+  // Without a moment, nothing shakes.
+  assert.ok(!draw(afterWord({ typing: "xq" })).includes("refused"));
+});
+
+test("a lost heart draws one .crack heart after the remaining hearts", () => {
+  const view = classic([player("a", { lives: 1 }), player("b", { lives: 0, alive: false }), player("c")], "c");
+  const html = draw(view, { hearts: new Map([["a", 300], ["b", 300]]) });
+  const [a, b, c] = seats(html);
+  const crack = `<span class="crack" style="animation-delay:-300ms" aria-hidden="true"><span class="crack-l">❤</span><span class="crack-r">❤</span></span>`;
+  assert.ok(a.inner.includes(`<span class="lives">❤${crack}</span>`), a.inner);
+  assert.equal((a.inner.match(/class="crack"/g) ?? []).length, 1);
+  // Knocked out by it: "out", then the last heart cracking.
+  assert.ok(b.inner.includes(`<span class="lives">out${crack}</span>`));
+  assert.ok(c.inner.includes(`<span class="lives">❤❤❤</span>`));
+  assert.ok(!draw(view).includes("crack"));
+});
+
+test("examples show under the bomb in place of the spotlight and never cover the prompt", () => {
+  const centre = `<div class="p-prompt">${tiles("ST")}</div>`;
+  const html = draw(afterWord(), { examples: ["stone", "<b>"], centre });
+  assert.ok(html.includes(`<div class="spot-examples"><div class="spot-examples-row" style="--n:10">${tiles("stone")}${tiles("<b>")}</div><span class="spot-examples-label">Could have said</span></div>`), html);
+  assert.ok(!html.includes('class="spotlight'));
+  // The bomb still holds the prompt, and the examples sit outside the bomb, after it.
+  const bomb = html.slice(html.indexOf('<div class="circle-centre">'), html.indexOf('<div class="spot-examples">'));
+  assert.ok(bomb.includes(centre));
+  // Live typing takes the place back (the page stops passing examples then), and without examples
+  // nothing extra is drawn.
+  assert.ok(!draw(afterWord({ typing: "s" })).includes("spot-examples"));
+  assert.ok(!draw(afterWord(), { examples: null }).includes("spot-examples"));
+  assert.ok(!draw(afterWord(), { examples: [] }).includes("spot-examples"));
+  // Everyone at once has no spotlight, but the examples still show there.
+  assert.ok(draw(everyone([player("a"), player("b")]), { examples: ["stone"] }).includes('<div class="spot-examples">'));
+});
+
+test("with more than 20 seats the examples are not drawn under the bomb", () => {
+  const many = Array.from({ length: 24 }, (_, i) => player(`x${i}`));
+  assert.ok(!draw(classic(many, "x0"), { examples: ["stone"] }).includes("spot-examples"));
+});
+
+test("all moment text is escaped", () => {
+  const evil = "<b>x</b>";
+  const view = classic([player("a", { nickname: evil, lastWord: { word: evil, prompt: { text: "<b>", type: "contains" } } }), player("b")], "a");
+  const html = draw(view, {
+    word: { pid: "a", word: evil, prompt: { text: "<b>", type: "contains" }, fromSpotlight: true, elapsedMs: 10 },
+    refused: { pid: "a", elapsedMs: 10 },
+    hearts: new Map([["a", 10]]),
+    examples: [evil],
+  });
+  assert.ok(html.includes("&lt;b&gt;"));
+  assert.ok(!html.includes("<b>"));
+});
+
+test("every moment's keyframes are inside the no-preference media query", () => {
+  const start = CSS.indexOf("/* ---- The moments");
+  assert.ok(start >= 0, "a moments section");
+  const section = CSS.slice(start);
+  for (const name of ["fly-word", "fly-hop", "seat-land", "word-land", "word-pop-in", "shake", "dull", "crack-swell", "crack-l", "crack-r", "win-pop", "win-drop", "burst-tile"]) {
+    const at = section.indexOf(`@keyframes ${name} `);
+    assert.ok(at >= 0, `@keyframes ${name}`);
+    const before = section.slice(0, at);
+    assert.ok(before.lastIndexOf("@media (prefers-reduced-motion: no-preference)") > before.lastIndexOf("\n}\n"), `${name} under no-preference`);
+  }
+  // Without it, the end states: no flying word, no cracking heart.
+  assert.match(section, /\.fly-word \{[^}]*display: none/);
+  assert.match(section, /\.crack \{[^}]*display: none/);
 });

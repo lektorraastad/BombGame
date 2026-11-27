@@ -3,7 +3,7 @@
 // draw says how long ago the arrow started swinging, the bomb exploded or a player joined, and the
 // bomb file turns that into a negative animation-delay. Pure: the clock is passed in.
 import { arrowAngle } from "./circle-geometry.js";
-import { ARROW_SWING_MS, EXPLOSION_MS } from "./bomb.js";
+import { ARROW_SWING_MS, EXPLOSION_MS, TENSION_FULL_MS } from "./bomb.js";
 
 /** How long a newly joined player's pop lasts. */
 export const POP_MS = 400;
@@ -19,16 +19,11 @@ export const WIN_MS = 1500;
 export const RESULTS_HOLD_MS = 1500;
 /** How long the example words show under the bomb after an explosion. */
 export const EXAMPLES_MS = 4000;
-/** How long a hidden-fuse turn lasts before the flame is at its biggest. */
-export const TENSION_FULL_MS = 25000;
+/** How long a hidden-fuse turn lasts before the flame is at its biggest (bomb.js draws it). */
+export { TENSION_FULL_MS };
 
 /** @typedef {import("./bomb.js").BombState} BombState */
-/**
- * The hidden fuse's turn: how long it has gone, and whether it is still going (playing, not paused).
- * bomb.js draws the flame's growth as one CSS animation over TENSION_FULL_MS from this.
- * @typedef {null | { elapsedMs: number, running: boolean }} Tension
- */
-/** The bomb's state with the tension (Task 5 folds this into BombState). @typedef {BombState & { tension: Tension }} MotionBombState */
+/** The hidden fuse's turn (bomb.js draws the flame's growth from it). @typedef {import("./bomb.js").Tension} Tension */
 
 /** @param {any} v */
 const isClassic = (v) => Array.isArray(v?.mode?.seats);
@@ -201,7 +196,7 @@ export function createMotion(now) {
     /**
      * @param {number | null} countdownMs the local countdown, or null for a hidden fuse
      * @param {boolean} lit false in the lobby and while paused: no flame, nothing burns
-     * @returns {MotionBombState}
+     * @returns {BombState}
      */
     bombState(countdownMs, lit) {
       const t = now();

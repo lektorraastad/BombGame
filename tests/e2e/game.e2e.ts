@@ -550,7 +550,7 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     // Their own hearts, in the corner (the seats on the circle have hearts too).
     assert.equal(await on.locator(".corner .lives").textContent(), "❤❤");
     // Nobody answers: the 5 s bomb goes off.
-    await host.locator(".p-examples", { hasText: "Could have said:" }).waitFor({ timeout: WAIT });
+    await host.locator(".spot-examples", { hasText: "Could have said" }).waitFor({ timeout: WAIT });
     await on.locator(".corner .lives", { hasText: /^❤$/ }).waitFor({ timeout: WAIT });
   });
 

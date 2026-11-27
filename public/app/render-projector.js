@@ -5,6 +5,7 @@
 import { esc } from "./escape.js";
 import { renderCircle } from "./render-circle.js";
 import { tiles } from "./tiles.js";
+import { ONE_RING_MAX, seatedPlayers } from "./circle-geometry.js";
 import { renderLogo } from "./logo.js";
 import { avatarImg, trophyImg, EMOJI_CREDIT } from "./avatars.js";
 
@@ -16,8 +17,14 @@ import { avatarImg, trophyImg, EMOJI_CREDIT } from "./avatars.js";
  *   bomb?: import("./bomb.js").BombState,          // from the motion tracker (host-page.js)
  *   popElapsed?: (pid: string) => number | null,   // ms since a player joined, while their pop runs
  *   ringAspect?: number,                           // the ring box's width / height, measured by the page
+ *   word?: import("./render-circle.js").CircleOptions["word"],         // the moments from motion.js,
+ *   refused?: import("./render-circle.js").CircleOptions["refused"],   // passed on to the circle
+ *   hearts?: Map<string, number>,
+ *   examples?: string[] | null,                    // the examples to show now, or null; left out (no motion tracker): the view's
+ *   win?: WinMoment,                               // motion.win(): the winner's moment on the results
  * }} ProjectorUi
  */
+/** @typedef {ReturnType<ReturnType<import("./motion.js").createMotion>["win"]>} WinMoment */
 
 /** @typedef {import("./bomb.js").BombState} BombState */
 
@@ -25,7 +32,7 @@ import { avatarImg, trophyImg, EMOJI_CREDIT } from "./avatars.js";
 const ASK = { contains: "CONTAINS", starts: "STARTS WITH", ends: "ENDS WITH" };
 
 /** The lobby's bomb: the fuse not lit yet, no arrow, nothing counting. @type {BombState} */
-const UNLIT = { lit: false, arrow: null, countdownMs: null, fuse: null, explosion: null };
+const UNLIT = { lit: false, arrow: null, countdownMs: null, fuse: null, explosion: null, tension: null };
 
 /** @param {any} view @param {string} id */
 const playerOf = (view, id) => (Array.isArray(view.players) ? view.players : []).find((/** @type {any} */ p) => p.id === id);
@@ -43,7 +50,7 @@ export function renderProjector(view, ui) {
 /** @param {any} view @param {ProjectorUi} ui */
 function screen(view, ui) {
   if (view.phase === "lobby") return lobby(view, ui);
-  if (view.phase === "results") return results(view);
+  if (view.phase === "results") return results(view, ui);
   const mode = view.mode ?? {};
   if (Array.isArray(mode.seats)) return classic(view, ui);
   return everyone(view, ui);
@@ -55,7 +62,20 @@ function screen(view, ui) {
  * @param {any} view @param {ProjectorUi} ui @param {BombState} bomb @param {string} centre
  */
 function ring(view, ui, bomb, centre) {
-  return `<div class="p-ring">${renderCircle(view, { compact: false, bomb, centre, popElapsed: ui.popElapsed, aspect: ui.ringAspect })}</div>`;
+  const opts = { compact: false, bomb, centre, popElapsed: ui.popElapsed, aspect: ui.ringAspect, ...momentsOf(view, ui) };
+  return `<div class="p-ring">${renderCircle(view, opts)}</div>`;
+}
+
+/**
+ * The moments for the circle, shared with the student screens. The examples are the ones the page
+ * says to show now (motion.examplesShown), or without a motion tracker the view's own.
+ * @param {any} view
+ * @param {{ word?: any, refused?: any, hearts?: Map<string, number>, examples?: string[] | null }} ui
+ * @returns {Pick<import("./render-circle.js").CircleOptions, "word" | "refused" | "hearts" | "examples">}
+ */
+export function momentsOf(view, ui) {
+  const examples = ui.examples === undefined ? (Array.isArray(view?.examples) ? view.examples : null) : ui.examples;
+  return { word: ui.word ?? null, refused: ui.refused ?? null, hearts: ui.hearts, examples };
 }
 
 /** @param {any} view @param {ProjectorUi} ui */
@@ -82,7 +102,7 @@ ${ring({ ...view, players }, ui, UNLIT, "")}
  * @returns {BombState}
  */
 function bombOf(view, ui) {
-  return ui.bomb ?? { lit: view.phase === "playing" && !view.paused, arrow: null, countdownMs: ui.countdownMs, fuse: null, explosion: null };
+  return ui.bomb ?? { lit: view.phase === "playing" && !view.paused, arrow: null, countdownMs: ui.countdownMs, fuse: null, explosion: null, tension: null };
 }
 
 /**
@@ -96,10 +116,16 @@ export function onBomb(view) {
   return `<div class="p-ask">${ASK[p.type] ?? ""}</div><div class="p-prompt">${tiles(p.text.toUpperCase())}</div>`;
 }
 
-/** The examples line, kept (empty) when there are none so the circle doesn't jump. @param {any} view */
-function examples(view) {
-  if (!Array.isArray(view.examples) || view.examples.length === 0) return `<div class="p-examples"></div>`;
-  return `<div class="p-examples">Could have said: ${view.examples.map(esc).join(", ")}</div>`;
+/**
+ * The example words' bottom line, only with more than 20 on the circle (with fewer they show under
+ * the bomb, render-circle.js), bigger than it was. Kept (empty) when there are none, so the circle
+ * doesn't jump. @param {any} view @param {ProjectorUi} ui
+ */
+function examples(view, ui) {
+  if (seatedPlayers(view).length <= ONE_RING_MAX) return "";
+  const words = momentsOf(view, ui).examples;
+  if (!Array.isArray(words) || words.length === 0) return `<div class="p-examples big"></div>`;
+  return `<div class="p-examples big">Could have said: ${words.map(esc).join(", ")}</div>`;
 }
 
 /** @param {any} view @param {ProjectorUi} ui */
@@ -107,7 +133,7 @@ function classic(view, ui) {
   return `<main class="p-classic">
 ${renderLogo("small")}
 ${ring(view, ui, bombOf(view, ui), onBomb(view))}
-${examples(view)}
+${examples(view, ui)}
 </main>`;
 }
 
@@ -118,23 +144,71 @@ function everyone(view, ui) {
   // Nobody is on, so there is never an arrow.
   return `<main class="p-everyone">
 ${renderLogo("small")}${round}${ring(view, ui, { ...bombOf(view, ui), arrow: null }, onBomb(view))}
-${examples(view)}
+${examples(view, ui)}
 </main>`;
+}
+
+/** The burst's letters: "WORDFIRE" twice, one tile each. */
+const BURST = Array.from("WORDFIREWORDFIRE");
+/** When the winner's name starts dropping in, and how far apart its tiles land (at most). */
+const NAME_AT_MS = 320;
+const NAME_STEP_MS = 80;
+
+/**
+ * The winner's name as tiles that drop in one after another: each tile's own delay (positive while
+ * it is still to come). Every character goes through esc(), as in tiles.js.
+ * @param {string} name @param {number} ms the win moment's elapsed time
+ */
+function droppingName(name, ms) {
+  const chars = Array.from(String(name));
+  const step = Math.min(NAME_STEP_MS, 880 / Math.max(1, chars.length - 1)); // the last lands within the moment
+  const inner = chars
+    .map((c, i) => (/^\s$/u.test(c)
+      ? `<span class="gap"></span>`
+      : `<span class="tile" style="animation-delay:${Math.round(NAME_AT_MS + i * step - ms)}ms">${esc(c)}</span>`))
+    .join("");
+  return `<span class="tiles">${inner}</span>`;
+}
+
+/**
+ * The burst of letter tiles flying out from the winner and falling, all from the same moment.
+ * Each tile's direction is fixed by its place, so the burst looks the same on every redraw.
+ * @param {number} ms
+ */
+function winBurst(ms) {
+  const parts = BURST.map((c, i) => {
+    const a = ((i + 0.5) / BURST.length) * 2 * Math.PI;
+    const r = i % 2 ? 4.2 : 5.6; // em, out from the middle
+    const x = (Math.cos(a) * r).toFixed(2);
+    const y = (Math.sin(a) * r * 0.6).toFixed(2);
+    const spin = ((i * 47) % 120) - 60;
+    return `<span class="burst-tile" style="animation-delay:-${ms}ms;--bx:${x}em;--by:${y}em;--spin:${spin}deg"><span class="tile">${c}</span></span>`;
+  });
+  return `<div class="win-burst" aria-hidden="true">${parts.join("")}</div>`;
 }
 
 /**
  * The results' parts: the winners' podium, the longest word, and the best ghosts in order without
- * points. Shared with the student screens, which add the student's own score.
+ * points. Shared with the student screens, which add the student's own score. While the win moment
+ * runs (motion.win()), the winners' emoji pop, their names drop in and the burst plays once.
  * @param {any} view a projector or player view in the results phase
+ * @param {WinMoment} [win]
  * @returns {{ podium: string, longest: string, ghosts: string }}
  */
-export function resultParts(view) {
+export function resultParts(view, win = null) {
   const r = view.results ?? {};
   const winners = (Array.isArray(r.winners) ? r.winners : [])
     .map((/** @type {string} */ id) => playerOf(view, id))
     .filter((/** @type {any} */ p) => p && typeof p.nickname === "string");
+  const winMs = win && typeof win.elapsedMs === "number" && Number.isFinite(win.elapsedMs) ? Math.max(0, Math.round(win.elapsedMs)) : null;
+  const pids = winMs !== null && Array.isArray(win?.pids) ? win.pids : [];
+  /** @param {any} p */
+  const winner = (p) => (winMs !== null && pids.includes(p.id)
+    ? `<div class="p-winner winning" style="animation-delay:-${winMs}ms">${avatarImg(p.avatar, "big")}${droppingName(p.nickname, winMs)}</div>`
+    : `<div class="p-winner">${avatarImg(p.avatar, "big")}${tiles(p.nickname)}</div>`);
+  const bursting = winMs !== null && winners.some((/** @type {any} */ p) => pids.includes(p.id));
   const podium = winners.length
-    ? `${trophyImg()}<div class="p-winners">${winners.map((/** @type {any} */ p) => `<div class="p-winner">${avatarImg(p.avatar, "big")}${tiles(p.nickname)}</div>`).join("")}</div>`
+    ? `${trophyImg()}<div class="p-winners">${winners.map(winner).join("")}</div>${bursting ? winBurst(winMs ?? 0) : ""}`
     : `<p class="p-nowinner">No winner this time</p>`;
   const lw = r.longestWord;
   const longest = lw && typeof lw.word === "string"
@@ -149,8 +223,8 @@ export function resultParts(view) {
   return { podium, longest, ghosts };
 }
 
-/** @param {any} view */
-function results(view) {
-  const { podium, longest, ghosts } = resultParts(view);
+/** @param {any} view @param {ProjectorUi} ui */
+function results(view, ui) {
+  const { podium, longest, ghosts } = resultParts(view, ui.win ?? null);
   return `<main class="p-results">${renderLogo("large")}<h1>Game over</h1><div class="p-podium">${podium}</div>${longest}${ghosts}</main>`;
 }
