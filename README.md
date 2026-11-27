@@ -91,7 +91,7 @@ Then try the game once yourself: open `/host` in one tab and `/` in two other ta
    - **Fast:** the same letters as Normal, with less time.
 3. That's all. Everything else is under **More settings**: click it to open the list. If you change one of those settings by hand, the line says "Using: Custom". Click a setup button again to go back to it.
 
-A setup never changes the mode or the theme, and the game keeps it when you switch mode. Every new room starts on Normal, so choose again at the start of each lesson.
+A setup never changes the mode or the theme. Switching mode keeps the setup (Gentle, Normal or Fast). If you changed settings by hand ("Custom"), switching mode goes back to Normal's timing for the new mode. Every new room starts on Normal, so choose again at the start of each lesson.
 
 In the control panel you can:
 
@@ -198,6 +198,6 @@ Word lists: New General Service List (Browne, Culligan & Phillips, CC BY-SA 4.0)
 - **End-to-end tests:** `npm run test:e2e` starts the dev server on a free port and drives Chromium with Playwright, loaded from `/opt/npm-tools/node_modules/playwright/index.mjs`. If Playwright isn't there, the tests are skipped with a message.
 - **Load test:** `npm run load-test` starts the dev server, and 32 bots play 5 rounds of Everyone at once, each answering with a valid word after 1–8 s. It reports the time from a bot's accepted submit to the first view that shows its answer applied. It exits with 1 on any error or refused word, if fewer or more than 32 × 5 answers were accepted, if nothing was measured, or after 120 s. Two local runs: 160 of 160 answers accepted, 0 refused, median 1.7 / 1.7 ms, 95th percentile 3.2 / 3.0 ms, maximum 4.3 / 8.3 ms, 0 errors. The dev server and the bots share one Node process with no network in between, so these figures are optimistic and say nothing about Netlify.
 - **Run it locally:** `npm run dev` starts a local server on port 8888 (host passcode `test` unless `HOST_PASSCODE` is set). The local server doesn't serve `/api/check/*`, so the connection test's server checks only work on Netlify.
-- **Pin `@netlify/server`:** `package.json` asks for `"latest"` because Netlify Server is Early Access. After the first successful deploy, look up the version that deploy installed (the deploy log, or `npm ls @netlify/server`) and change `"latest"` to that exact version, with no `^` or `~`, so a breaking release can't end a lesson.
+- **`@netlify/server` is pinned to 0.1.6.** To update it, change the version on a branch and check the deploy preview first.
 - **Server:** `netlify/server/index.ts` is the Netlify Server entry. It's the only file that imports `@netlify/server`, and it only wires sockets to the game hub in `src/server/` and the connection test in `check-server.ts`. `/api/health` shows the word counts and room count.
 - **Browser:** the pages are plain ES modules in `public/`, with no build step. The connection test is in `public/check/`: the logic is in `check-client.js`, and the DOM code is in `check-page.js`.

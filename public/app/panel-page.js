@@ -26,10 +26,16 @@ export function mountPanel(root, opts) {
     const keep = active && root.contains(active) && (active.type === "text" || active.type === "number")
       ? { sel: active.classList.contains("rename") ? "input.rename" : `input[name="${active.name}"]`, value: active.value }
       : null;
+    // After a click on a setup button or "More settings", the redraw would drop keyboard focus to the page.
+    const act = /** @type {HTMLElement | null} */ (document.activeElement);
+    const keepBtn = act && root.contains(act)
+      ? act.dataset.preset ? `button[data-preset="${act.dataset.preset}"]` : act.matches("details.more > summary") ? "details.more > summary" : null
+      : null;
     // Roy opens and closes the fold with the browser's own <details>: read it before it is replaced.
     const fold = /** @type {HTMLDetailsElement | null} */ (root.querySelector("details.more"));
     if (fold) moreOpen = fold.open;
     root.innerHTML = renderControl(view, { overlay: opts.overlay, confirmKick, renaming, message, moreOpen });
+    if (keepBtn) /** @type {HTMLElement | null} */ (root.querySelector(keepBtn))?.focus();
     if (keep) {
       const box = /** @type {HTMLInputElement | null} */ (root.querySelector(keep.sel));
       if (box && !box.disabled) {

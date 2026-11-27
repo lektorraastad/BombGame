@@ -384,20 +384,6 @@ async function classOf15(): Promise<void> {
   await sleep(800);
   await everyTheme(ctl, [[thea, "06-student-classic-turn"], [kristian, "07-student-classic-waiting"], [host, "08-projector-classic"]]);
 
-  // Workshop only: the control panel on a laptop and on a phone, while the game runs.
-  const panel = await newPage("/control", LAPTOP);
-  await panel.fill("#code", code);
-  await panel.fill("#passcode", PASSCODE);
-  await panel.click("#controlbtn");
-  await panel.locator("#panel .ctl").waitFor({ timeout: WAIT });
-  await shoot(panel, "workshop-19-control-laptop", true);
-  const phone = await newPage("/control", PHONE);
-  await phone.fill("#code", code);
-  await phone.fill("#passcode", PASSCODE);
-  await phone.click("#controlbtn");
-  await phone.locator("#panel .ctl").waitFor({ timeout: WAIT });
-  await shoot(phone, "workshop-20-control-phone", true);
-
   // Paused.
   await ctl.cmd({ cmd: "pause" });
   await host.locator(".p-paused").waitFor({ timeout: WAIT });
@@ -464,6 +450,28 @@ async function classOf30(): Promise<void> {
 
 // ---------------------------------------------------------------------------------------------
 
+/** Room 4: the control panel on a laptop and on a phone while a game runs on a real setup (Normal). Workshop only. */
+async function controlPanel(): Promise<void> {
+  console.log("Control panel during a game");
+  const { host, code, ctl } = await createRoom();
+  await bot(code, "Ingrid");
+  await bot(code, "Emil");
+  await host.locator(".seat").nth(1).waitFor({ timeout: WAIT });
+  await ctl.cmd({ cmd: "start" }); // no settings changed: the room is still on Normal
+  const panel = await newPage("/control", LAPTOP);
+  await panel.fill("#code", code);
+  await panel.fill("#passcode", PASSCODE);
+  await panel.click("#controlbtn");
+  await panel.locator(".ctl", { hasText: "Using: Normal" }).waitFor({ timeout: WAIT });
+  await shoot(panel, "workshop-19-control-laptop", true);
+  const phone = await newPage("/control", PHONE);
+  await phone.fill("#code", code);
+  await phone.fill("#passcode", PASSCODE);
+  await phone.click("#controlbtn");
+  await phone.locator(".ctl", { hasText: "Using: Normal" }).waitFor({ timeout: WAIT });
+  await shoot(phone, "workshop-20-control-phone", true);
+}
+
 async function main(): Promise<void> {
   mkdirSync(OUT, { recursive: true });
   const pw = await import(PLAYWRIGHT!);
@@ -474,6 +482,7 @@ async function main(): Promise<void> {
     await smallRoom();
     await classOf15();
     await classOf30();
+    await controlPanel();
   } finally {
     for (const ws of sockets) ws.close();
     await Promise.all(contexts.map((c) => c.close().catch(() => {})));

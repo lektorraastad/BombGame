@@ -789,7 +789,9 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
 
     await ctl.click('button[data-preset="gentle"]');
     await ctl.locator('button[data-preset="gentle"][aria-pressed="true"]').waitFor({ timeout: WAIT });
+    assert.equal(await ctl.evaluate(() => (document.activeElement as HTMLElement | null)?.dataset.preset), "gentle", "focus stays on the clicked setup button");
     await ctl.locator(".ctl", { hasText: "Using: Gentle" }).waitFor({ timeout: WAIT });
+    assert.equal(await ctl.locator('select[name="band"]').inputValue(), "easy", "Gentle means easy letters");
     await ctl.click('button[data-cmd="start"]');
     await host.locator(".p-classic").waitFor({ timeout: WAIT });
     for (const p of players) await p.locator(".corner .lives", { hasText: /^❤❤❤$/ }).waitFor({ timeout: WAIT });
@@ -801,6 +803,7 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     assert.equal(await more.getAttribute("open"), null, "folded at first");
     await ctl.click("details.more > summary");
     await ctl.locator("details.more[open]").waitFor({ timeout: WAIT });
+    assert.equal(await ctl.evaluate(() => document.activeElement?.tagName), "SUMMARY", "focus stays on More settings");
     const fuse = ctl.getByLabel("Shortest fuse");
     await fuse.fill("12");
     await fuse.press("Enter");
