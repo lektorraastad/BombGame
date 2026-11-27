@@ -8,6 +8,7 @@ test("defaults fill missing keys", () => {
   assert.equal(s.startLives, 2);
   assert.deepEqual(s.promptTypes, ["contains"]);
   assert.equal(s.mode, "classic");
+  assert.equal(s.preset, "normal");
   assert.equal(s.maxLives, 3);
   assert.deepEqual(s.bonusLetters, "abcdefghijklmnoprstuvwy".split(""));
 });
@@ -24,6 +25,7 @@ test("numbers are clamped and stepped", () => {
 test("wrong types fall back to default", () => {
   assert.equal(resolveSettings(CORE_SETTINGS, { liveTyping: "yes" }).liveTyping, true);
   assert.equal(resolveSettings(CORE_SETTINGS, { band: "extreme" }).band, "normal");
+  assert.equal(resolveSettings(CORE_SETTINGS, { preset: "extreme" }).preset, "normal");
   assert.equal(resolveSettings(CORE_SETTINGS, { band: "mixed" }).band, "normal");
   assert.equal(resolveSettings(CORE_SETTINGS, { band: "medium" }).band, "normal");
   assert.equal(resolveSettings(CORE_SETTINGS, { startLives: "3" }).startLives, 2);

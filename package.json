@@ -15,7 +15,7 @@
     "screenshots": "tsx scripts/screenshots.ts"
   },
   "dependencies": {
-    "@netlify/server": "latest"
+    "@netlify/server": "0.1.6"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

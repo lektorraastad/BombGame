@@ -63,3 +63,6 @@ Roy's notes after testing the redesign at home (25 November 2026), with leads fo
 - Add a "Sound" setting (off, quiet, normal).
 - Keep it generated with Web Audio. Avoid audio files unless they're openly licensed.
 - Try a few versions and let Roy choose by ear.
+
+## Known small issues (for later)
+- **Very long last words with two rings (more than 20 players).** A last word of 13 or more letters can touch the corner of a neighbour's emoji by 1–2 px on the projector. Nothing becomes unreadable. The checks cover words up to 12 letters, as the batch 2 design promises. Found on 27 November 2026 while steadying the 24-player test.

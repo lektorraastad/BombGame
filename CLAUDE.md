@@ -10,8 +10,9 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
   - `docs/superpowers/specs/2026-11-23-redesign-design.md` is the redesign, approved by Roy, and `docs/superpowers/plans/2026-11-23-redesign.md` is its plan.
   - `docs/superpowers/specs/2026-11-26-difficulty-words-sound-design.md` is batch 1 of Roy's improvements (difficulty, words and names, sound), approved by Roy, and `docs/superpowers/plans/2026-11-26-difficulty-words-sound.md` is its plan.
   - `docs/superpowers/specs/2026-11-26-spotlight-layout-design.md` is batch 2 of Roy's improvements (smaller bomb, bigger names, the current player's typing large under the bomb), approved by Roy, and `docs/superpowers/plans/2026-11-26-spotlight-layout.md` is its plan.
+  - `docs/superpowers/specs/2026-11-27-setups-housekeeping-design.md` is batch 3 of Roy's improvements (the Gentle, Normal and Fast setups, More settings, and housekeeping), approved by Roy, and `docs/superpowers/plans/2026-11-27-setups-housekeeping.md` is its plan.
   - `docs/design-principles.md` holds the **visual design principles and the chosen "Workshop" theme**. Read it before any visual work.
-  - `docs/superpowers/plans/` has the seven implementation plans already built: connection test, engine, word lists, playable game, the redesign, batch 1 and batch 2.
+  - `docs/superpowers/plans/` has the eight implementation plans already built: connection test, engine, word lists, playable game, the redesign, batch 1, batch 2 and batch 3.
   - `docs/EXTENDING.md` explains how to add game modes, knocked-out activities, settings, prompt types and themes, and how to swap the bomb.
   - `README.md` is Roy's setup guide and how to run a lesson.
   - `docs/improvements.md` lists Roy's requested improvements, with leads into the code.
@@ -39,7 +40,7 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
 - **Passcode:** `HOST_PASSCODE` is a Netlify environment variable. It's never logged, never sent to clients and never stored in the browser.
 - **Health check:** `/api/health` shows word counts. The connection test is at `/check/`.
 - **Fallback:** if Netlify Server stops working, the fallback host is Cloudflare. Only the adapter would change.
-- **To do:** pin `@netlify/server` to an exact version, since it's still `"latest"`.
+- **`@netlify/server`** is pinned to 0.1.6, the version every live build since 6 November 2026 used (it was `"latest"` until batch 3). Update it on a branch and test it on a deploy preview first.
 
 ## Rules that must not be broken
 - **No deploys on lesson days.** A deploy restarts the server and ends every game, so use a branch and a Netlify deploy preview for anything Roy wants to try first.
@@ -63,9 +64,8 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
    Each one needs a short design that Roy approves before any building.
    - **Batch 1 is live** (difficulty, words and names, the tick-tock sound and the Sound button; merged on 26 November 2026 at Roy's request, PR lektorraastad/BombGame#2). Things for Roy to watch in the first lesson: whether Normal feels right for the class, and whether the tick-tock is loud enough on the classroom speakers.
    - **Batch 2 is live** (layout: the spotlight, smaller bomb, bigger names; merged on 27 November 2026 at Roy's request, PR lektorraastad/BombGame#3).
-   - **Batch 3** (settings presets and housekeeping) follows, with its own design for Roy to approve.
-3. **Small follow-ups:** in `docs/EXTENDING.md` privacy rules, say "player words" (the dictionary examples are also shown), and note that the control screen receives typing but doesn't draw it.
-4. **Later:**
+   - **Batch 3 is live** (the Gentle, Normal and Fast setups, More settings, and housekeeping; merged on 27 November 2026 at Roy's request, PR lektorraastad/BombGame#4). All three of Roy's improvements are now done. Things to watch in the first lesson: whether Normal suits the class, the tick-tock volume, and whether names and the spotlight read well from the back.
+3. **Later:**
    - the "Slate and violet" theme;
    - the Teams and Class vs the bomb modes;
    - adjustments after the first classroom trial.
