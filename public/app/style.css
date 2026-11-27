@@ -214,9 +214,10 @@ main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
 .circle.compact:has(.seat.small) .p-prompt { font-size: 22cqw; }
 /* With the countdown the stack is taller than the bomb's body: the label moves up over the top rim
    (it is on its own dark label) and the tiles shrink a little, so the number sits on the body, clear
-   of the light rim. */
-.circle.compact .circle-centre:has([data-countdown]) .p-ask { font-size: 8cqw; margin-top: -18cqw; }
-.circle.compact .circle-centre:has([data-countdown]) .p-prompt { font-size: 24cqw; }
+   of the light rim. On the laptop's small bomb the tiles and label stay narrow enough (a three-letter
+   prompt within about 0.44 x the bomb's width) that the arrow's base, 0.44 out, isn't hidden. */
+.circle.compact .circle-centre:has([data-countdown]) .p-ask { font-size: 8cqw; margin-top: -15cqw; }
+.circle.compact .circle-centre:has([data-countdown]) .p-prompt { font-size: 21.5cqw; }
 .circle.compact:has(.seat.small) .circle-centre:has([data-countdown]) .p-ask { font-size: 8cqw; margin-top: -13cqw; }
 .circle.compact:has(.seat.small) .circle-centre:has([data-countdown]) .p-prompt { font-size: 20cqw; }
 
@@ -298,7 +299,7 @@ main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
    word that long once ran into the next seat at the top corners of the projector's oval. */
 main:not(.p-lobby) .circle .seat:not(.small) .avatar { width: 1.5em; height: 1.5em; }
 main:not(.p-lobby) .circle .seat:not(.small) .answered { left: 0.8em; }
-.circle .seat:not(.small) { row-gap: 0.02em; }
+.circle .seat:not(.small) { row-gap: 0.02em; column-gap: 0.2em; }
 .circle .seat:not(.small) .lives { font-size: 0.62em; }
 .circle .seat:not(.small) .last-word {
   --n: 8; --cap: 6.4em; margin-top: 0.04em; font-size: min(0.72em, calc(var(--cap) / (1.064 * var(--n))));
@@ -387,13 +388,15 @@ main:not(.p-lobby) .circle .seat:not(.small) .answered { left: 0.8em; }
   aspect-ratio: auto; width: min(100cqw, 250cqh); height: 100cqh; max-width: none; container-type: size; --seat-size: 3.2cqh;
 }
 /* Seats: big for a few players, smaller as the ring fills; above 20 the circle's .small (x0.8).
-   At 1920x1080 the names are 41px up to 16 seats (checked end to end with 15 and long words), 30px
-   at 17 and 18, 28px at 19 and 20, and 24px with two rings (the back-of-room floor). The cqw limit
-   keeps them clear of each other when the circle is narrower, as with the ⚙ overlay open (about
-   30px there, at 15 seats). */
-.p-ring .circle:not(:has(> .seat:nth-child(17))) { --seat-size: min(4.3cqh, 2.3cqw); }
-.p-ring .circle:has(> .seat:nth-child(17)):not(:has(> .seat:nth-child(19))) { --seat-size: min(3.2cqh, 2cqw); }
-.p-ring .circle:has(> .seat:nth-child(19)):not(:has(> .seat:nth-child(21))) { --seat-size: min(3cqh, 1.86cqw); }
+   At 1920x1080 the names are 41px up to 16 seats (checked end to end with 6 and 15 and long words),
+   30px at 17 and 18, 28px at 19 and 20, and 24px with two rings (the back-of-room floor). The cqw
+   limit keeps them clear of each other when the circle is narrower, as with the ⚙ overlay open; at
+   1920x1080 it is set so they are still no smaller than before the spotlight layout (40, 32, 26.5
+   and 24.6px there). On a narrower screen with the overlay open they get smaller instead. */
+.p-ring .circle:not(:has(> .seat:nth-child(11))) { --seat-size: min(4.3cqh, 3.05cqw); }
+.p-ring .circle:has(> .seat:nth-child(11)):not(:has(> .seat:nth-child(17))) { --seat-size: min(4.3cqh, 2.45cqw); }
+.p-ring .circle:has(> .seat:nth-child(17)):not(:has(> .seat:nth-child(19))) { --seat-size: min(3.2cqh, 2.01cqw); }
+.p-ring .circle:has(> .seat:nth-child(19)):not(:has(> .seat:nth-child(21))) { --seat-size: min(3cqh, 1.87cqw); }
 /* A seat grows to fit its word: the last word is one row of tiles, never split across two. */
 .p-ring .circle .seat { max-width: none; }
 .p-ring .seat .last-word { max-width: none; }
@@ -424,7 +427,9 @@ main:not(.p-lobby) .circle .seat:not(.small) .answered { left: 0.8em; }
 /* Two rings with a countdown: the stack is taller than the small bomb's body, so it moves up (the
    label may sit over the top of the rim) and the number stays on the bomb. */
 .circle:has(.seat.small) .circle-centre:has([data-countdown]) .p-ask { font-size: 5cqw; margin-top: -12cqw; }
-.p-examples { flex: none; min-height: 1.35em; font-size: 2.8vh; color: var(--muted); }
+/* Moved down a little, into the space above the toolbar, so a bottom seat's two-line name (which
+   can reach about 17px below the circle at 1920x1080) stays clear of it. */
+.p-examples { flex: none; min-height: 1.35em; font-size: 2.8vh; color: var(--muted); position: relative; top: 2vh; }
 /* In the corner, out of the circle's way. */
 .p-round { position: absolute; top: 2vh; left: 3vw; font-size: 3.2vh; color: var(--muted); font-weight: 600; }
 

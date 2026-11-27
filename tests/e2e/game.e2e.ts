@@ -299,6 +299,8 @@ function layoutProblems(l: Layout): string[] {
 type SpotLayout = Layout & {
   spot: Box | null; spotText: string; arrow: Box | null; bombCx: number; bombCy: number; bombSize: number;
   minName: number; prompt: number; parts: { name: string; boxes: Box[] }[];
+  /** The whole screen's box (#projector or the student's main), and the example answers' line. */
+  screen: Box; examples: Box | null;
 };
 
 /**
@@ -312,7 +314,7 @@ async function spotlightLayout(page: any, root: string): Promise<SpotLayout> {
     const spot = document.querySelector(`${sel} .circle > .spotlight`);
     const arrow = document.querySelector(`${sel} .bomb-arrow polygon`);
     const bomb = document.querySelector(`${sel} [data-bomb]`)!.getBoundingClientRect();
-    const [s, a] = [spot, arrow].map((el) => {
+    const [s, a, screen, examples] = [spot, arrow, document.querySelector(sel), document.querySelector(`${sel} .p-examples`)].map((el) => {
       if (!el) return null;
       const r = el.getBoundingClientRect();
       return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
@@ -337,7 +339,7 @@ async function spotlightLayout(page: any, root: string): Promise<SpotLayout> {
     const names = [...document.querySelectorAll(`${sel} .circle > .seat .name`)].map((el) => parseFloat(getComputedStyle(el).fontSize));
     const prompt = document.querySelector(`${sel} .p-prompt`);
     return {
-      parts, spot: s, arrow: a, spotText: spot?.textContent ?? "",
+      parts, spot: s, arrow: a, screen: screen!, examples, spotText: spot?.textContent ?? "",
       bombCx: bomb.left + bomb.width / 2, bombCy: bomb.top + bomb.height / 2, bombSize: bomb.width,
       minName: Math.min(...names), prompt: prompt ? parseFloat(getComputedStyle(prompt).fontSize) : 0,
     };
@@ -347,14 +349,16 @@ async function spotlightLayout(page: any, root: string): Promise<SpotLayout> {
 
 /**
  * What is wrong with the seats, part by part: a drawn part of one seat (emoji, name, hearts, word)
- * on a part of another seat or on the bomb, or outside the circle. Unlike layoutProblems, two seats'
- * boxes may meet at their empty corners (a long word under one seat, beside the next seat's hearts),
- * as long as nothing drawn is covered.
+ * on a part of another seat, on the bomb or on the example answers' line, or outside `within` (the
+ * circle, or for a narrow oval the whole screen: then a long name may reach a little past the
+ * circle at the side, but never off the screen or under the ⚙ overlay). Unlike layoutProblems, two
+ * seats' boxes may meet at their empty corners (a long word under one seat, beside the next seat's
+ * hearts), as long as nothing drawn is covered.
  */
-function seatPartProblems(l: SpotLayout): string[] {
+function seatPartProblems(l: SpotLayout, within: "circle" | "screen" = "circle"): string[] {
   const out: string[] = [];
   const p = l.parts;
-  const c = l.circle;
+  const c = within === "circle" ? l.circle : l.screen;
   for (let i = 0; i < p.length; i++) {
     for (let j = i + 1; j < p.length; j++) {
       for (const a of p[i].boxes) for (const b of p[j].boxes) if (overlaps(a, b)) out.push(`${p[i].name} overlaps ${p[j].name} ${by(a, b)}`);
@@ -362,7 +366,8 @@ function seatPartProblems(l: SpotLayout): string[] {
     for (const a of p[i].boxes) {
       if (overlaps(a, l.bomb)) out.push(`${p[i].name} overlaps the bomb ${by(a, l.bomb)}`);
       const past = Math.max(c.left - a.left, c.top - a.top, a.right - c.right, a.bottom - c.bottom);
-      if (past > 0.5) out.push(`${p[i].name} is ${past.toFixed(1)} px outside the circle`);
+      if (past > 0.5) out.push(`${p[i].name} is ${past.toFixed(1)} px outside the ${within}`);
+      if (l.examples && overlaps(a, l.examples)) out.push(`${p[i].name} overlaps the example answers ${by(a, l.examples)}`);
     }
   }
   return [...new Set(out)];
@@ -386,22 +391,23 @@ function spotlightProblems(l: SpotLayout): string[] {
   return out;
 }
 
-/** A class of 15 for the spotlight checks: 14 players over the WebSocket API and one on a laptop. */
+/** A class of 15 for the spotlight checks: 14 players over the WebSocket API and one on a laptop (the last). */
 const SPOT_NAMES = ["Ingrid", "Ola", "Jonas", "Kristian Johnsen", "Emil", "Aisha", "Mats", "Nora", "Filip", "Ella", "Oskar", "Maja", "Henrik", "Leah", "Sander"];
 const LAPTOP_VIEWPORT = { width: 1366, height: 768 };
 
 /**
- * Classic with 15 and live typing. One lap, so every seat holds a last word: every third seat, from
- * the second (a top corner), a long one of 10 to 12 letters, the others 7 to 9 letters. Then a
- * player over the API (so the laptop student is waiting) is on and has typed `typed`.
+ * Classic with `names` (the class of 15 unless given) and live typing. One lap, so every seat holds
+ * a last word: every third seat, from the second (a top corner), a long one of 10 to 12 letters, the
+ * others 7 to 9 letters. Then a player over the API (so the laptop student is waiting) is on and has
+ * typed `typed`.
  */
-async function spotlightRoom(typed: string): Promise<{ host: any; student: any }> {
+async function spotlightRoom(typed: string, names = SPOT_NAMES): Promise<{ host: any; student: any }> {
   const { host, code } = await hostRoom();
   const bots: Awaited<ReturnType<typeof wsPlayer>>[] = [];
-  for (const name of SPOT_NAMES.slice(0, 14)) bots.push(await wsPlayer(code, name));
-  const studentName = SPOT_NAMES[14];
+  for (const name of names.slice(0, -1)) bots.push(await wsPlayer(code, name));
+  const studentName = names[names.length - 1];
   const student = await joinPlayer(code, studentName, LAPTOP_VIEWPORT);
-  await host.locator(".seat").nth(14).waitFor({ timeout: WAIT });
+  await host.locator(".seat").nth(names.length - 1).waitFor({ timeout: WAIT });
   await host.setViewportSize({ width: 1920, height: 1080 });
   await settings(host, code, { mode: "classic", timerStyle: "visible", turnTime: 60, promptTypes: ["contains"], liveTyping: true });
   await startFromOverlay(host);
@@ -440,7 +446,7 @@ async function spotlightRoom(typed: string): Promise<{ host: any; student: any }
     }
     throw new Error("nobody's turn");
   };
-  for (let k = 0; k < SPOT_NAMES.length; k++) {
+  for (let k = 0; k < names.length; k++) {
     const { bot, name } = await whoIsOn(true);
     played.add(name);
     await play(bot, name);
@@ -457,10 +463,12 @@ async function spotlightRoom(typed: string): Promise<{ host: any; student: any }
 }
 
 /** The checks every spotlight layout must pass. */
-async function checkSpotlight(page: any, root: string, typed: string, where: string): Promise<SpotLayout> {
+async function checkSpotlight(
+  page: any, root: string, typed: string, where: string, { seats = 15, within = "circle" as "circle" | "screen" } = {},
+): Promise<SpotLayout> {
   const l = await spotlightLayout(page, root);
-  assert.equal(l.seats, 15, where);
-  assert.deepEqual(seatPartProblems(l), [], where);
+  assert.equal(l.seats, seats, where);
+  assert.deepEqual(seatPartProblems(l, within), [], where);
   assert.deepEqual(spotlightProblems(l), [], where);
   assert.equal(l.spotText, typed, `${where}: the spotlight shows the typing`);
   assert.equal(await page.locator(`${root} .seat.on .last-word, ${root} .seat.on .typing`).count(), 0, `${where}: nothing under the name on its turn`);
@@ -880,16 +888,36 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
   });
 
   // With the overlay open the oval is about 1320 px wide instead of 1800, so the names follow its
-  // width (about 30 px) to stay clear of each other; the overlay is only open while the host uses it.
-  test("spotlight layout, projector 1920×1080 with the ⚙ overlay open: names ≥ 30px, prompt letters ≥ 60px, nothing overlaps, the spotlight is centred, and the countdown is on the bomb", async () => {
+  // width (32 px, as big as before the spotlight layout) and a long name at a side seat may reach a
+  // little past the oval, but stays on the screen, clear of the overlay.
+  test("spotlight layout, projector 1920×1080 with the ⚙ overlay open: names ≥ 32px, prompt letters ≥ 60px, nothing overlaps, the spotlight is centred, and the countdown is on the bomb", async () => {
     const typed = "championship";
     const { host } = await spotlightRoom(typed);
     await openOverlay(host);
     await host.waitForTimeout(300);
-    const l = await checkSpotlight(host, "#projector", typed, "projector with the overlay");
-    assert.ok(l.minName >= 30, `names are ${l.minName.toFixed(1)} px`);
+    const l = await checkSpotlight(host, "#projector", typed, "projector with the overlay", { within: "screen" });
+    assert.ok(l.minName >= 32, `names are ${l.minName.toFixed(1)} px`);
     assert.ok(l.prompt >= 60, `prompt letters are ${l.prompt.toFixed(1)} px`);
     assert.ok(Math.abs((l.spot!.left + l.spot!.right) / 2 - (l.circle.left + l.circle.right) / 2) < 1, "the spotlight is centred");
+  });
+
+  // Before the spotlight layout the projector's names were 4.2% of the circle's height up to 10 seats
+  // and 3.4% at 11 to 16: 39.8 px and 32.2 px at 1920×1080, whether or not the ⚙ overlay was open
+  // (it narrows the oval, not its height). They may never be smaller there. With 6 players the
+  // two-line name sits at the bottom seat, just above the example answers.
+  test("projector 1920×1080: names are never smaller than before (6 seats ≥ 39.8px, 15 seats ≥ 32.2px), with and without the ⚙ overlay, and nothing overlaps", async () => {
+    const typed = "championship";
+    for (const [names, before] of [[SPOT_NAMES.slice(0, 6), 39.8], [SPOT_NAMES, 32.2]] as const) {
+      const { host } = await spotlightRoom(typed, [...names]);
+      for (const overlay of [false, true]) {
+        if (overlay) await openOverlay(host);
+        await host.waitForTimeout(300);
+        const where = `${names.length} seats${overlay ? ", overlay open" : ""}`;
+        const l = await checkSpotlight(host, "#projector", typed, where, { seats: names.length, within: "screen" });
+        assert.ok(l.minName >= before, `${where}: names are ${l.minName.toFixed(1)} px, before ${before} px`);
+      }
+      await closeContexts();
+    }
   });
 
   test("spotlight: a 30-character typed word stays on one row, inside the circle, clear of every seat", async () => {
