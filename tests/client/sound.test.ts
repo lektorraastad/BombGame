@@ -143,15 +143,24 @@ test("the explosion connects to the master gain, not the destination", () => {
 
 /** A fake sound that counts calls. */
 function countingSound() {
-  const calls = { tick: [] as boolean[], explode: 0 };
-  return { calls, sound: { unlock() {}, setLevel() {}, tick: (u: boolean) => calls.tick.push(u), explode: () => { calls.explode++; } } };
+  const calls = { tick: [] as boolean[], explode: 0, order: [] as string[] };
+  const rec = (n: string) => () => { calls.order.push(n); };
+  return {
+    calls,
+    sound: {
+      unlock() {}, setLevel() {},
+      tick: (u: boolean) => calls.tick.push(u),
+      explode: () => { calls.explode++; calls.order.push("explode"); },
+      chime: rec("chime"), fall: rec("fall"), fanfare: rec("fanfare"), patter: rec("patter"),
+    },
+  };
 }
 
 test("explode fires once per explosion event", () => {
   const { calls, sound } = countingSound();
   const d = createSoundDriver(sound, () => 0);
   const v = (lastEvent: string | null) => ({ phase: "playing", paused: false, lastEvent, bombRemainingMs: 9000 });
-  d.view(v(null));
+  d.view(v(null)); // the first view after a load plays nothing
   d.view(v("word"));
   assert.equal(calls.explode, 0);
   d.view(v("explosion"));
@@ -191,4 +200,115 @@ test("ticks once a second, 4 times a second in the last 3 s, and steadily for a 
   d.view({ phase: "results", paused: false, lastEvent: null });
   for (; now < 9000; now += 50) d.step(null);
   assert.equal(calls.tick.length, 0);
+});
+
+const classic = (moments: any[], extra: any = {}) => ({ phase: "playing", paused: false, lastEvent: null, mode: { seats: [] }, moments, ...extra });
+const everyone = (moments: any[], extra: any = {}) => ({ phase: "playing", paused: false, lastEvent: null, mode: { round: {} }, moments, ...extra });
+
+test("chime, fall, fanfare and patter build oscillators of the right types", () => {
+  const a = fakeAudio();
+  const s = createSound(a.factory);
+  s.unlock();
+  s.chime();
+  assert.deepEqual(a.oscTypes, ["triangle", "triangle"]);
+  a.oscTypes.length = 0;
+  s.fall();
+  assert.deepEqual(a.oscTypes, ["sine"]);
+  a.oscTypes.length = 0;
+  s.fanfare();
+  assert.deepEqual(a.oscTypes, ["triangle", "triangle", "triangle", "triangle"]);
+  a.oscTypes.length = 0;
+  s.patter();
+  assert.deepEqual(a.oscTypes, ["sine"]);
+});
+
+test("the Off level plays nothing, for all four new sounds", () => {
+  const a = fakeAudio();
+  const s = createSound(a.factory);
+  s.unlock();
+  s.setLevel("off");
+  a.log.length = 0;
+  s.chime(); s.fall(); s.fanfare(); s.patter();
+  assert.deepEqual([...a.log], []);
+});
+
+test("a Classic word moment chimes once", () => {
+  const { calls, sound } = countingSound();
+  const d = createSoundDriver(sound, () => 0);
+  d.view(classic([]));
+  d.view(classic([{ kind: "word", pid: "a" }]));
+  assert.deepEqual(calls.order, ["chime"]);
+  d.view(classic([{ kind: "all-answered" }]));
+  assert.deepEqual(calls.order, ["chime", "chime"]);
+});
+
+test("patter is capped at one per 160 ms", () => {
+  const { calls, sound } = countingSound();
+  let now = 1000;
+  const d = createSoundDriver(sound, () => now);
+  d.view(everyone([]));
+  const w = [{ kind: "word", pid: "a" }, { kind: "word", pid: "b" }];
+  d.view(everyone(w));
+  assert.deepEqual(calls.order, ["patter"], "two in one view: one patter");
+  now += 100;
+  d.view(everyone(w));
+  assert.deepEqual(calls.order, ["patter"], "too soon");
+  now += 60;
+  d.view(everyone(w));
+  assert.deepEqual(calls.order, ["patter", "patter"]);
+});
+
+test("one fall per view however many hearts", () => {
+  const { calls, sound } = countingSound();
+  const d = createSoundDriver(sound, () => 0);
+  d.view(classic([]));
+  d.view(classic([{ kind: "hearts", pids: ["a", "b"] }, { kind: "hearts", pids: ["c"] }]));
+  assert.deepEqual(calls.order, ["fall"]);
+});
+
+test("final explosion orders boom, note, tune", () => {
+  const { calls, sound } = countingSound();
+  let now = 0;
+  const d = createSoundDriver(sound, () => now);
+  d.view(classic([]));
+  d.view({ phase: "results", paused: false, lastEvent: "explosion", mode: { seats: [] }, moments: [{ kind: "explosion" }, { kind: "hearts", pids: ["a"] }, { kind: "win", pids: ["b"] }] });
+  assert.deepEqual(calls.order, ["explode"]);
+  now = 349; d.step(null);
+  assert.deepEqual(calls.order, ["explode"]);
+  now = 350; d.step(null);
+  assert.deepEqual(calls.order, ["explode", "fall"]);
+  d.step(null);
+  assert.deepEqual(calls.order, ["explode", "fall"], "fall only once");
+  d.resultsShown();
+  assert.deepEqual(calls.order, ["explode", "fall", "fanfare"]);
+  d.resultsShown();
+  assert.equal(calls.order.length, 3, "fanfare once per game");
+  d.view(classic([])); // a new game
+  d.resultsShown();
+  assert.equal(calls.order.at(-1), "fanfare");
+  assert.equal(calls.order.length, 4);
+});
+
+test("first view plays nothing", () => {
+  const { calls, sound } = countingSound();
+  const d = createSoundDriver(sound, () => 0);
+  d.view(classic([{ kind: "word", pid: "a" }, { kind: "hearts", pids: ["a"] }, { kind: "explosion" }], { lastEvent: "explosion" }));
+  assert.deepEqual(calls.order, []);
+});
+
+test("hidden ticks speed up with tension", () => {
+  for (const [tension, gap] of [[0, 1000], [1, 700]] as const) {
+    const { calls, sound } = countingSound();
+    let now = 0;
+    const d = createSoundDriver(sound, () => now);
+    d.view({ phase: "playing", paused: false, lastEvent: null });
+    const at: number[] = [];
+    for (now = 0; now <= 4000; now += 10) {
+      const before = calls.tick.length;
+      d.step(null, tension);
+      if (calls.tick.length > before) at.push(now);
+    }
+    assert.ok(at.length >= 3);
+    assert.equal(at[2] - at[1], gap);
+  }
 });
