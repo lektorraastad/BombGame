@@ -88,7 +88,15 @@ button:disabled { cursor: default; }
   padding: 8px 12px; border-radius: 10px; margin-bottom: 10px; text-align: center;
 }
 .top { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); margin-bottom: 12px; font-size: 18px; }
-.top .who { color: var(--names); font-family: var(--font-display); font-weight: 800; }
+.top .who { color: var(--names); font-family: var(--font-display); font-weight: 800; margin-right: auto; }
+.top { align-items: center; }
+
+/* The Wordfire logo (logo.js). Its box is 481 x 94, so the width follows the height. */
+.logo { display: block; flex: none; width: auto; overflow: visible; }
+.logo-small { height: 28px; }
+.top .logo-small { height: 24px; }
+.projector .logo-small { position: absolute; top: 2vh; left: 3vw; height: 3.4vh; z-index: 1; }
+.logo-large { height: 9vh; }
 .gamepage main h1 { font-size: 34px; margin: 12px 0; }
 .names { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .names li {
@@ -441,7 +449,7 @@ main:not(.p-lobby) .circle .seat:not(.small) .answered { left: 0.8em; }
    can reach about 17px below the circle at 1920x1080) stays clear of it. */
 .p-examples { flex: none; min-height: 1.35em; font-size: 2.8vh; color: var(--muted); position: relative; top: 2vh; }
 /* In the corner, out of the circle's way. */
-.p-round { position: absolute; top: 2vh; left: 3vw; font-size: 3.2vh; color: var(--muted); font-weight: 600; }
+.p-round { position: absolute; top: 6.6vh; left: 3vw; font-size: 3.2vh; color: var(--muted); font-weight: 600; }
 
 /* Lobby: the site, the code on big tiles, then the circle as students join. */
 .p-goto { flex: none; font-size: 4.2vh; margin: 0; }

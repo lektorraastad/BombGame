@@ -8,6 +8,7 @@ import { esc } from "./escape.js";
 import { renderCircle } from "./render-circle.js";
 import { onBomb, resultParts } from "./render-projector.js";
 import { tiles } from "./tiles.js";
+import { renderLogo } from "./logo.js";
 
 /**
  * @typedef {{ text: string, type: "contains" | "starts" | "ends" }} PromptInfo
@@ -161,7 +162,7 @@ export function wordTiles(value, caret) {
 export function renderPlayer(view, ui) {
   const banner = ui.status !== "open" && ui.status !== "connecting" ? `<div class="banner">Reconnecting...</div>` : "";
   const body = screen(view, ui);
-  return `${banner}<header class="top"><span class="who">${esc(view.me.nickname)}</span><span class="room">Room ${esc(view.code)}</span></header>${body}`;
+  return `${banner}<header class="top">${renderLogo("small")}<span class="who">${esc(view.me.nickname)}</span><span class="room">Room ${esc(view.code)}</span></header>${body}`;
 }
 
 /**

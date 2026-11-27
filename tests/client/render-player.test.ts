@@ -447,3 +447,10 @@ test("style.css: on the student circle a last word or live typing is one row of 
   assert.match(rule(".circle .seat .typing .tiles"), /flex-wrap:\s*nowrap/);
   assert.match(rule(".circle .seat .typing .tiles"), /max-width:\s*none/);
 });
+
+test("the top bar shows the small logo next to the name", () => {
+  const html = renderPlayer(view(), ui());
+  const top = html.slice(html.indexOf('<header class="top">'), html.indexOf("</header>"));
+  assert.ok(top.includes("logo-small"));
+  assert.ok(top.indexOf("logo-small") < top.indexOf("Mia"));
+});

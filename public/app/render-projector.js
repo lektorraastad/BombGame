@@ -5,6 +5,7 @@
 import { esc } from "./escape.js";
 import { renderCircle } from "./render-circle.js";
 import { tiles } from "./tiles.js";
+import { renderLogo } from "./logo.js";
 import { avatarImg, trophyImg, EMOJI_CREDIT } from "./avatars.js";
 
 /**
@@ -66,6 +67,7 @@ function lobby(view, ui) {
   // the lobby circle shows everyone as in, with no hearts.
   const players = (Array.isArray(view.players) ? view.players : []).map((/** @type {any} */ p) => ({ ...p, alive: true, lives: 0 }));
   return `<main class="p-lobby">
+${renderLogo("large")}
 <p class="p-goto">Go to <strong>${site}</strong> and enter the code</p>
 <div class="p-code">${tiles(String(view.code ?? ""))}</div>
 ${ring({ ...view, players }, ui, UNLIT, "")}
@@ -103,6 +105,7 @@ function examples(view) {
 /** @param {any} view @param {ProjectorUi} ui */
 function classic(view, ui) {
   return `<main class="p-classic">
+${renderLogo("small")}
 ${ring(view, ui, bombOf(view, ui), onBomb(view))}
 ${examples(view)}
 </main>`;
@@ -114,7 +117,7 @@ function everyone(view, ui) {
   const round = typeof mode.round === "number" ? `<div class="p-round">Round ${esc(mode.round)}</div>` : "";
   // Nobody is on, so there is never an arrow.
   return `<main class="p-everyone">
-${round}${ring(view, ui, { ...bombOf(view, ui), arrow: null }, onBomb(view))}
+${renderLogo("small")}${round}${ring(view, ui, { ...bombOf(view, ui), arrow: null }, onBomb(view))}
 ${examples(view)}
 </main>`;
 }
@@ -149,5 +152,5 @@ export function resultParts(view) {
 /** @param {any} view */
 function results(view) {
   const { podium, longest, ghosts } = resultParts(view);
-  return `<main class="p-results"><h1>Game over</h1><div class="p-podium">${podium}</div>${longest}${ghosts}</main>`;
+  return `<main class="p-results">${renderLogo("large")}<h1>Game over</h1><div class="p-podium">${podium}</div>${longest}${ghosts}</main>`;
 }

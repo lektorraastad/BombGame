@@ -294,3 +294,24 @@ test("classic: the arrow follows the ring's real shape from ui.ringAspect", () =
   assert.ok(draw(c.room, { bomb }).includes('--to:240deg"'), "no aspect: as given");
   assert.ok(draw(c.room, { bomb, ringAspect: Number.NaN }).includes('--to:240deg"'), "junk aspect: as given");
 });
+
+test("the lobby shows the large logo above the address line", () => {
+  const html = renderProjector(projectorView(game({}).room), ui());
+  assert.ok(html.includes("logo-large"));
+  assert.ok(html.indexOf("logo-large") < html.indexOf("p-goto"));
+});
+
+test("the playing screens show the small logo", () => {
+  for (const mode of ["classic", "everyone"]) {
+    const g = game({ mode });
+    g.room.start();
+    const html = renderProjector(projectorView(g.room), ui());
+    assert.ok(html.includes("logo-small"), mode);
+    assert.ok(!html.includes("logo-large"), mode);
+  }
+});
+
+test("results show the large logo", () => {
+  const html = renderProjector({ code: "QWER", phase: "results", players: [], results: { winners: [], ghostRanking: [] } }, ui());
+  assert.ok(html.includes("logo-large"));
+});
