@@ -296,6 +296,179 @@ function layoutProblems(l: Layout): string[] {
   return out;
 }
 
+type SpotLayout = Layout & {
+  spot: Box | null; spotText: string; arrow: Box | null; bombCx: number; bombCy: number; bombSize: number;
+  minName: number; prompt: number; parts: { name: string; boxes: Box[] }[];
+};
+
+/**
+ * A circle with its spotlight, measured in one step: the seats, the bomb, the spotlight's box and
+ * text, the arrow's box, the smallest name's font size (the seat on its turn is a little bigger, so
+ * every seat counts) and the prompt letters' font size.
+ */
+async function spotlightLayout(page: any, root: string): Promise<SpotLayout> {
+  const l = await circleLayout(page, `${root} .circle`);
+  const rest = await page.evaluate((sel: string) => {
+    const spot = document.querySelector(`${sel} .circle > .spotlight`);
+    const arrow = document.querySelector(`${sel} .bomb-arrow polygon`);
+    const bomb = document.querySelector(`${sel} [data-bomb]`)!.getBoundingClientRect();
+    const [s, a] = [spot, arrow].map((el) => {
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+    });
+    // Each drawn part of each seat (emoji, name, hearts, word, badges), with anything inside it.
+    const parts = [...document.querySelectorAll(`${sel} .circle > .seat`)].map((seat) => ({
+      name: seat.querySelector(".name")?.textContent ?? "",
+      boxes: [...seat.children].map((part) => {
+        const r0 = part.getBoundingClientRect();
+        const b = { left: r0.left, top: r0.top, right: r0.right, bottom: r0.bottom };
+        for (const d of part.querySelectorAll("*")) {
+          const r = d.getBoundingClientRect();
+          if (r.width === 0 && r.height === 0) continue;
+          b.left = Math.min(b.left, r.left);
+          b.top = Math.min(b.top, r.top);
+          b.right = Math.max(b.right, r.right);
+          b.bottom = Math.max(b.bottom, r.bottom);
+        }
+        return b;
+      }).filter((b) => b.right > b.left && b.bottom > b.top),
+    }));
+    const names = [...document.querySelectorAll(`${sel} .circle > .seat .name`)].map((el) => parseFloat(getComputedStyle(el).fontSize));
+    const prompt = document.querySelector(`${sel} .p-prompt`);
+    return {
+      parts, spot: s, arrow: a, spotText: spot?.textContent ?? "",
+      bombCx: bomb.left + bomb.width / 2, bombCy: bomb.top + bomb.height / 2, bombSize: bomb.width,
+      minName: Math.min(...names), prompt: prompt ? parseFloat(getComputedStyle(prompt).fontSize) : 0,
+    };
+  }, root);
+  return { ...l, ...rest };
+}
+
+/**
+ * What is wrong with the seats, part by part: a drawn part of one seat (emoji, name, hearts, word)
+ * on a part of another seat or on the bomb, or outside the circle. Unlike layoutProblems, two seats'
+ * boxes may meet at their empty corners (a long word under one seat, beside the next seat's hearts),
+ * as long as nothing drawn is covered.
+ */
+function seatPartProblems(l: SpotLayout): string[] {
+  const out: string[] = [];
+  const p = l.parts;
+  const c = l.circle;
+  for (let i = 0; i < p.length; i++) {
+    for (let j = i + 1; j < p.length; j++) {
+      for (const a of p[i].boxes) for (const b of p[j].boxes) if (overlaps(a, b)) out.push(`${p[i].name} overlaps ${p[j].name} ${by(a, b)}`);
+    }
+    for (const a of p[i].boxes) {
+      if (overlaps(a, l.bomb)) out.push(`${p[i].name} overlaps the bomb ${by(a, l.bomb)}`);
+      const past = Math.max(c.left - a.left, c.top - a.top, a.right - c.right, a.bottom - c.bottom);
+      if (past > 0.5) out.push(`${p[i].name} is ${past.toFixed(1)} px outside the circle`);
+    }
+  }
+  return [...new Set(out)];
+}
+
+/**
+ * What is wrong with the spotlight: missing, on a seat, the bomb or the arrow, within the arrow's
+ * reach at any angle (its tip is 0.6 x the bomb's size from the middle), or outside the circle.
+ */
+function spotlightProblems(l: SpotLayout): string[] {
+  const s = l.spot;
+  if (!s) return ["no spotlight"];
+  const out: string[] = [];
+  for (const seat of l.parts) for (const b of seat.boxes) if (overlaps(s, b)) out.push(`the spotlight overlaps ${seat.name} ${by(s, b)}`);
+  if (overlaps(s, l.bomb)) out.push(`the spotlight overlaps the bomb ${by(s, l.bomb)}`);
+  if (l.arrow && overlaps(s, l.arrow)) out.push(`the spotlight overlaps the arrow ${by(s, l.arrow)}`);
+  const reach = l.bombCy + 0.6 * l.bombSize;
+  if (s.top < reach) out.push(`the spotlight's top is ${(reach - s.top).toFixed(1)} px within the arrow's reach`);
+  const c = l.circle;
+  if (s.left < c.left - 0.5 || s.top < c.top - 0.5 || s.right > c.right + 0.5 || s.bottom > c.bottom + 0.5) out.push("the spotlight is outside the circle");
+  return out;
+}
+
+/** A class of 15 for the spotlight checks: 14 players over the WebSocket API and one on a laptop. */
+const SPOT_NAMES = ["Ingrid", "Ola", "Jonas", "Kristian Johnsen", "Emil", "Aisha", "Mats", "Nora", "Filip", "Ella", "Oskar", "Maja", "Henrik", "Leah", "Sander"];
+const LAPTOP_VIEWPORT = { width: 1366, height: 768 };
+
+/**
+ * Classic with 15 and live typing. One lap, so every seat holds a last word: every third seat, from
+ * the second (a top corner), a long one of 10 to 12 letters, the others 7 to 9 letters. Then a
+ * player over the API (so the laptop student is waiting) is on and has typed `typed`.
+ */
+async function spotlightRoom(typed: string): Promise<{ host: any; student: any }> {
+  const { host, code } = await hostRoom();
+  const bots: Awaited<ReturnType<typeof wsPlayer>>[] = [];
+  for (const name of SPOT_NAMES.slice(0, 14)) bots.push(await wsPlayer(code, name));
+  const studentName = SPOT_NAMES[14];
+  const student = await joinPlayer(code, studentName, LAPTOP_VIEWPORT);
+  await host.locator(".seat").nth(14).waitFor({ timeout: WAIT });
+  await host.setViewportSize({ width: 1920, height: 1080 });
+  await settings(host, code, { mode: "classic", timerStyle: "visible", turnTime: 60, promptTypes: ["contains"], liveTyping: true });
+  await startFromOverlay(host);
+  const order = await host.locator("#projector .seat .name").allTextContents();
+  const long = new Set(order.filter((_: string, i: number) => i % 3 === 1));
+
+  const used = new Set<string>();
+  const pick = (p: Prompt, wantLong: boolean) => {
+    const t = p.text.toLowerCase();
+    const fits = (w: string) => w.includes(t) && !used.has(w);
+    const longWord = wantLong ? KNOWN.filter((x) => x.length >= 10 && x.length <= 12 && fits(x)).sort((a, b) => b.length - a.length)[0] : undefined;
+    const w = longWord ?? KNOWN.find((x) => x.length >= 7 && x.length <= 9 && fits(x)) ?? KNOWN.find((x) => x.length >= 4 && x.length <= 10 && fits(x)) ?? KNOWN.find(fits);
+    assert.ok(w, `no word for ${t}`);
+    used.add(w);
+    return w;
+  };
+  const play = async (bot: Awaited<ReturnType<typeof wsPlayer>> | null, name: string) => {
+    const word = pick(await projectorPrompt(host), long.has(name));
+    if (bot) bot.send({ t: "submit", word });
+    else {
+      await student.fill("#word", word);
+      await student.press("#word", "Enter");
+    }
+    // The whole word: an earlier word may start with this one ("actually", then "actual").
+    await host.locator(".seat .last-word", { hasText: new RegExp(`^${word}$`) }).waitFor({ timeout: WAIT });
+  };
+  /** Who is on: a bot that hasn't played yet (bots' views can lag a moment behind), or the student. */
+  const played = new Set<string>();
+  const whoIsOn = async (fresh: boolean) => {
+    const deadline = Date.now() + WAIT;
+    while (Date.now() < deadline) {
+      const bot = bots.find((b) => b.view()?.me?.isOn && (!fresh || !played.has(b.view().me.nickname)));
+      if (bot) return { bot, name: bot.view().me.nickname as string };
+      if ((!fresh || !played.has(studentName)) && (await student.locator("main.turn-on").count()) > 0) return { bot: null, name: studentName };
+      await host.waitForTimeout(50);
+    }
+    throw new Error("nobody's turn");
+  };
+  for (let k = 0; k < SPOT_NAMES.length; k++) {
+    const { bot, name } = await whoIsOn(true);
+    played.add(name);
+    await play(bot, name);
+  }
+  let on = await whoIsOn(false);
+  if (!on.bot) {
+    await play(null, studentName);
+    on = await whoIsOn(false);
+  }
+  on.bot!.send({ t: "typing", text: typed });
+  for (const page of [host, student]) await page.locator(".circle > .spotlight", { hasText: typed }).waitFor({ timeout: WAIT });
+  await host.waitForTimeout(800); // the arrow's swing and any redraws settle
+  return { host, student };
+}
+
+/** The checks every spotlight layout must pass. */
+async function checkSpotlight(page: any, root: string, typed: string, where: string): Promise<SpotLayout> {
+  const l = await spotlightLayout(page, root);
+  assert.equal(l.seats, 15, where);
+  assert.deepEqual(seatPartProblems(l), [], where);
+  assert.deepEqual(spotlightProblems(l), [], where);
+  assert.equal(l.spotText, typed, `${where}: the spotlight shows the typing`);
+  assert.equal(await page.locator(`${root} .seat.on .last-word, ${root} .seat.on .typing`).count(), 0, `${where}: nothing under the name on its turn`);
+  const c = await countdownClearance(page, root);
+  assert.ok(c.clear >= 1, `${where}: "${c.text}" is ${(-c.clear).toFixed(1)} px over the rim`);
+  return l;
+}
+
 describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright is not installed" }, () => {
   before(async () => {
     pw = await import(PLAYWRIGHT!);
@@ -688,6 +861,49 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     assert.deepEqual(await splitNameWords(student, "main .circle"), [], "a long name wraps at its space");
     const c = await countdownClearance(student, "main .circle");
     assert.ok(c.clear >= 1, `student: "${c.text}" is ${(-c.clear).toFixed(1)} px over the rim`);
+  });
+  test("spotlight layout, projector 1920×1080: names ≥ 40px, prompt letters ≥ 60px, no seat overlaps a seat, the spotlight overlaps no seat and sits below the arrow's reach, and the countdown is on the bomb", async () => {
+    const typed = "championship";
+    const { host } = await spotlightRoom(typed);
+    assert.equal(await host.locator("#projector .seat .last-word").count(), 14, "every seat but the typing one shows a word");
+    const l = await checkSpotlight(host, "#projector", typed, "projector 1920×1080");
+    assert.ok(l.minName >= 40, `names are ${l.minName.toFixed(1)} px`);
+    assert.ok(l.prompt >= 60, `prompt letters are ${l.prompt.toFixed(1)} px`);
+  });
+
+  test("spotlight layout, laptop 1366×768: names ≥ 17px, no seat overlaps a seat, the spotlight overlaps no seat and sits below the arrow's reach, and the countdown is on the bomb", async () => {
+    const typed = "championship";
+    const { student } = await spotlightRoom(typed);
+    assert.equal(await student.locator("main .seat .last-word").count(), 14, "every seat but the typing one shows a word");
+    const l = await checkSpotlight(student, "main", typed, "laptop 1366×768");
+    assert.ok(l.minName >= 17, `names are ${l.minName.toFixed(1)} px`);
+  });
+
+  // With the overlay open the oval is about 1320 px wide instead of 1800, so the names follow its
+  // width (about 30 px) to stay clear of each other; the overlay is only open while the host uses it.
+  test("spotlight layout, projector 1920×1080 with the ⚙ overlay open: names ≥ 30px, prompt letters ≥ 60px, nothing overlaps, the spotlight is centred, and the countdown is on the bomb", async () => {
+    const typed = "championship";
+    const { host } = await spotlightRoom(typed);
+    await openOverlay(host);
+    await host.waitForTimeout(300);
+    const l = await checkSpotlight(host, "#projector", typed, "projector with the overlay");
+    assert.ok(l.minName >= 30, `names are ${l.minName.toFixed(1)} px`);
+    assert.ok(l.prompt >= 60, `prompt letters are ${l.prompt.toFixed(1)} px`);
+    assert.ok(Math.abs((l.spot!.left + l.spot!.right) / 2 - (l.circle.left + l.circle.right) / 2) < 1, "the spotlight is centred");
+  });
+
+  test("spotlight: a 30-character typed word stays on one row, inside the circle, clear of every seat", async () => {
+    const typed = "abcdefghijklmnopqrstuvwxyzabcd";
+    assert.equal(typed.length, 30);
+    const { host, student } = await spotlightRoom(typed);
+    for (const viewport of [{ width: 1920, height: 1080 }, { width: 1280, height: 720 }]) {
+      await host.setViewportSize(viewport);
+      await host.waitForTimeout(300);
+      await checkSpotlight(host, "#projector", typed, `projector ${viewport.width}×${viewport.height}`);
+      assert.deepEqual(await tileRows(host, "#projector .spotlight"), [1], "one row");
+    }
+    await checkSpotlight(student, "main", typed, "laptop 1366×768");
+    assert.deepEqual(await tileRows(student, "main .spotlight"), [1], "one row");
   });
   test("the countdown number sits on the bomb's dark body, clear of its light rim", async () => {
     const LAPTOP = { width: 1366, height: 768 };

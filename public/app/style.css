@@ -176,13 +176,14 @@ main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
 .ghost h1 { font-size: 26px; color: var(--muted); }
 .ghostscore { margin-top: 4px; display: flex; justify-content: center; gap: 6px 18px; flex-wrap: wrap; }
 
-/* The circle on a student screen: seats bigger for a few players, as on the projector. At 1366x768
-   (a 1068x544 oval) names are 18.5px up to 10 seats, 14.7px on one full ring (11 to 20) and 13px
-   on two rings (x0.8 there, as on the projector). The prompt type and the countdown on the smaller
-   bomb are scaled up to stay readable. */
-.arena .circle.compact:not(:has(> .seat:nth-child(11))) { --seat-size: max(12px, 3.4cqh); }
-.arena .circle.compact:has(> .seat:nth-child(11)):not(:has(> .seat:nth-child(21))) { --seat-size: max(11px, 2.7cqh); }
-.arena .circle { --bomb-size: 44cqh; }
+/* The circle on a student screen: a smaller bomb, so the names can be bigger, as on the projector.
+   At 1366x768 (a 1068x544 oval) the bomb is 174px and names are 18.5px up to 18 seats, 16.3px at
+   19 and 20 (checked end to end with long words at 15 and by hand at 20), and 13px on two rings
+   (x0.8 there, as on the projector). The prompt type and the countdown on the smaller bomb are
+   scaled up to stay readable. */
+.arena .circle.compact:not(:has(> .seat:nth-child(19))) { --seat-size: max(14px, 3.4cqh); }
+.arena .circle.compact:has(> .seat:nth-child(19)):not(:has(> .seat:nth-child(21))) { --seat-size: max(12px, 3cqh); }
+.arena .circle { --bomb-size: 32cqh; }
 .arena .circle:has(.seat.small) { --bomb-size: 37cqh; }
 /* A last word is one row of tiles, never split mid-word (as on the projector): the seat grows to fit. */
 .circle.compact .seat { max-width: none; }
@@ -207,15 +208,15 @@ main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
 .arena .circle.compact:has(.seat.small) { --seat-size: max(10px, 3cqh); }
 .circle.compact .seat.small .name { max-width: 6.5em; padding-left: 0.2em; padding-right: 0.2em; }
 .circle.compact .seat.small.on { font-size: calc(var(--seat-size) * 0.8); }
-.circle.compact .p-ask { font-size: 8cqw; }
-.circle.compact .p-prompt { font-size: 20cqw; }
+.circle.compact .p-ask { font-size: 9cqw; }
+.circle.compact .p-prompt { font-size: 27cqw; }
 .circle.compact:has(.seat.small) .p-ask { font-size: 9cqw; }
 .circle.compact:has(.seat.small) .p-prompt { font-size: 22cqw; }
 /* With the countdown the stack is taller than the bomb's body: the label moves up over the top rim
    (it is on its own dark label) and the tiles shrink a little, so the number sits on the body, clear
    of the light rim. */
-.circle.compact .circle-centre:has([data-countdown]) .p-ask { font-size: 7.5cqw; margin-top: -9cqw; }
-.circle.compact .circle-centre:has([data-countdown]) .p-prompt { font-size: 19cqw; }
+.circle.compact .circle-centre:has([data-countdown]) .p-ask { font-size: 8cqw; margin-top: -18cqw; }
+.circle.compact .circle-centre:has([data-countdown]) .p-prompt { font-size: 24cqw; }
 .circle.compact:has(.seat.small) .circle-centre:has([data-countdown]) .p-ask { font-size: 8cqw; margin-top: -13cqw; }
 .circle.compact:has(.seat.small) .circle-centre:has([data-countdown]) .p-prompt { font-size: 20cqw; }
 
@@ -290,17 +291,52 @@ main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
   font-family: var(--font-display); font-weight: 800; font-size: 0.9em; line-height: 1;
 }
 .circle .seat .last-word, .circle .seat .typing { font-size: 0.8em; margin-top: 0.2em; max-width: 10em; }
+/* One ring (20 or fewer): the names are big, so each seat is kept compact to leave room between
+   them: a smaller emoji and hearts, tighter rows, and a last word of about 0.72 x the name. A long
+   word gets smaller tiles, so its row is never much wider than about 6.4 names' em (9 on a laptop,
+   where there is room): --n is the number of letters, counted with :has, up to 16. Seats with a
+   word that long once ran into the next seat at the top corners of the projector's oval. */
+main:not(.p-lobby) .circle .seat:not(.small) .avatar { width: 1.5em; height: 1.5em; }
+main:not(.p-lobby) .circle .seat:not(.small) .answered { left: 0.8em; }
+.circle .seat:not(.small) { row-gap: 0.02em; }
+.circle .seat:not(.small) .lives { font-size: 0.62em; }
+.circle .seat:not(.small) .last-word {
+  --n: 8; --cap: 6.4em; margin-top: 0.04em; font-size: min(0.72em, calc(var(--cap) / (1.064 * var(--n))));
+}
+.circle.compact .seat:not(.small) .last-word { --cap: 9em; }
+.circle .seat:not(.small) .last-word:has(.tiles > :nth-child(9)) { --n: 9; }
+.circle .seat:not(.small) .last-word:has(.tiles > :nth-child(10)) { --n: 10; }
+.circle .seat:not(.small) .last-word:has(.tiles > :nth-child(11)) { --n: 11; }
+.circle .seat:not(.small) .last-word:has(.tiles > :nth-child(12)) { --n: 12; }
+.circle .seat:not(.small) .last-word:has(.tiles > :nth-child(13)) { --n: 13; }
+.circle .seat:not(.small) .last-word:has(.tiles > :nth-child(14)) { --n: 14; }
+.circle .seat:not(.small) .last-word:has(.tiles > :nth-child(15)) { --n: 15; }
+.circle .seat:not(.small) .last-word:has(.tiles > :nth-child(16)) { --n: 16; }
 /* Live typing is one row of tiles on every circle, never split mid-word: the seat grows to fit. */
 .circle .seat .typing { display: inline-flex; align-items: center; flex-wrap: nowrap; justify-content: center; max-width: none; }
 .circle .seat .typing .tiles { flex-wrap: nowrap; max-width: none; }
 /* The spotlight: the current player's typing, large under the bomb (render-circle.js). Its top is
-   0.62 x the bomb's size below the centre, past the arrow's tip (0.6 x). One row, never animated. */
+   0.62 x the bomb's size below the centre, past the arrow's tip (0.6 x). One row, never animated.
+   6.5% of the circle's height (6% on a laptop), but never wider than about 44% of the circle, so a
+   long word (up to 30 letters) gets smaller tiles and stays clear of the seats beside it: a tile
+   and its gap take about 1.1em, the caret 0.3em, and --n counts the letters with :has, in steps. */
 .spotlight {
+  --n: 12;
   position: absolute; left: 50%; top: calc(50% + var(--bomb-size) * 0.62); transform: translateX(-50%);
-  font-size: 6.5cqh; z-index: 3; display: inline-flex; align-items: center; flex-wrap: nowrap; white-space: nowrap;
+  font-size: min(6.5cqh, calc(44cqw / (1.1 * var(--n) + 0.3)));
+  z-index: 3; display: inline-flex; align-items: center; flex-wrap: nowrap; white-space: nowrap;
 }
 .spotlight .tiles { flex-wrap: nowrap; max-width: none; }
-.arena .spotlight { font-size: 6cqh; }
+.arena .spotlight { font-size: min(6cqh, calc(44cqw / (1.1 * var(--n) + 0.3))); }
+.spotlight:has(.tiles > :nth-child(13)) { --n: 14; }
+.spotlight:has(.tiles > :nth-child(15)) { --n: 16; }
+.spotlight:has(.tiles > :nth-child(17)) { --n: 18; }
+.spotlight:has(.tiles > :nth-child(19)) { --n: 20; }
+.spotlight:has(.tiles > :nth-child(21)) { --n: 22; }
+.spotlight:has(.tiles > :nth-child(23)) { --n: 24; }
+.spotlight:has(.tiles > :nth-child(25)) { --n: 26; }
+.spotlight:has(.tiles > :nth-child(27)) { --n: 28; }
+.spotlight:has(.tiles > :nth-child(29)) { --n: 30; }
 /* The typing cursor, after the typed tiles. Steady: only the bomb and the join pop move. */
 .caret {
   display: inline-block; width: 0.14em; height: 1.2em; margin-left: 0.12em; border-radius: 0.07em;
@@ -351,18 +387,21 @@ main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
   aspect-ratio: auto; width: min(100cqw, 250cqh); height: 100cqh; max-width: none; container-type: size; --seat-size: 3.2cqh;
 }
 /* Seats: big for a few players, smaller as the ring fills; above 20 the circle's .small (x0.8).
-   At 1920x1080 the names are 32px up to 16 seats and 24px with two rings (the back-of-room floor);
-   17 to 20 seats on one ring are as crowded as two rings, so they come down to about that size. */
-.p-ring .circle:not(:has(> .seat:nth-child(11))) { --seat-size: 4.2cqh; }
-.p-ring .circle:has(> .seat:nth-child(11)):not(:has(> .seat:nth-child(17))) { --seat-size: 3.4cqh; }
-.p-ring .circle:has(> .seat:nth-child(17)):not(:has(> .seat:nth-child(19))) { --seat-size: 2.8cqh; }
-.p-ring .circle:has(> .seat:nth-child(19)):not(:has(> .seat:nth-child(21))) { --seat-size: 2.6cqh; }
+   At 1920x1080 the names are 41px up to 16 seats (checked end to end with 15 and long words), 30px
+   at 17 and 18, 28px at 19 and 20, and 24px with two rings (the back-of-room floor). The cqw limit
+   keeps them clear of each other when the circle is narrower, as with the ⚙ overlay open (about
+   30px there, at 15 seats). */
+.p-ring .circle:not(:has(> .seat:nth-child(17))) { --seat-size: min(4.3cqh, 2.3cqw); }
+.p-ring .circle:has(> .seat:nth-child(17)):not(:has(> .seat:nth-child(19))) { --seat-size: min(3.2cqh, 2cqw); }
+.p-ring .circle:has(> .seat:nth-child(19)):not(:has(> .seat:nth-child(21))) { --seat-size: min(3cqh, 1.86cqw); }
 /* A seat grows to fit its word: the last word is one row of tiles, never split across two. */
 .p-ring .circle .seat { max-width: none; }
 .p-ring .seat .last-word { max-width: none; }
 .p-ring .seat .last-word .tiles { flex-wrap: nowrap; max-width: none; }
-/* The bomb: big with one ring, smaller with two so the arrow and flame clear the inner ring. */
-.p-ring .circle { --bomb-size: 47cqh; }
+/* The bomb: about 31% of the circle's height with one ring (294px at 1920x1080), so the names can be
+   bigger and the spotlight fits under it; smaller still with two, so the arrow and flame clear the
+   inner ring. */
+.p-ring .circle { --bomb-size: 31cqh; }
 .p-ring .circle:has(.seat.small) { --bomb-size: 37cqh; }
 
 /* On the bomb: the prompt type, then the prompt on tiles (and bomb.js's countdown number below).
@@ -370,15 +409,16 @@ main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
    on the bomb and may reach past its body at the sides; they never wrap. The prompt type is small,
    on a dark label, so it reads where it crosses the rim or cap. */
 .p-ask {
-  font-family: var(--font-display); font-weight: 800; font-size: 5.5cqw; line-height: 1; letter-spacing: 0.04em; white-space: nowrap;
+  font-family: var(--font-display); font-weight: 800; font-size: 6.5cqw; line-height: 1; letter-spacing: 0.04em; white-space: nowrap;
   color: var(--names); background: var(--tile-ink); border-radius: 0.4em; padding: 0.2em 0.45em 0.25em;
 }
-.p-prompt { font-size: 18cqw; line-height: 1; }
+.p-prompt { font-size: 25cqw; line-height: 1; }
 .p-prompt .tiles { flex-wrap: nowrap; max-width: none; }
-/* With the countdown the stack is a little taller than the bomb's body: the label moves up over the
-   top of the rim (it is on its own dark label), so the number's foot stays on the dark body, clear
-   of the light rim. The tiles keep their size. */
-.circle-centre:has([data-countdown]) .p-ask { font-size: 5cqw; margin-top: -4cqw; }
+/* With the countdown the stack is taller than the bomb's body: the label moves up over the top of
+   the rim (it is on its own dark label) and the tiles shrink a little (68px at 1920x1080), so the
+   number's foot stays on the dark body, clear of the light rim. */
+.circle-centre:has([data-countdown]) .p-ask { font-size: 6cqw; margin-top: -13cqw; }
+.circle-centre:has([data-countdown]) .p-prompt { font-size: 23cqw; }
 .circle:has(.seat.small) .p-ask { font-size: 6cqw; }
 .circle:has(.seat.small) .p-prompt { font-size: 23cqw; }
 /* Two rings with a countdown: the stack is taller than the small bomb's body, so it moves up (the

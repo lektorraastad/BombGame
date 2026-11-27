@@ -273,6 +273,7 @@ test("style.css: the spotlight never animates and never wraps", () => {
   assert.match(base, /left:\s*50%/);
   assert.match(base, /top:\s*calc\(50% \+ var\(--bomb-size\) \* 0\.62\)/);
   assert.match(base, /transform:\s*translateX\(-50%\)/);
-  assert.match(base, /font-size:\s*[\d.]+cqh/);
+  // In cqh of the circle, and no wider than a share of it (a long word gets smaller tiles).
+  assert.match(base, /font-size:\s*min\([\d.]+cqh,\s*calc\([\d.]+cqw/);
   assert.match(base, /z-index:\s*3/);
 });
