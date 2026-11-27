@@ -913,6 +913,7 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
         if (overlay) await openOverlay(host);
         await host.waitForTimeout(300);
         const where = `${names.length} seats${overlay ? ", overlay open" : ""}`;
+        // 6 seats with the overlay closed: a two-line name at the bottom seat ("Kristian Johnsen") pokes about 17 px out of the circle box but stays on screen, so this run checks against the screen.
         const l = await checkSpotlight(host, "#projector", typed, where, { seats: names.length, within: overlay || names.length === 6 ? "screen" : "circle" });
         assert.ok(l.minName >= before, `${where}: names are ${l.minName.toFixed(1)} px, before ${before} px`);
       }
