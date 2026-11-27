@@ -615,9 +615,9 @@ main.results h1 { color: var(--muted); margin: 4px 0 0; }
   --n: 12;
   position: absolute; left: 50%; top: calc(50% + var(--bomb-size) * 0.62); transform: translateX(-50%);
   z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 0.3em;
-  font-size: min(5.5cqh, calc(52cqw / (1.1 * var(--n) + 0.3)));
+  font-size: min(5.5cqh, calc(44cqw / (1.1 * var(--n) + 0.3)));
 }
-.arena .spot-examples { font-size: min(5cqh, calc(52cqw / (1.1 * var(--n) + 0.3))); }
+.arena .spot-examples { font-size: min(5cqh, calc(44cqw / (1.1 * var(--n) + 0.3))); }
 .spot-examples-row { display: flex; flex-wrap: nowrap; gap: 1em; white-space: nowrap; }
 .spot-examples-row .tiles { flex-wrap: nowrap; max-width: none; }
 .spot-examples-label {
