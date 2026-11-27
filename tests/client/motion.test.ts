@@ -241,7 +241,7 @@ test("bombState passes the countdown and lit through", () => {
 
 test("bombState before any view is a still, unlit-safe bomb", () => {
   const { m } = tracker();
-  assert.deepEqual(m.bombState(null, false), { lit: false, arrow: null, countdownMs: null, fuse: null, explosion: null, tension: 0 });
+  assert.deepEqual(m.bombState(null, false), { lit: false, arrow: null, countdownMs: null, fuse: null, explosion: null, tension: null });
   assert.equal(m.busy(), false);
 });
 
@@ -351,7 +351,8 @@ test("results are held for 1.5 s after a final explosion", () => {
   };
   m.view(results);
   const held = m.heldView(results);
-  assert.deepEqual(held, { ...playing, players: losers, examples: ["stone"], phase: "playing", paused: false, moments: [] });
+  const { typing: _t, bombRemainingMs: _b, ...still } = playing;
+  assert.deepEqual(held, { ...still, players: losers, examples: ["stone"], phase: "playing", paused: false, moments: [] });
   assert.equal(m.win(), null, "the win waits for the results");
   assert.equal(m.busy(), true);
   clock.t += RESULTS_HOLD_MS - 1;
@@ -432,19 +433,22 @@ test("tension grows from turnElapsedMs and freezes while paused", () => {
   assert.equal(m.tension(), 0);
   m.view(classicView("a", { turnElapsedMs: 5_000 }));
   assert.equal(m.tension(), 5_000 / TENSION_FULL_MS);
-  assert.equal(m.bombState(null, true).tension, 5_000 / TENSION_FULL_MS);
-  assert.equal(m.busy(), true, "the flame keeps growing");
+  assert.deepEqual(m.bombState(null, true).tension, { elapsedMs: 5_000, running: true });
+  assert.equal(m.busy(), false, "the flame grows in CSS: no redraws for it");
   clock.t += 5_000;
   assert.equal(m.tension(), 10_000 / TENSION_FULL_MS);
+  assert.deepEqual(m.bombState(null, true).tension, { elapsedMs: 10_000, running: true });
   // Paused: frozen at the server's age.
   m.view(classicView("a", { paused: true, turnElapsedMs: 10_000 }));
   clock.t += 60_000;
   assert.equal(m.tension(), 10_000 / TENSION_FULL_MS);
+  assert.deepEqual(m.bombState(null, false).tension, { elapsedMs: 10_000, running: false });
   assert.equal(m.busy(), false);
   // Running again, then full, and it stays at 1.
   m.view(classicView("a", { turnElapsedMs: 10_000 }));
   clock.t += 60_000;
   assert.equal(m.tension(), 1);
+  assert.deepEqual(m.bombState(null, true).tension, { elapsedMs: 70_000, running: true });
   assert.equal(m.busy(), false);
   // The bomb passes: back to the new turn's age.
   m.view(classicView("b", { turnElapsedMs: 0 }));
@@ -454,6 +458,7 @@ test("tension grows from turnElapsedMs and freezes while paused", () => {
   assert.equal(m.tension(), 0);
   m.view(classicView("b", { turnElapsedMs: -50 }));
   assert.equal(m.tension(), 0);
+  assert.equal(m.bombState(null, true).tension, null);
 });
 
 test("tension is 0 with a visible countdown", () => {
@@ -462,7 +467,7 @@ test("tension is 0 with a visible countdown", () => {
   m.view(classicView("a", { bombRemainingMs: 8_000 }));
   clock.t += 5_000;
   assert.equal(m.tension(), 0);
-  assert.equal(m.bombState(8_000, true).tension, 0);
+  assert.equal(m.bombState(8_000, true).tension, null);
 });
 
 test("an Everyone word moment pops that seat", () => {
@@ -492,4 +497,31 @@ test("malformed moments never throw", () => {
   assert.equal(m.win(), null);
   assert.equal(m.heldView(null), null);
   assert.equal(m.tension(), 0);
+});
+
+test("the held results show the example words, not the stale typing", () => {
+  const { clock, m } = tracker();
+  m.view(classicView("b", { typing: "sto", turnElapsedMs: 9_000 }));
+  clock.t += 1_000;
+  const results = {
+    ...classicView(null), phase: "results", examples: ["stone"], lastEvent: "explosion",
+    moments: [{ kind: "explosion" }, { kind: "win", pids: ["a"] }],
+  };
+  m.view(results);
+  const held = m.heldView(results);
+  assert.equal(held.phase, "playing");
+  assert.equal(held.typing, undefined);
+  assert.equal(held.bombRemainingMs, undefined);
+  assert.equal(held.turnElapsedMs, undefined);
+  assert.equal(m.examplesShown(held), true);
+  clock.t += RESULTS_HOLD_MS - 1;
+  assert.equal(m.examplesShown(m.heldView(results)), true);
+});
+
+test("an explosion without example words doesn't keep the page busy", () => {
+  const { clock, m } = tracker();
+  m.view(classicView("a"));
+  m.view(classicView("b", { lastEvent: "explosion", moments: [{ kind: "explosion" }] }));
+  clock.t += EXPLOSION_MS;
+  assert.equal(m.busy(), false);
 });

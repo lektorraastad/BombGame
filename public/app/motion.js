@@ -23,7 +23,12 @@ export const EXAMPLES_MS = 4000;
 export const TENSION_FULL_MS = 25000;
 
 /** @typedef {import("./bomb.js").BombState} BombState */
-/** The bomb's state with the hidden fuse's tension, from 0 to 1 (bomb.js reads it). @typedef {BombState & { tension: number }} MotionBombState */
+/**
+ * The hidden fuse's turn: how long it has gone, and whether it is still going (playing, not paused).
+ * bomb.js draws the flame's growth as one CSS animation over TENSION_FULL_MS from this.
+ * @typedef {null | { elapsedMs: number, running: boolean }} Tension
+ */
+/** The bomb's state with the tension (Task 5 folds this into BombState). @typedef {BombState & { tension: Tension }} MotionBombState */
 
 /** @param {any} v */
 const isClassic = (v) => Array.isArray(v?.mode?.seats);
@@ -76,7 +81,9 @@ export function createMotion(now) {
   /** The hidden turn's age from the last view that had one, and when that view came. @type {number | null} */
   let turnBase = null;
   let turnSeenAt = 0;
-  let turnPaused = false;
+  let turnRunning = false;
+  /** Whether the latest view had example words. */
+  let hasExamples = false;
 
   const swinging = () => to !== null && now() - swingAt < ARROW_SWING_MS;
   const exploding = () => now() - explodedAt < EXPLOSION_MS;
@@ -85,10 +92,11 @@ export function createMotion(now) {
   const showingRefused = () => refusedPid !== null && now() - refusedAt < REFUSED_MS;
   const showingWin = () => winPids.length > 0 && now() - winAt < WIN_MS; // includes the wait through a hold
   const showingExamples = () => now() - examplesAt < EXAMPLES_MS && !typedSince;
+  /** The hidden turn's age: the last turnElapsedMs, plus the local time since while it runs. */
+  const turnAge = () => (turnBase === null ? null : turnBase + (turnRunning ? Math.max(0, now() - turnSeenAt) : 0));
   const tension = () => {
-    if (turnBase === null) return 0;
-    const age = turnBase + (turnPaused ? 0 : Math.max(0, now() - turnSeenAt));
-    return Math.min(1, Math.max(0, age / TENSION_FULL_MS));
+    const age = turnAge();
+    return age === null ? 0 : Math.min(1, Math.max(0, age / TENSION_FULL_MS));
   };
 
   return {
@@ -139,7 +147,7 @@ export function createMotion(now) {
       if (typeof v?.turnElapsedMs === "number" && Number.isFinite(v.turnElapsedMs) && v.turnElapsedMs >= 0) {
         turnBase = v.turnElapsedMs;
         turnSeenAt = now();
-        turnPaused = v.paused === true;
+        turnRunning = v.phase === "playing" && v.paused !== true;
       } else {
         turnBase = null;
       }
@@ -185,6 +193,7 @@ export function createMotion(now) {
         }
       }
 
+      hasExamples = Array.isArray(v?.examples) && v.examples.length > 0;
       if (v?.phase === "playing") lastPlaying = v;
       prev = v;
     },
@@ -202,7 +211,10 @@ export function createMotion(now) {
         countdownMs,
         fuse: countdownMs === null || fuseKey === "" ? null : { totalMs: fuseTotal, elapsedMs: Math.max(0, fuseTotal - countdownMs) },
         explosion: exploding() ? { elapsedMs: t - explodedAt } : null,
-        tension: tension(),
+        tension: (() => {
+          const age = turnAge();
+          return age === null ? null : { elapsedMs: age, running: turnRunning };
+        })(),
       };
     },
 
@@ -233,12 +245,14 @@ export function createMotion(now) {
 
     /**
      * The view to draw: for RESULTS_HOLD_MS after the last explosion, the circle as it was while
-     * playing, with the results' players (so the last heart cracks); otherwise the view itself.
-     * Display only: the server's phase has already changed. @param {any} v
+     * playing, with the results' players (so the last heart cracks) and example words, and without
+     * the old typing, timer or turn age; otherwise the view itself. Display only: the server's phase
+     * has already changed. @param {any} v
      */
     heldView(v) {
       if (v?.phase !== "results" || !holding() || !holdBase) return v;
-      return { ...holdBase, players: v.players, examples: v.examples, phase: "playing", paused: false, moments: [] };
+      const { typing: _t, bombRemainingMs: _b, turnElapsedMs: _e, ...base } = holdBase;
+      return { ...base, players: v.players, examples: v.examples, phase: "playing", paused: false, moments: [] };
     },
 
     /**
@@ -251,7 +265,7 @@ export function createMotion(now) {
       return showingExamples();
     },
 
-    /** How far the hidden fuse's turn has gone, from 0 to 1 at TENSION_FULL_MS; 0 without one. */
+    /** How far the hidden fuse's turn has gone, from 0 to 1 at TENSION_FULL_MS; 0 without one (for the sound). */
     tension,
 
     /** How long ago this player joined, while their pop runs; null otherwise. @param {string} pid */
@@ -263,8 +277,8 @@ export function createMotion(now) {
     },
 
     /**
-     * True while a swing, an explosion, a pop, a moment, the results hold, the example words or a
-     * growing flame is still running, so the page keeps redrawing.
+     * True while a swing, an explosion, a pop, a moment, the results hold or the example words are
+     * still running, so the page keeps redrawing. The hidden fuse's flame grows in CSS: not here.
      */
     busy() {
       const t = now();
@@ -278,9 +292,8 @@ export function createMotion(now) {
         if (t - at < HEART_MS) cracking = true;
         else heartAt.delete(pid);
       }
-      const growing = turnBase !== null && !turnPaused && tension() < 1;
       return popping || cracking || swinging() || exploding() || holding() || showingWord() || showingRefused()
-        || showingWin() || showingExamples() || growing;
+        || showingWin() || (hasExamples && showingExamples());
     },
   };
 }
