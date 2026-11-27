@@ -281,21 +281,6 @@ const overlaps = (a: Box, b: Box) =>
 const by = (a: Box, b: Box) =>
   `by ${(Math.min(a.right, b.right) - Math.max(a.left, b.left)).toFixed(1)}×${(Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)).toFixed(1)} px`;
 
-/** What is wrong with a circle's layout: seats on top of each other or the bomb, or outside the circle. */
-function layoutProblems(l: Layout): string[] {
-  const out: string[] = [];
-  const s = l.seatBoxes;
-  for (let i = 0; i < s.length; i++) {
-    for (let j = i + 1; j < s.length; j++) if (overlaps(s[i], s[j])) out.push(`${s[i].name} overlaps ${s[j].name} ${by(s[i], s[j])}`);
-    if (overlaps(s[i], l.bomb)) out.push(`${s[i].name} overlaps the bomb ${by(s[i], l.bomb)}`);
-    const c = l.circle;
-    if (s[i].left < c.left - 0.5 || s[i].top < c.top - 0.5 || s[i].right > c.right + 0.5 || s[i].bottom > c.bottom + 0.5) {
-      out.push(`${s[i].name} is outside the circle`);
-    }
-  }
-  return out;
-}
-
 type SpotLayout = Layout & {
   spot: Box | null; spotText: string; arrow: Box | null; bombCx: number; bombCy: number; bombSize: number;
   minName: number; prompt: number; parts: { name: string; boxes: Box[] }[];
@@ -351,7 +336,7 @@ async function spotlightLayout(page: any, root: string): Promise<SpotLayout> {
  * What is wrong with the seats, part by part: a drawn part of one seat (emoji, name, hearts, word)
  * on a part of another seat, on the bomb or on the example answers' line, or outside `within` (the
  * circle, or for a narrow oval the whole screen: then a long name may reach a little past the
- * circle at the side, but never off the screen or under the ⚙ overlay). Unlike layoutProblems, two
+ * circle at the side, but never off the screen or under the ⚙ overlay). Unlike whole seat boxes, two
  * seats' boxes may meet at their empty corners (a long word under one seat, beside the next seat's
  * hearts), as long as nothing drawn is covered.
  */
@@ -840,15 +825,17 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     await startFromOverlay(host);
 
     // One lap: everyone plays a word, so every seat carries one. Most are 4 to 10 letters; the first
-    // two players whose prompt allows it play a long word, of 12 or 13 letters. Not 14: with two
-    // 14-letter words, two seats' boxes can touch at their empty corners (nothing drawn is covered),
-    // which this box check would count as an overlap.
+    // two players whose prompt allows it play a long word of 12 letters, the longest the layout
+    // promises room for (the batch 2 design). At 13, a word's tiles can reach a pixel or two onto the
+    // next seat's emoji at 1920×1080. A long word makes its seat's box wider than the emoji and name
+    // above it, so two seats' boxes can meet at their empty corners: the checks below compare the
+    // drawn parts (seatPartProblems), as the spotlight tests do.
     const used = new Set<string>();
     let longLeft = 2;
     const pick = (p: Prompt) => {
       const t = p.text.toLowerCase();
       const fits = (w: string) => w.includes(t) && !used.has(w);
-      const long = longLeft > 0 ? KNOWN.filter((x) => x.length >= 12 && x.length <= 13 && fits(x)).sort((a, b) => b.length - a.length)[0] : undefined;
+      const long = longLeft > 0 ? KNOWN.find((x) => x.length === 12 && fits(x)) : undefined;
       if (long) longLeft--;
       const w = long ?? KNOWN.find((x) => x.length >= 4 && x.length <= 10 && fits(x)) ?? KNOWN.find(fits);
       assert.ok(w, `no word for ${t}`);
@@ -891,21 +878,21 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     for (const viewport of [{ width: 1280, height: 720 }, { width: 1920, height: 1080 }]) {
       await host.setViewportSize(viewport);
       await host.waitForTimeout(300);
-      const l = await circleLayout(host, "#projector .circle");
+      const l = await spotlightLayout(host, "#projector");
       assert.equal(l.seats, 24);
       assert.equal(l.ring1, 12);
       assert.equal(await host.locator("#projector .seat .last-word").count(), 23, "every seat but the typing one shows a word");
-      assert.deepEqual(layoutProblems(l), [], `projector ${viewport.width}×${viewport.height}`);
+      assert.deepEqual(seatPartProblems(l), [], `projector ${viewport.width}×${viewport.height}`);
       assert.deepEqual(await splitNameWords(host, "#projector"), [], "a long name wraps at its space");
       const c = await countdownClearance(host, "#projector");
       assert.ok(c.clear >= 1, `projector ${viewport.width}: "${c.text}" is ${(-c.clear).toFixed(1)} px over the rim`);
     }
 
     await student.locator(".seat.on .typing", { hasText: "strength" }).waitFor({ timeout: WAIT });
-    const l = await circleLayout(student, "main .circle.compact");
+    const l = await spotlightLayout(student, "main");
     assert.equal(l.seats, 24);
     assert.equal(l.ring1, 12);
-    assert.deepEqual(layoutProblems(l), [], "student 1366×768");
+    assert.deepEqual(seatPartProblems(l), [], "student 1366×768");
     assert.deepEqual(await splitNameWords(student, "main .circle"), [], "a long name wraps at its space");
     const c = await countdownClearance(student, "main .circle");
     assert.ok(c.clear >= 1, `student: "${c.text}" is ${(-c.clear).toFixed(1)} px over the rim`);

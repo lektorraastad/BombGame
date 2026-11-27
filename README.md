@@ -82,9 +82,20 @@ Then try the game once yourself: open `/host` in one tab and `/` in two other ta
    - **Open control window** opens the control panel in a separate window. Drag it to your own laptop screen if the projector shows a second screen and not a copy of yours.
    - **On your phone**, go to the site address with `/control` at the end, then type the room code and the passcode.
 
+**Before a lesson: pick Classic or Everyone at once, then Gentle, Normal or Fast. Other settings are under More settings.** In the control panel, under **Settings**:
+
+1. Next to **Mode**, choose **Classic** or **Everyone at once**.
+2. Click **Gentle**, **Normal** or **Fast**. The button you clicked stays highlighted, and the line under the buttons says, for example, "Using: Gentle".
+   - **Gentle:** easy letters, 3 lives and more time. Good for a new or weaker class.
+   - **Normal:** what every new room starts with.
+   - **Fast:** the same letters as Normal, with less time.
+3. That's all. Everything else is under **More settings**: click it to open the list. If you change one of those settings by hand, the line says "Using: Custom". Click a setup button again to go back to it.
+
+A setup never changes the mode or the theme, and the game keeps it when you switch mode. Every new room starts on Normal, so choose again at the start of each lesson.
+
 In the control panel you can:
 
-- **Change the settings** before a game: the mode (**Classic**, where the bomb is passed around, or **Everyone at once**), the difficulty, the timer, the number of lives, and what knocked-out players do. Settings are locked while a game is running, except the **Theme** (the colours for every screen), which you can change at any time.
+- **Change the settings** before a game: the mode (**Classic**, where the bomb is passed around, or **Everyone at once**), the setup, and under **More settings** the difficulty, the timer, the number of lives, and what knocked-out players do. Settings are locked while a game is running, except the **Theme** (the colours for every screen), which you can change at any time.
 - **Difficulty** decides how hard the letters are:
   - **Easy:** only letters that lots of everyday words contain.
   - **Normal** (the default): mostly easy letters, with a slightly harder one about every fifth turn.

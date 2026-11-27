@@ -45,10 +45,10 @@ Run both `npm test` and the type check after every change. Both must pass before
 These come from the game's design. The tests in `tests/engine/views.test.ts` check most of them.
 
 - **Privacy.** Nothing is saved to disk and nicknames are never logged. Screens never get a player's `token` (their secret rejoin key).
-- **The projector** never shows ghost words, silent answers, ghost points or scores. The only words it shows are real-turn words (each player's last one, and the longest word in the results) and live typing.
+- **The projector** never shows ghost words, silent answers, ghost points or scores. The only player words it shows are real-turn words (each player's last one, and the longest word in the results) and live typing. (It also shows dictionary example answers, which are not player words.)
 - **Student screens** get the projector's view plus their own `me` data. So they show other players' last real-turn words and the live typing, but never other players' scores, ghost points, silent answers or ghost words. Each student sees only their own score, and a ghost sees only their own ghost points and streak (in `me.activity`).
 - Otherwise, ghost points appear only on the teacher's control screen. The results rank the best ghosts without points.
-- **Live typing** is on by default. When it is on, every screen (projector, student screens and control screen) shows only the current Classic player's text, with blocked words masked as stars, and only while a game is running: never in Everyone at once and never during the results. The room stores typing only for that one player, so anyone else's keystrokes change nothing and send nothing. Typed text is cleared every time a new prompt is dealt, so a half-typed (or silent) word never shows for the next turn.
+- **Live typing** is on by default. When it is on, the projector and student screens show only the current Classic player's text (the control screen receives it in its view but doesn't draw it), with blocked words masked as stars, and only while a game is running: never in Everyone at once and never during the results. The room stores typing only for that one player, so anyone else's keystrokes change nothing and send nothing. Typed text is cleared every time a new prompt is dealt, so a half-typed (or silent) word never shows for the next turn.
 - **Views only read.** Code in `src/engine/views.ts` must never change the room. It uses read-only methods on `Room` such as `prompt()`, `modeView()`, `activityView(pid)`, `isOn(pid)`, `bombRemaining()` and `typingOf(pid)`. It must not use `room.context()`, which can change the game. Tests may use `room.context()`.
 - **Paused timer.** While paused, screens use `bombRemainingMs` (which stops counting) rather than the mode's `bombEndsAt` (a clock time, which is wrong after a pause). Hidden fuses never send either.
 
@@ -111,6 +111,8 @@ You never need to check the teacher's input yourself. The engine fills in missin
 4. Run the tests and the type check.
 
 The settings panel gets every setting from `settingsFor(modeId, activityId)` in `src/engine/registry.ts` (the control view sends it as `settingDecls`), so the new setting shows up without any screen changes.
+
+**The setups (Gentle, Normal and Fast).** Their values live in `PRESETS` in `src/engine/presets.ts`. A setup sets only the keys listed there (difficulty, lives and timing) and leaves every other setting alone. The `preset` core setting records which setup is chosen, or `"custom"` when a setting was changed by hand. `PRESETS.normal` must equal the declared defaults (a test checks this). If a new setting should be part of the setups, add its key to **every** setup in `PRESETS` and update `tests/engine/presets.test.ts`; otherwise leave `PRESETS` alone. The control panel shows Mode and the setup buttons at the top and puts every other setting under "More settings" (`public/app/render-control.js`).
 
 Don't put the list of modes or activities into `CORE_SETTINGS`. The "Mode" and "When knocked out" choices are left empty there on purpose and filled in from `MODES` and `ACTIVITIES` (by `withChoices` in `src/engine/settings.ts`), so the registry is the only list.
 

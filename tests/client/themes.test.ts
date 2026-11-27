@@ -58,6 +58,8 @@ test("readable in every theme", () => {
     ["--names", "--panel", 4.5], ["--muted", "--panel", 4.5], ["--refusal", "--stage", 4.5],
     ["--tile-ink", "--spark", 3], ["--lives", "--stage", 3], ["--answered", "--stage", 3],
     ["--spark", "--stage", 3], ["--tile", "--stage", 3], ["--bomb-rim", "--stage", 3],
+    // The ring round the setup in use, on the settings panel.
+    ["--spark", "--panel", 3],
     // Banners and answered ticks put tile ink on these.
     ["--tile-ink", "--refusal", 4.5], ["--tile-ink", "--answered", 4.5],
     // The countdown number on the bomb (large text), calm and urgent.
@@ -112,6 +114,18 @@ test("no colour is written outside themes.css", () => {
       assert.ok(!HEX.test(m[1]), `${f}: a colour inside ${m[0].slice(0, 30)}`);
     }
   }
+});
+
+test("while a game runs, the active setup button still looks pressed", () => {
+  // Locked buttons are dashed, see-through and faded; the pressed setup keeps a solid border, full
+  // opacity, readable name colour and the spark ring, so Roy can see which setup the game uses.
+  const css = read("style.css");
+  const rule = css.match(/\.ctl \.presets button\[aria-pressed="true"\]:disabled\s*\{([^}]*)\}/)?.[1];
+  assert.ok(rule, "a rule for the pressed setup while locked");
+  assert.match(rule, /opacity:\s*1\b/);
+  assert.match(rule, /border:\s*3px solid var\(--names\)/);
+  assert.match(rule, /color:\s*var\(--names\)/);
+  assert.match(rule, /box-shadow:\s*0 0 0 4px var\(--spark\)/);
 });
 
 test("themeOf falls back to workshop", () => {
