@@ -951,6 +951,34 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     }
   });
 
+  test("30 players: a name wraps only between words, never in the middle of one", async () => {
+    const names = ["Aleksandra Berg", "Kristian Johnsen", "Ingrid", "Ola", "Jonas", "Emil", "Aisha", "Mats", "Nora", "Filip", "Ella", "Oskar", "Maja", "Henrik", "Leah",
+      "Sander", "Emma", "Sofie", "Lukas", "Kari", "Tuva", "Mohammed", "Christoffer", "Ada", "Iben", "Jakob", "Selma", "Vetle", "Hanna", "Theo"];
+    assert.equal(names.length, 30);
+    const { host, code } = await hostRoom();
+    for (const name of names) await wsPlayer(code, name);
+    await host.locator(".seat").nth(names.length - 1).waitFor({ timeout: WAIT });
+    await host.setViewportSize({ width: 1920, height: 1080 });
+    await settings(host, code, { mode: "classic", timerStyle: "visible", turnTime: 60, promptTypes: ["contains"] });
+    await startFromOverlay(host);
+    await host.waitForTimeout(300);
+    // Every word of every name is on one line: a Range round it has one client rect.
+    const split: string[] = await host.evaluate(() => {
+      const bad: string[] = [];
+      for (const el of document.querySelectorAll("#projector .seat .name")) {
+        const text = el.firstChild as Text;
+        for (const m of text.data.matchAll(/\S+/g)) {
+          const r = document.createRange();
+          r.setStart(text, m.index!);
+          r.setEnd(text, m.index! + m[0].length);
+          if (r.getClientRects().length > 1) bad.push(`${text.data}: ${m[0]}`);
+        }
+      }
+      return bad;
+    });
+    assert.deepEqual(split, [], "words split across lines");
+    await closeContexts();
+  });
   test("spotlight: a 30-character typed word stays on one row, inside the circle, clear of every seat", async () => {
     const typed = "abcdefghijklmnopqrstuvwxyzabcd";
     assert.equal(typed.length, 30);

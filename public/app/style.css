@@ -290,9 +290,9 @@ main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
 /* Never cut short: students find their seat by name. A long name wraps onto a second line at a
    space; only a single word too long for the label (wider than "Mohammed" or "Christoffer") breaks. */
 .circle .seat .name {
-  max-width: 6.8em; overflow-wrap: break-word; line-height: 1.05;
+  max-width: 7.1em; overflow-wrap: break-word; line-height: 1.05;
   font-family: var(--font-display); font-weight: 800; background: var(--plate); color: var(--plate-ink);
-  border-radius: 999px; padding: 0.08em 0.55em 0.12em; box-shadow: 0 0.08em 0.22em color-mix(in srgb, var(--stage) 60%, black);
+  border-radius: 999px; padding: 0.08em 0.45em 0.12em; box-shadow: 0 0.08em 0.22em color-mix(in srgb, var(--stage) 60%, black);
 }
 .circle .seat .lives { font-size: 0.75em; color: var(--lives); letter-spacing: 0.05em; line-height: 1; white-space: nowrap; }
 .circle .seat .away { font-size: 0.65em; color: var(--muted); }
