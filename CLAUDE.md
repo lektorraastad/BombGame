@@ -62,7 +62,7 @@ Roy is a teacher, not a developer. Explain things in plain language, keep messag
 
    Each one needs a short design that Roy approves before any building.
    - **Batch 1 is live** (difficulty, words and names, the tick-tock sound and the Sound button; merged on 26 November 2026 at Roy's request, PR lektorraastad/BombGame#2). Things for Roy to watch in the first lesson: whether Normal feels right for the class, and whether the tick-tock is loud enough on the classroom speakers.
-   - **Batch 2** (layout: the spotlight, smaller bomb, bigger names) is built on branch `claude/elegant-newton-cozbue`. It waits for Roy to check the deploy preview and give the go-ahead to merge (never on a lesson day).
+   - **Batch 2 is live** (layout: the spotlight, smaller bomb, bigger names; merged on 27 November 2026 at Roy's request, PR lektorraastad/BombGame#3).
    - **Batch 3** (settings presets and housekeeping) follows, with its own design for Roy to approve.
 3. **Small follow-ups:** in `docs/EXTENDING.md` privacy rules, say "player words" (the dictionary examples are also shown), and note that the control screen receives typing but doesn't draw it.
 4. **Later:**
