@@ -638,6 +638,43 @@ test("turn age is measured per turn, never from the fuse: it resets when the bom
   assert.equal(host.views().at(-1).turnElapsedMs, 2500);
 });
 
+test("turn age resets when the bomb passes with no top-up, while the same fuse keeps running", async () => {
+  const { hub, clock } = makeHub();
+  const { host, on, off, started, pidOf } = await gameWith(hub, { mode: "classic", timerStyle: "hidden", fuseMin: 30, fuseMax: 30, minTurn: 8 });
+  await clock.advance(2000);
+  on.send({ t: "submit", word: fitting(started.prompt) });
+  assert.equal(on.last("result").ok, true);
+  await tick();
+  // About 28 s are left, more than minTurn, so the engine did not re-arm: the fuse runs on across the pass.
+  const passed = host.views().at(-1);
+  assert.equal(passed.mode.current, pidOf(off), "the bomb passed");
+  assert.equal(passed.turnElapsedMs, 0, "the new turn starts at 0, not at the fuse's 2000");
+  assert.equal(off.views().at(-1).turnElapsedMs, 0);
+  await clock.advance(3000);
+  host.send({ t: "cmd", cmd: "lock" });
+  await tick();
+  assert.equal(host.views().at(-1).mode.current, pidOf(off));
+  assert.equal(host.views().at(-1).turnElapsedMs, 3000, "it grows with the clock from the pass");
+});
+
+test("win from a paused game: a kick leaves one player", async () => {
+  const { hub } = makeHub();
+  const { host, on, off, pidOf } = await gameWith(hub, { mode: "classic", timerStyle: "hidden" });
+  host.send({ t: "cmd", cmd: "pause" });
+  await tick();
+  assert.equal(host.views().at(-1).phase, "paused");
+  host.clear();
+  host.send({ t: "cmd", cmd: "kick", pid: pidOf(on) });
+  assert.deepEqual(host.msgs.at(-1), { t: "result", ok: true });
+  await tick();
+  const v = host.views().at(-1);
+  assert.equal(v.phase, "results");
+  assert.deepEqual(v.results.winners, [pidOf(off)]);
+  assert.deepEqual(v.moments, [{ kind: "win", pids: [pidOf(off)] }]);
+  assert.deepEqual(off.views().at(-1).moments, [{ kind: "win", pids: [pidOf(off)] }]);
+  assert.deepEqual((await poke(host)).moments, [], "listed once");
+});
+
 test("turn age freezes while paused", async () => {
   const { hub, clock } = makeHub();
   const { host } = await gameWith(hub, { mode: "classic", timerStyle: "hidden", fuseMin: 30, fuseMax: 30 });

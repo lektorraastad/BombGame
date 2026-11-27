@@ -109,11 +109,17 @@ function seenOf(room: Room): Seen {
   };
 }
 
+/** The game ended with a winner since the last broadcast. */
+const won = (next: Seen): Moment[] =>
+  next.phase === "results" && next.winners.length > 0 ? [{ kind: "win", pids: [...next.winners] }] : [];
+
 /**
  * Every moment since the last broadcast. Like lastEvent, nothing counts unless the game was playing,
- * and nothing on the way back to the lobby. A refusal is passed in, as the room keeps no record of it.
+ * and nothing on the way back to the lobby. The one exception is a win from a paused game (a kick
+ * during a pause can leave one player). A refusal is passed in, as the room keeps no record of it.
  */
 function momentsBetween(prev: Seen | null, next: Seen, refused: string | null): Moment[] {
+  if (prev && prev.phase === "paused") return won(next);
   if (!prev || prev.phase !== "playing" || next.phase === "lobby") return [];
   const out: Moment[] = [];
   const words = new Set<string>();
@@ -137,7 +143,7 @@ function momentsBetween(prev: Seen | null, next: Seen, refused: string | null): 
     out.push({ kind: "all-answered" });
   }
 
-  if (next.phase === "results" && next.winners.length > 0) out.push({ kind: "win", pids: [...next.winners] });
+  out.push(...won(next));
   return out;
 }
 
