@@ -124,3 +124,17 @@ test("Easy, Normal and Rising never deal STS or CTS, at any stage", () => {
     }
   }
 });
+
+test("ranks.txt and names.txt exist and are non-empty", () => {
+  assert.ok(gen("ranks.txt").trim().length > 0);
+  assert.ok(gen("names.txt").trim().length > 0);
+  const { rarity } = loadWordData(gen);
+  assert.equal(rarity("barbados"), null);
+  assert.equal(typeof rarity("turkey"), "number"); // also an NGSL word, so not only a name
+  assert.equal(rarity("apples"), rarity("apple"));
+});
+
+test("an old generated folder without ranks.txt or names.txt still loads", () => {
+  const { rarity } = loadWordData((n) => { if (n === "ranks.txt" || n === "names.txt") throw new Error("ENOENT"); return gen(n); });
+  assert.notEqual(rarity("barbados"), null);
+});

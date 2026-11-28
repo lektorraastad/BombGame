@@ -56,6 +56,33 @@ export function parseNgsl(text: string): Set<string> {
   return out;
 }
 
+/** NGSL stats CSV (Lemma,SFI Rank,...): headword -> rank. */
+export function parseNgslRanks(text: string): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const raw of text.split("\n")) {
+    const cols = raw.split(",");
+    const rank = Number(cols[1]);
+    const w = cleanLine(cols[0] ?? "");
+    if (Number.isInteger(rank) && rank > 0 && isGameWord(w) && !out.has(w)) out.set(w, rank);
+  }
+  return out;
+}
+
+/** NGSL lemma files: each line is a headword (first) and its forms. Returns form -> best headword rank. */
+export function ngslFamilyRanks(texts: string[], headRanks: Map<string, number>): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const text of texts) {
+    for (const raw of text.split("\n")) {
+      if (raw.replace(/^\uFEFF/, "").trimStart().startsWith("##")) continue;
+      const forms = raw.split(",").map(cleanLine).filter((w) => w !== "");
+      const rank = forms.length ? headRanks.get(forms[0]) : undefined;
+      if (rank === undefined) continue;
+      for (const w of forms) if (isGameWord(w) && rank < (out.get(w) ?? Infinity)) out.set(w, rank);
+    }
+  }
+  return out;
+}
+
 /**
  * Block-list files: one entry per line, "#" comments allowed.
  * `words` are single game words (used to block answers);
@@ -134,6 +161,10 @@ export type WordData = {
   blockedWords: string[];
   blockedNames: string[];
   prompts: Prompt[];
+  /** Known word form -> NGSL frequency rank of its headword (100000 when it has none). */
+  ranks: Map<string, number>;
+  /** Words on a name list that are not also ordinary NGSL or CEFR-J words. */
+  names: string[];
 };
 
 /** How many prompts of one type are at each level. */
@@ -196,6 +227,8 @@ export type RawWords = {
   knownExtra: string[];
   /** Roy's optional names-extra.txt (empty when missing). */
   namesExtra: string[];
+  /** ngsl-stats.csv (Lemma,SFI Rank,...): frequency ranks. Optional: without it every rank is 100000. */
+  ngslStats?: string;
   blocked: string[];
   namesOnly: string[];
 };
@@ -245,7 +278,22 @@ export function buildWordData(raw: RawWords): WordData {
   const dictionary = new Set<string>();
   for (const w of [...scowl, ...known, ...answerOnly]) if (!blockedWords.has(w)) dictionary.add(w);
 
+  // Frequency ranks for the Rarest word award: every NGSL family form gets its headword's rank.
+  const family = ngslFamilyRanks(raw.ngsl, parseNgslRanks(raw.ngslStats ?? ""));
+  const ranks = new Map<string, number>();
+  for (const w of sortedArray(known)) ranks.set(w, family.get(w) ?? 100000);
+
+  // Names: on a name list, not blocked, and not also an ordinary NGSL or CEFR-J word.
+  const ordinary = new Set<string>(cefrj.all);
+  for (const text of raw.ngsl) for (const w of parseNgsl(text)) ordinary.add(w);
+  const names = new Set<string>();
+  for (const w of [...places.known, ...places.answerOnly, ...holidays, ...brands, ...namesExtra]) {
+    if (!ordinary.has(w) && !blockedWords.has(w)) names.add(w);
+  }
+
   return {
+    ranks,
+    names: sortedArray(names),
     dictionary: sortedArray(dictionary),
     known: sortedArray(known),
     beginner: sortedArray(beginner),

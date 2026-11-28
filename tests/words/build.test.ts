@@ -130,7 +130,7 @@ test("prompts are sorted by type, count desc, text", () => {
 
 test("summary counts prompts per level by common, and the beginner words", () => {
   const data = {
-    dictionary: ["a", "b"], known: ["a"], beginner: ["a", "b", "c"], blockedWords: [], blockedNames: ["x"],
+    dictionary: ["a", "b"], known: ["a"], beginner: ["a", "b", "c"], blockedWords: [], blockedNames: ["x"], ranks: new Map(), names: [],
     prompts: [
       { text: "aa", type: "contains" as const, count: 25, common: 15 },
       { text: "ab", type: "contains" as const, count: 250, common: 14 },
@@ -267,4 +267,38 @@ test("prompts carry common = beginner words that fit", () => {
   const an = ps.find((p) => p.type === "contains" && p.text === "an")!;
   assert.equal(an.common, 2);
   assert.ok(ps.every((p) => typeof p.common === "number"));
+});
+
+test("ranks give every NGSL family form its headword's rank", () => {
+  const d = buildWordData(raw({
+    scowl: lines(["be", "was", "apple", "apples"]),
+    ngsl: [lines(["be,was,is", "apple,apples"])],
+    ngslStats: "Lemma,SFI Rank,SFI,Adj\r\nbe,2,86,48\r\napple,900,50,10\r\n",
+  }));
+  assert.equal(d.ranks.get("was"), 2);
+  assert.equal(d.ranks.get("be"), 2);
+  assert.equal(d.ranks.get("apples"), 900);
+});
+
+test("known words with no NGSL rank get 100000", () => {
+  const d = buildWordData(raw({ scowl: lines(["apple", "zebra"]), ngsl: [lines(["apple"])], cefrj: "zebra,noun,A1,x", ngslStats: "Lemma,SFI Rank\napple,5\n" }));
+  assert.equal(d.ranks.get("apple"), 5);
+  assert.equal(d.ranks.get("zebra"), 100000);
+});
+
+test("names excludes words also in NGSL or CEFR-J", () => {
+  const d = buildWordData(raw({
+    scowl: lines(["turkey", "english", "paris"]),
+    ngsl: [lines(["turkey"])],
+    cefrj: "english,noun,A1,x\n",
+    places: lines(["# countries", "turkey", "barbados", "# nationalities and languages", "english", "# cities", "paris"]),
+    brands: lines(["tiktok"]),
+    namesExtra: [lines(["roysland"])],
+  }));
+  assert.ok(!d.names.includes("turkey"));
+  assert.ok(!d.names.includes("english"));
+  assert.ok(d.names.includes("barbados"));
+  assert.ok(d.names.includes("tiktok"));
+  assert.ok(d.names.includes("paris"));
+  assert.ok(d.names.includes("roysland"));
 });

@@ -23,6 +23,7 @@ export function readRaw(rawDir: string): {
   const raw: RawWords = {
     scowl: req("scowl-words.txt"),
     ngsl: [req("ngsl-lemmatized.csv"), req("ngsl-supplementary.csv")],
+    ngslStats: req("ngsl-stats.csv"),
     cefrj: req("cefrj-vocabulary-profile-1.5.csv"),
     // Countries, nationalities and languages are known words; cities are answers only.
     places: req("names-places.txt"),
@@ -50,6 +51,8 @@ export function writeGenerated(outDir: string, data: WordData, skipped: string[]
   writeFileSync(join(outDir, "beginner.txt"), txt(data.beginner));
   writeFileSync(join(outDir, "blocked-words.txt"), txt(data.blockedWords));
   writeFileSync(join(outDir, "blocked-names.txt"), txt(data.blockedNames));
+  writeFileSync(join(outDir, "ranks.txt"), [...data.ranks].map(([w, r]) => `${w}\t${r}`).join("\n") + "\n");
+  writeFileSync(join(outDir, "names.txt"), txt(data.names));
   writeFileSync(join(outDir, "prompts.json"), JSON.stringify(data.prompts));
   const summary = summarize(data, skipped);
   writeFileSync(join(outDir, "summary.json"), JSON.stringify(summary, null, 2) + "\n");
