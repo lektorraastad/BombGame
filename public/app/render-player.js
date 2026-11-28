@@ -6,7 +6,8 @@
 import { AVATARS, avatarImg } from "./avatars.js";
 import { esc } from "./escape.js";
 import { renderCircle, circleMoments } from "./render-circle.js";
-import { onBomb, resultParts } from "./render-projector.js";
+import { onBomb } from "./render-projector.js";
+import { podium, winnersOf, renderSummaryCard } from "./render-results.js";
 import { tiles } from "./tiles.js";
 import { renderLogo } from "./logo.js";
 
@@ -257,14 +258,15 @@ function screen(view, ui) {
 }
 
 /**
- * The projector's results, compact, plus the student's own score.
+ * The results on a laptop, through both of the projector's steps: the winner (with the win moment)
+ * beside the student's own private "Your game" card. The class's cards and wall are the projector's.
  * @param {any} view @param {PlayerUi} ui
  */
 function results(view, ui) {
-  const { podium, longest, ghosts } = resultParts(view, ui.win ?? null);
-  const winners = Array.isArray(view.results?.winners) ? view.results.winners : [];
-  const won = view.players.some((/** @type {any} */ p) => isMe(view, p) && winners.includes(p.id));
-  return `<main class="results"><h1>Game over</h1><div class="p-podium">${podium}</div>`
-    + `${won ? `<p class="big youwon">You won!</p>` : ""}<p class="myscore">Your score: ${esc(view.me.score)}</p>`
-    + `${longest}${ghosts}<p class="hint">Waiting for the host to play again...</p></main>`;
+  const winners = winnersOf(view);
+  const won = winners.some((/** @type {any} */ p) => isMe(view, p));
+  const line = `${winners.length > 1 ? `<p class="r-shared">Shared win</p>` : ""}${won ? `<p class="big youwon">You won!</p>` : ""}`;
+  return `<main class="results"><h1>Game over</h1><div class="r-laptop">`
+    + `<div class="r-side"><div class="p-podium">${podium(view, ui.win ?? null)}</div>${line}</div>${renderSummaryCard(view)}</div>`
+    + `<p class="hint">Waiting for the host to play again...</p></main>`;
 }

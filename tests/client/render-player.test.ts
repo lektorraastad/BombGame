@@ -101,15 +101,12 @@ test("everyone mode, paused, results and connection banner", () => {
   const results = renderPlayer(
     view({
       phase: "results", prompt: null,
-      results: { winners: ["p2"], ghostRanking: [{ id: "p3", nickname: "Zed", avatar: 3 }, { id: "p1", nickname: "Amy", avatar: 4 }], longestWord: { nickname: "Jon", avatar: 1, word: "banana" } },
+      results: { winners: ["p2"], ghostRanking: [], longestWord: null, awards: [], words: [], step: "awards" },
     }),
     ui({ countdownMs: null }),
   );
   assert.ok(results.includes("Game over"));
-  assert.ok(results.includes(tiles("Jon")) && results.includes(tiles("banana")));
-  assert.ok(results.includes("Best ghosts"));
-  assert.ok(results.indexOf("Zed") < results.indexOf("Amy"), "ranking order kept");
-  assert.ok(!/Zed[^<]*\d|Amy[^<]*\d/.test(results.slice(results.indexOf("Best ghosts"))), "no points after names");
+  assert.ok(results.includes(tiles("Jon")), "the winner's name");
   const lost = renderPlayer(view(), ui({ status: "reconnecting" }));
   assert.ok(lost.includes("Reconnecting"));
   assert.ok(!renderPlayer(view(), ui()).includes("Reconnecting"));
@@ -386,25 +383,23 @@ test("wordTiles: the typed letters as tiles with the caret where the cursor is, 
   assert.equal(wordTiles("æøå", 1), `${tiles("æ")}<span class="caret"></span>${tiles("øå")}`);
 });
 
-test("results on a student screen: the projector's podium, longest word and ghosts, plus my score", () => {
-  const r = { winners: ["p2"], ghostRanking: [{ id: "p3", nickname: "<b>Zed</b>", avatar: 3 }, { id: "p1", nickname: "Mia", avatar: 5 }], longestWord: { nickname: "Jon", avatar: 7, word: "banana" } };
-  const html = renderPlayer(view({ phase: "results", prompt: null, players: withIds, results: r }, { id: "p1", score: 6 }), ui({ countdownMs: null }));
+test("results on a student screen: the projector's podium and the Your game card, no score or class ranking", () => {
+  const r = { winners: ["p2"], ghostRanking: [{ id: "p3", nickname: "<b>Zed</b>", avatar: 3 }], longestWord: { nickname: "Jon", avatar: 7, word: "banana" }, awards: [], words: ["banana"], step: "awards" };
+  const summary = { turnWords: 1, silentWords: 0, ghostWords: 0, longest: "apple", rarest: null, awards: [] };
+  const html = renderPlayer(view({ phase: "results", prompt: null, players: withIds, results: r }, { id: "p1", score: 6, summary }), ui({ countdownMs: null }));
   assert.match(mainTag(html), /class="results"/);
   assert.ok(html.includes(trophyImg()));
   assert.ok(html.includes(`<div class="p-winner">${avatarImg(7, "big")}${tiles("Jon")}</div>`));
-  assert.ok(html.includes(`Longest word: ${tiles("banana")} <span class="by">(Jon)</span>`));
-  assert.ok(html.includes("<h2>Best ghosts</h2>"));
-  assert.ok(html.includes(`<li><span class="rank">1.</span>${avatarImg(3)}<span class="who">&lt;b&gt;Zed&lt;/b&gt;</span></li>`));
-  assert.ok(html.includes(`<li><span class="rank">2.</span>${avatarImg(5)}<span class="who">Mia</span></li>`));
-  assert.ok(!/point/i.test(html), "no points in the ranking");
-  assert.ok(html.includes("Your score: 6"));
+  assert.ok(!html.includes("Longest word:") && !html.includes("Best ghosts"), "the class's longest word and ghosts are on the projector's cards");
+  assert.ok(!/score|point/i.test(html), "the card replaces the score");
+  assert.ok(html.includes('class="your-game"'));
   assert.ok(!html.includes("You won"));
   assert.ok(html.includes("Waiting for the host to play again"));
   assert.ok(!html.includes("data-bomb") && !html.includes('class="circle'));
   const won = renderPlayer(view({ phase: "results", prompt: null, players: withIds, results: r }, { id: "p2", nickname: "Jon" }), ui({ countdownMs: null }));
   assert.ok(won.includes("You won!"));
   const none = renderPlayer(view({ phase: "results", prompt: null, players: withIds, results: { winners: [], ghostRanking: [], longestWord: null } }, { id: "p1" }), ui({ countdownMs: null }));
-  assert.ok(none.includes("No winner this time") && !none.includes("Best ghosts"));
+  assert.ok(none.includes("No winner this time"));
 });
 
 test("style.css: the student circle is an oval filling the space, sized by its height; the text box text is see-through over its tiles", () => {
@@ -485,4 +480,41 @@ test("the win burst on the laptop's results, only while win() runs", () => {
   assert.ok(!after.includes("win-burst") && !after.includes("winning"));
   const none = renderPlayer(view({ phase: "results", prompt: null, players: withIds, results: { winners: [], ghostRanking: [], longestWord: null } }, { id: "p1" }), ui({ countdownMs: null, win: { pids: [], elapsedMs: 0 } }));
   assert.ok(!none.includes("win-burst"));
+});
+
+const SUMMARY = { turnWords: 9, silentWords: 5, ghostWords: 0, longest: "organized", rarest: "earthquake", awards: ["mostWords"] };
+const resultsOf = (winners: string[], me: Record<string, unknown> = {}, step = "awards") => view(
+  {
+    phase: "results", prompt: null,
+    players: [{ ...players[0], avatar: 2 }, { ...players[1], avatar: 6 }],
+    results: { winners, ghostRanking: [], longestWord: null, awards: [{ kind: "longest", players: [{ id: "p2", nickname: "Jon", avatar: 6 }], word: "comfortable" }], words: ["comfortable"], step },
+  },
+  { id: "p1", summary: SUMMARY, score: 77, ...me },
+);
+
+test("the laptop results show the winner and the student's own Your game card, on both steps", () => {
+  for (const step of ["awards", "words"]) {
+    const html = renderPlayer(resultsOf(["p2"], {}, step), ui({ countdownMs: null }));
+    assert.ok(html.includes(`<div class="p-winner">${avatarImg(6, "big")}${tiles("Jon")}</div>`), "the winner's emoji and name");
+    assert.ok(html.includes('class="your-game"'));
+    assert.ok(html.includes("You played 14 words: 9 on your turns, 5 silently"));
+    assert.ok(!html.includes("r-card") && !html.includes("r-wall"), "the cards and the wall are the projector's");
+    assert.ok(!html.includes("comfortable"), "not the class's awards");
+  }
+  const won = renderPlayer(resultsOf(["p1"]), ui({ countdownMs: null }));
+  assert.ok(won.includes("You won!"));
+});
+
+test("the laptop says Shared win or No winner this time", () => {
+  const shared = renderPlayer(resultsOf(["p1", "p2"]), ui({ countdownMs: null }));
+  assert.ok(shared.includes("Shared win"));
+  assert.ok(shared.includes(tiles("Mia")) && shared.includes(tiles("Jon")));
+  const none = renderPlayer(resultsOf([]), ui({ countdownMs: null }));
+  assert.ok(none.includes("No winner this time"));
+  assert.ok(!none.includes("Shared win"));
+});
+
+test("the laptop results keep the win moment", () => {
+  const html = renderPlayer(resultsOf(["p2"]), ui({ countdownMs: null, win: { pids: ["p2"], elapsedMs: 200 } }));
+  assert.ok(html.includes("p-winner winning") && html.includes("win-burst"));
 });
