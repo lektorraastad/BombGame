@@ -1,6 +1,6 @@
 # Bomb game: everyone involved (batch 6)
 
-Status: draft for Roy's approval, 2026-11-28 (builder review answered).
+Status: approved by Roy, 2026-11-28.
 
 Batch 6 of the second round of improvements. It builds on batch 4 (`2026-11-27-look-and-moments-design.md`: moments, the hub's moment list, `motion.js`) and batch 5 (`2026-11-28-end-of-game-design.md`: `ranks.txt` with CEFR-J levels and NGSL headwords). Read those first.
 
