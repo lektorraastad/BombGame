@@ -79,6 +79,8 @@ type Game = {
 
 export const ROOM_CODE_LETTERS = "ABCDEFGHJKMNPQRSTUVWXYZ";
 export const MAX_PLAYERS = 32;
+/** From the game ending to the word wall: batch 4's 1.5 s results hold plus 10 s of awards on screen. */
+export const WORDS_STEP_MS = 11_500;
 const NAME_MIN = 2;
 const NAME_MAX = 16;
 const MIN_PLAYERS = 2;
@@ -118,6 +120,8 @@ export class Room {
   acceptedWords: { pid: PlayerId; word: string }[] = [];
   /** Example answers for the last exploded prompt (empty if switched off). */
   examples: string[] = [];
+  /** Which step of the results the screens show. */
+  resultsStep: "awards" | "words" = "awards";
 
   private readonly blockedNames: string[];
   private readonly onChange?: () => void;
@@ -127,6 +131,7 @@ export class Room {
   private readonly activities: KnockoutActivity[];
   private readonly rarity: Rarity;
   private game: Game | null = null;
+  private stepTimer: unknown = null;
 
   constructor(opts: {
     code: string;
@@ -280,6 +285,8 @@ export class Room {
       p.ghostStreak = 0;
     }
     this.clearBomb();
+    this.clearStep();
+    this.resultsStep = "awards";
     this.winners = [];
     this.acceptedWords = [];
     this.examples = [];
@@ -348,6 +355,8 @@ export class Room {
   playAgain(): void {
     if (this.phase !== "results") return;
     this.clearBomb();
+    this.clearStep();
+    this.resultsStep = "awards";
     // Neutral lobby: nobody shows last game's lives, score or knocked-out state; start() sets the real values.
     for (const p of this.list) {
       p.role = "player";
@@ -669,7 +678,33 @@ export class Room {
     }
     this.winners = winners;
     this.phase = "results";
+    this.resultsStep = "awards";
+    this.clearStep();
+    this.stepTimer = this.deps.setTimeout(() => {
+      this.stepTimer = null;
+      this.showWords();
+    }, WORDS_STEP_MS);
     this.changed();
+  }
+
+  /** Host (or the timer): the results move from the awards to the word wall. */
+  showWords(): void {
+    if (this.phase !== "results" || this.resultsStep === "words") return;
+    this.clearStep();
+    this.resultsStep = "words";
+    this.changed();
+  }
+
+  /** Stops the room's timers for good; the hub calls it when a room closes. */
+  close(): void {
+    this.clearStep();
+    this.clearBomb();
+  }
+
+  private clearStep(): void {
+    if (this.stepTimer === null) return;
+    this.deps.clearTimeout(this.stepTimer);
+    this.stepTimer = null;
   }
 
   private find(id: PlayerId): Player | undefined {

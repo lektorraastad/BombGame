@@ -360,6 +360,7 @@ export class Hub {
       case "skip": room.skipPrompt(); break;
       case "end": room.endGame(); break;
       case "playAgain": room.playAgain(); break;
+      case "showWords": room.showWords(); break;
       case "lock": room.setLocked(true); break;
       case "unlock": room.setLocked(false); break;
       case "settings": res = room.updateSettings(msg.settings); break;
@@ -539,6 +540,7 @@ export class Hub {
       this.safeClose(c, CLOSE_ROOM_CLOSED, "Room closed");
     }
     hr.room.endGame(); // stops the bomb timer of a running game
+    hr.room.close(); // and the results step timer
     this.log("room-closed", this.rooms.size);
   }
 

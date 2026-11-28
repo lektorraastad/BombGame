@@ -1028,3 +1028,34 @@ test("avatar: changing during a game is avatar-locked; junk is a bad message; a 
   await tick();
   assert.deepEqual(host.views().at(-1).players.map((p: any) => p.avatar), before, "nobody's avatar changed");
 });
+
+test("showWords from a control connection moves every view to words; from a player it is not-host", async () => {
+  const { hub } = makeHub();
+  const { host, code, ola } = await playingRoom(hub);
+  host.send({ t: "cmd", cmd: "end" });
+  await tick();
+  assert.equal(host.views().at(-1).results.step, "awards");
+  assert.equal(ola.views().at(-1).results.step, "awards");
+  ola.send({ t: "cmd", cmd: "showWords" });
+  assert.deepEqual(ola.msgs.at(-1), { t: "result", ok: false, reason: "not-host" });
+  await tick();
+  assert.equal(host.views().at(-1).results.step, "awards");
+  const ctl = connect(hub);
+  ctl.send({ t: "control", code, passcode: PASS, token: "phone" });
+  ctl.send({ t: "cmd", cmd: "showWords" });
+  assert.deepEqual(ctl.msgs.at(-1), { t: "result", ok: true });
+  await tick();
+  assert.equal(host.views().at(-1).results.step, "words");
+  assert.equal(ola.views().at(-1).results.step, "words");
+});
+
+test("a pending step timer is cleared when the room closes", async () => {
+  const { hub, clock, events } = makeHub();
+  const { host } = await playingRoom(hub);
+  host.send({ t: "cmd", cmd: "end" });
+  await tick();
+  await clock.advance(IDLE_MS + 1);
+  assert.equal(hub.roomCount(), 0);
+  assert.ok(!events.includes("close-error"));
+  assert.equal(clock.timers.size, 0);
+});

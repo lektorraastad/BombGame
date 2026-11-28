@@ -375,7 +375,7 @@ test("a mode that ends the game and re-arms leaves no stale bomb for the next ga
   room.start();
   room.submit(a, "stone");
   assert.equal(room.phase, "results");
-  assert.equal(clock.timers.size, 0, "armBomb after endGame arms nothing");
+  assert.equal(clock.timers.size, 1, "armBomb after endGame arms nothing (only the results step timer)");
   room.playAgain();
   room.start();
   await clock.advance(5_000);
@@ -396,7 +396,7 @@ test("armBomb and newPrompt do nothing once the game is over", () => {
   const prompts = calls.prompts;
   ctx.armBomb(5_000, true);
   ctx.newPrompt();
-  assert.equal(clock.timers.size, 0);
+  assert.equal(clock.timers.size, 1, "only the results step timer");
   assert.equal(room.bombRemaining(), 0);
   assert.equal(room.prompt(), before);
   assert.equal(calls.prompts, prompts, "no onPrompt after the game ended");

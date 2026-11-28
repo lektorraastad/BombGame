@@ -181,5 +181,5 @@ function results(room: Room): Results {
     if (!p) continue; // kicked since
     if (!longestWord || word.length > longestWord.word.length) longestWord = { nickname: p.nickname, avatar: p.avatar, word };
   }
-  return { winners: [...room.winners], ghostRanking, longestWord, awards: awardsOf(room), words: wallWords(room), step: "awards" };
+  return { winners: [...room.winners], ghostRanking, longestWord, awards: awardsOf(room), words: wallWords(room), step: room.resultsStep };
 }

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { Room, makeRoomCode, ROOM_CODE_LETTERS } from "../../src/engine/room.ts";
+import { Room, makeRoomCode, ROOM_CODE_LETTERS, WORDS_STEP_MS } from "../../src/engine/room.ts";
 import { createPromptBank } from "../../src/engine/prompts.ts";
 import type { GameMode } from "../../src/engine/modes/mode.ts";
 import { makeDeps, makeTestChecker, fixturePrompts, fixtureBlocked } from "./helpers.ts";
@@ -214,4 +214,98 @@ test("reconnect keeps the avatar; kick frees it", () => {
   assert.equal(avatarOf(r, a), av);
   r.kick(a);
   assert.deepEqual(r.setAvatar(b, av), { ok: true });
+});
+
+// ---- the results step ----
+
+function stepRoom() {
+  const { deps, clock } = makeDeps(7);
+  let changes = 0;
+  const room = new Room({
+    code: "ABCD", deps, checker: makeTestChecker(), bank: createPromptBank(fixturePrompts),
+    blockedNames: fixtureBlocked, onChange: () => { changes++; }, modes: [idleMode],
+  });
+  joinOk(room, "ta", "Anna");
+  joinOk(room, "tb", "Bjorn");
+  return { room, clock, changes: () => changes };
+}
+
+test("results start on awards and move to words after WORDS_STEP_MS", async () => {
+  const { room, clock, changes } = stepRoom();
+  assert.equal(WORDS_STEP_MS, 11_500);
+  assert.deepEqual(room.start(), { ok: true });
+  assert.equal(room.resultsStep, "awards");
+  room.context().endGame([]);
+  assert.equal(room.phase, "results");
+  assert.equal(room.resultsStep, "awards");
+  await clock.advance(WORDS_STEP_MS - 1);
+  assert.equal(room.resultsStep, "awards");
+  const before = changes();
+  await clock.advance(1);
+  assert.equal(room.resultsStep, "words");
+  assert.equal(changes(), before + 1);
+});
+
+test("showWords moves at once and the timer then does nothing", async () => {
+  const { room, clock, changes } = stepRoom();
+  room.start();
+  room.context().endGame([]);
+  const before = changes();
+  room.showWords();
+  assert.equal(room.resultsStep, "words");
+  assert.equal(changes(), before + 1);
+  await clock.advance(WORDS_STEP_MS * 2);
+  assert.equal(changes(), before + 1);
+  room.showWords();
+  assert.equal(changes(), before + 1);
+});
+
+test("showWords outside results is ignored", () => {
+  const { room, changes } = stepRoom();
+  const c0 = changes();
+  room.showWords();
+  assert.equal(room.resultsStep, "awards");
+  room.start();
+  const c1 = changes();
+  room.showWords();
+  assert.equal(room.resultsStep, "awards");
+  assert.equal(changes(), c1);
+  assert.ok(c1 > c0);
+});
+
+test("End: no winners, the step still moves", async () => {
+  const { room, clock } = stepRoom();
+  room.start();
+  room.endGame();
+  assert.equal(room.phase, "results");
+  assert.deepEqual(room.winners, []);
+  await clock.advance(WORDS_STEP_MS);
+  assert.equal(room.resultsStep, "words");
+});
+
+test("the step timer is cleared by Play again and by Start", async () => {
+  const { room, clock, changes } = stepRoom();
+  room.start();
+  room.endGame();
+  room.playAgain();
+  assert.equal(room.resultsStep, "awards");
+  assert.equal(clock.timers.size, 0);
+  room.start();
+  const c = changes();
+  await clock.advance(WORDS_STEP_MS * 2);
+  assert.equal(room.phase, "playing");
+  assert.equal(room.resultsStep, "awards");
+  assert.equal(changes(), c);
+  // Start straight from results (no Play again) also clears it, and a second game gets its own step.
+  room.endGame();
+  room.showWords();
+  assert.equal(room.resultsStep, "words");
+  room.playAgain();
+  room.start();
+  room.endGame();
+  assert.equal(room.resultsStep, "awards");
+  room.close();
+  assert.equal(clock.timers.size, 0);
+  await clock.advance(WORDS_STEP_MS);
+  assert.equal(room.resultsStep, "awards");
 });
