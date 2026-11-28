@@ -1,6 +1,6 @@
 # Bomb game: the end of the game (batch 5)
 
-Status: draft for Roy's approval, 2026-11-28 (builder review answered).
+Status: approved by Roy, 2026-11-28.
 
 Batch 5 of the second round of improvements. It builds on batch 4 (`2026-11-27-look-and-moments-design.md`, whose section 8 recorded the first decisions) and `docs/design-principles.md`. Read those first.
 
