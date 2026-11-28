@@ -9,6 +9,7 @@ import type { GameMode, ModeContext, SubmitResult } from "./modes/mode.ts";
 import type { KnockoutActivity } from "./knockout/activity.ts";
 import { noopActivity } from "./knockout/activity.ts";
 import { AVATAR_COUNT } from "./avatars.ts";
+import type { Rarity } from "./rarity.ts";
 
 export type PlayerId = string;
 
@@ -124,6 +125,7 @@ export class Room {
   private readonly bannedTokens = new Set<string>();
   private readonly modes: GameMode[];
   private readonly activities: KnockoutActivity[];
+  private readonly rarity: Rarity;
   private game: Game | null = null;
 
   constructor(opts: {
@@ -135,6 +137,8 @@ export class Room {
     onChange?: () => void;
     modes?: GameMode[];
     activities?: KnockoutActivity[];
+    /** How rare a word is, for the Rarest awards; without word data every word is equally rare. */
+    rarity?: Rarity;
   }) {
     this.code = opts.code;
     this.deps = opts.deps;
@@ -144,6 +148,7 @@ export class Room {
     this.onChange = opts.onChange;
     this.modes = opts.modes ?? [];
     this.activities = opts.activities ?? [];
+    this.rarity = opts.rarity ?? (() => 400000);
     this.settings = this.resolve({});
   }
 
@@ -469,6 +474,22 @@ export class Room {
   isOn(pid: PlayerId): boolean {
     const g = this.game;
     return !!g && this.running() && g.mode.isOn(g.ctx, pid);
+  }
+
+  /** This player's private silent words in the current (or last) game, in the order played. */
+  silentWordsOf(pid: PlayerId): string[] {
+    return [...(this.game?.silentUsed.get(pid) ?? [])];
+  }
+
+  /** This player's private ghost words in the current (or last) game; the activity owns them. */
+  ghostWordsOf(pid: PlayerId): string[] {
+    const g = this.game;
+    return g?.activity.privateWords ? [...g.activity.privateWords(g.ctx, pid)] : [];
+  }
+
+  /** How rare a word is: higher is rarer, null for a name. */
+  rarityOf(word: string): number | null {
+    return this.rarity(word);
   }
 
   // ---- internals ----

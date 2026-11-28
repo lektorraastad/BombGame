@@ -14,6 +14,8 @@ export interface KnockoutActivity {
   /** The word is already normalised, a real word, and matches the current prompt. */
   onWord(ctx: ModeContext, pid: PlayerId, word: string): SubmitResult;
   view(ctx: ModeContext, pid: PlayerId): Record<string, unknown>;
+  /** This player's own words from the activity, for their private end-of-game summary only. */
+  privateWords?(ctx: ModeContext, pid: PlayerId): string[];
 }
 
 /** Used when the knockout setting names no known activity: knocked-out players just watch. */

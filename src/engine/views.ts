@@ -3,10 +3,14 @@
 // or scores. A student's screen shows only their own score, and a ghost sees only their own ghost
 // view (me.activity), never another player's ghost points or words. Otherwise ghost points appear
 // only in the control view (the results carry a ranking without points).
+// At the end, a player's own silent and ghost words appear only in their own me.summary; the
+// awards and the wall (results.awards, results.words) use public words and never carry a count.
 import type { LastWord, Phase, Player, PlayerId, Room } from "./room.ts";
 import type { PromptType, SettingDecl, Settings } from "./types.ts";
 import { settingsFor } from "./registry.ts";
 import { maskBlocked } from "./words.ts";
+import type { Award, PlayerSummary } from "./endgame.ts";
+import { awardsOf, summaryOf, wallWords } from "./endgame.ts";
 
 export type ProjectorPlayer = {
   id: PlayerId;
@@ -29,6 +33,12 @@ export type Results = {
   ghostRanking: { id: PlayerId; nickname: string; avatar: number }[];
   /** The longest real-turn word of the game; the first one wins a tie. */
   longestWord: { nickname: string; avatar: number; word: string } | null;
+  /** The award cards, at most 4; never a count. */
+  awards: Award[];
+  /** The wall: words the class saw, each once, alphabetical. Never a silent or ghost word. */
+  words: string[];
+  /** Which step the results screen shows. */
+  step: "awards" | "words";
 };
 
 export type ProjectorView = {
@@ -63,6 +73,8 @@ export type PlayerView = ProjectorView & {
     canAnswerSilently: boolean;
     /** The knockout activity's view for this player, while they are knocked out. */
     activity?: Record<string, unknown>;
+    /** This player's own game, only in the results phase; the only place their silent and ghost words appear. */
+    summary?: PlayerSummary;
   };
 };
 
@@ -72,6 +84,8 @@ export type ControlView = Omit<ProjectorView, "players"> & {
   players: ControlPlayer[];
   settings: Settings;
   settingDecls: SettingDecl[];
+  /** The wall's words for Copy words, only in the results phase (the same list as results.words). */
+  words?: string[];
 };
 
 const running = (room: Room) => room.phase === "playing" || room.phase === "paused";
@@ -131,13 +145,17 @@ export function playerView(room: Room, pid: PlayerId): PlayerView | null {
     const activity = room.activityView(pid);
     if (activity) me.activity = activity;
   }
+  if (room.phase === "results") {
+    const summary = summaryOf(room, pid);
+    if (summary) me.summary = summary;
+  }
   return { ...projectorView(room), me };
 }
 
 export function controlView(room: Room): ControlView {
   const base = projectorView(room);
   const byId = new Map(room.players().map((p) => [p.id, p]));
-  return {
+  const view: ControlView = {
     ...base,
     players: base.players.map((v) => {
       const p = byId.get(v.id)!;
@@ -146,6 +164,8 @@ export function controlView(room: Room): ControlView {
     settings: { ...room.settings },
     settingDecls: settingsFor(String(room.settings.mode), String(room.settings.knockout)),
   };
+  if (base.results) view.words = [...base.results.words];
+  return view;
 }
 
 function results(room: Room): Results {
@@ -161,5 +181,5 @@ function results(room: Room): Results {
     if (!p) continue; // kicked since
     if (!longestWord || word.length > longestWord.word.length) longestWord = { nickname: p.nickname, avatar: p.avatar, word };
   }
-  return { winners: [...room.winners], ghostRanking, longestWord };
+  return { winners: [...room.winners], ghostRanking, longestWord, awards: awardsOf(room), words: wallWords(room), step: "awards" };
 }
