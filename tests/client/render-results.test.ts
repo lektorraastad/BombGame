@@ -222,3 +222,16 @@ test("style.css: spark labels are large bold text (spark on the panel is 3:1), t
   assert.match(rule(".r-word.hl .tile"), /background: var\(--spark\)/);
   assert.match(rule(".r-wall"), /overflow: hidden/);
 });
+
+test("an award kind that is an Object property (constructor, toString, __proto__) never renders", () => {
+  const odd = ["constructor", "toString", "__proto__", "hasOwnProperty"];
+  const awards = [...odd.map((kind) => ({ kind, players: [who("p1")], word: "apple" })), { kind: "mostWords", players: [who("p1")] }];
+  assert.deepEqual(cards(renderResults(view({ awards }), {})).map((c) => c.kind), ["mostWords"]);
+  const wall = renderResults(view({ awards, words: ["apple"], step: "words" }), {});
+  assert.deepEqual(wallOf(wall), [{ award: "", word: "apple" }]);
+  const me = { id: "p1", summary: { turnWords: 1, silentWords: 0, ghostWords: 0, longest: "a", rarest: "a", awards: [...odd, "mostWords"] } };
+  const t = text(renderSummaryCard(view({}, { me })));
+  assert.ok(t.includes("Most words 🎉"));
+  assert.ok(!/function|\[object|undefined/.test(t), t);
+  assert.equal((t.match(/🎉/g) ?? []).length, 1);
+});

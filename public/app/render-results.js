@@ -15,17 +15,22 @@ import { avatarImg, trophyImg } from "./avatars.js";
  * }} ResultsUi
  */
 
-/** The cards' labels, by award kind. @type {Record<string, string>} */
-export const AWARD_LABEL = {
+/**
+ * A label map with no prototype, so a kind such as "constructor" or "__proto__" is never a label.
+ * @param {Record<string, string>} labels @returns {Record<string, string>}
+ */
+const labelMap = (labels) => Object.freeze(Object.assign(Object.create(null), labels));
+/** The cards' labels, by award kind. */
+export const AWARD_LABEL = labelMap({
   longest: "Longest word",
   rarest: "Rarest word",
   longestRarest: "Longest and rarest word",
   mostWords: "Most words",
   comeback: "Comeback",
   bestGhost: "Best ghost",
-};
-/** The small label under an award word on the wall. @type {Record<string, string>} */
-const WALL_LABEL = { longest: "Longest", rarest: "Rarest", longestRarest: "Longest and rarest" };
+});
+/** The small label under an award word on the wall. */
+const WALL_LABEL = labelMap({ longest: "Longest", rarest: "Rarest", longestRarest: "Longest and rarest" });
 /** More names than this on one card, and they are drawn smaller. */
 const MANY = 3;
 
