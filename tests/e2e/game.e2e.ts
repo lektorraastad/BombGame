@@ -1323,7 +1323,10 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
   // ---- Batch 5: the end of the game ----
 
   /** A game of Everyone at once with `names` over the API, and the words the class saw. */
-  async function everyoneGame(names: string[], { ghostGame = false, fewTied = false, laptop = null as string | null } = {}) {
+  async function everyoneGame(
+    names: string[],
+    { ghostGame = false, fewTied = false, laptop = null as string | null, duringGame = null as ((host: any, code: string) => Promise<void>) | null } = {},
+  ) {
     const { host, code } = await hostRoom();
     const bots: Awaited<ReturnType<typeof wsPlayer>>[] = [];
     for (const name of names) bots.push(await wsPlayer(code, name));
@@ -1336,6 +1339,8 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     });
     await command(host, code, "start");
     await host.locator(".p-everyone").waitFor({ timeout: WAIT });
+    // Slow set-up (more windows) goes here, before the results' 10 s step timer starts.
+    if (duringGame) await duringGame(host, code);
     /** Words the class saw (answers), and every word sent (ghost words too), each room-unique. */
     const seen: string[] = [];
     const used = new Set<string>();
@@ -1511,10 +1516,13 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
   });
 
   test("Show words moves the projector, the overlay and a second control window together", async () => {
-    const { host, code } = await everyoneGame(["Ann", "Ben", "Cat"]);
-    const ctl = await controlWindow(code);
-    const overlay = await openOverlay(host);
-    await host.locator("#projector .step-awards").waitFor({ timeout: WAIT });
+    // The second window and the overlay open during the game, so Show words is clicked
+    // well inside the 10 s before the wall comes by itself.
+    let ctl: any, overlay: any;
+    const { host } = await everyoneGame(["Ann", "Ben", "Cat"], {
+      duringGame: async (host, code) => { ctl = await controlWindow(code); overlay = await openOverlay(host); },
+    });
+    await host.locator("#projector .step-awards").waitFor({ timeout: 3000 });
     for (const panel of [ctl, overlay]) await panel.locator('button[data-cmd="showWords"]:not([disabled])').waitFor({ timeout: WAIT });
     await ctl.click('button[data-cmd="showWords"]');
     await host.locator("#projector .step-words").waitFor({ timeout: 3000 });
