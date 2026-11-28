@@ -333,3 +333,12 @@ test("a falling note still pending when a new game starts is dropped", () => {
   now = 400; d.step(9000);
   assert.deepEqual(calls.order, ["explode"]);
 });
+
+test("silent and ghost moments play nothing", () => {
+  const { calls, sound } = countingSound();
+  const d = createSoundDriver(sound, () => 0);
+  d.view(classic([]));
+  d.view(classic([{ kind: "silent", pid: "a" }, { kind: "ghost", pid: "b" }]));
+  d.view(everyone([{ kind: "silent", pid: "a" }, { kind: "ghost", pid: "b" }]));
+  assert.deepEqual(calls.order, []);
+});

@@ -1059,3 +1059,127 @@ test("a pending step timer is cleared when the room closes", async () => {
   assert.ok(!events.includes("close-error"));
   assert.equal(clock.timers.size, 0);
 });
+
+// ---- silent and ghost sparks: who, never what ----
+
+/** Three players with silent answers on. The host's window and a control window watch. */
+async function sparkGame(mode: "classic" | "everyone") {
+  const { hub, clock } = makeHub();
+  const { host, code, hostToken } = await hostRoom(hub);
+  const control = connect(hub);
+  control.send({ t: "control", code, hostToken, token: "ctl-window" });
+  const players = [await joinPlayer(hub, code, "Ola"), await joinPlayer(hub, code, "Kari"), await joinPlayer(hub, code, "Per")];
+  host.send({ t: "cmd", cmd: "settings", settings: { mode, timerStyle: "visible", turnTime: 5, startLives: 1, maxLives: 1, silentAnswers: true } });
+  host.send({ t: "cmd", cmd: "start" });
+  await tick();
+  const pidOf = (c: FakeConn) => c.last("welcome").pid as string;
+  return { hub, clock, host, control, players, pidOf };
+}
+
+/** Lets the clock run until one student is knocked out, and returns that student. */
+async function makeGhost(g: Awaited<ReturnType<typeof sparkGame>>): Promise<FakeConn> {
+  for (let i = 0; i < 12; i++) {
+    await g.clock.advance(5_000);
+    await tick();
+    const dead = g.host.views().at(-1).players?.find((p: any) => !p.alive);
+    if (dead) return g.players.find((p) => g.pidOf(p) === dead.id)!;
+  }
+  throw new Error("nobody became a ghost");
+}
+
+test("an accepted silent answer adds a silent moment for that student", async () => {
+  const { host, players, pidOf } = await sparkGame("classic");
+  const v = host.views().at(-1);
+  const off = players.find((p) => pidOf(p) !== v.mode.current)!;
+  host.clear();
+  off.send({ t: "submit", word: fitting(v.prompt) });
+  assert.deepEqual(off.last("result"), { t: "result", ok: true, kind: "silent" });
+  await tick();
+  assert.equal(host.views().length, 1, "an accepted silent answer queues a broadcast");
+  assert.deepEqual(host.views()[0].moments, [{ kind: "silent", pid: pidOf(off) }]);
+  assert.deepEqual(players[0].views().at(-1).moments, [{ kind: "silent", pid: pidOf(off) }], "laptops too");
+  assert.deepEqual((await poke(host)).moments, [], "not repeated");
+});
+
+test("an accepted ghost answer adds a ghost moment", async () => {
+  const g = await sparkGame("classic");
+  const ghost = await makeGhost(g);
+  const v = await poke(g.host);
+  g.host.clear();
+  ghost.send({ t: "submit", word: fitting(v.prompt) });
+  assert.deepEqual(ghost.last("result"), { t: "result", ok: true, kind: "ghost" });
+  await tick();
+  assert.deepEqual(g.host.views().at(-1).moments, [{ kind: "ghost", pid: g.pidOf(ghost) }]);
+});
+
+test("ghost moment in Everyone at once", async () => {
+  const g = await sparkGame("everyone");
+  const ghost = await makeGhost(g);
+  const v = await poke(g.host);
+  g.host.clear();
+  ghost.send({ t: "submit", word: fitting(v.prompt) });
+  assert.equal(ghost.last("result").kind, "ghost");
+  await tick();
+  assert.deepEqual(g.host.views().at(-1).moments, [{ kind: "ghost", pid: g.pidOf(ghost) }]);
+});
+
+test("refused silent or ghost answers add nothing", async () => {
+  const g = await sparkGame("classic");
+  const v = g.host.views().at(-1);
+  const off = g.players.find((p) => g.pidOf(p) !== v.mode.current)!;
+  g.host.clear();
+  off.send({ t: "submit", word: "zzzz" });
+  assert.equal(off.last("result").ok, false);
+  await tick();
+  assert.equal(g.host.views().length, 0, "no broadcast");
+  const ghost = await makeGhost(g);
+  g.host.clear();
+  ghost.send({ t: "submit", word: "zzzz" });
+  assert.equal(ghost.last("result").ok, false);
+  await tick();
+  assert.equal(g.host.views().length, 0, "no broadcast for a refused ghost word");
+  assert.deepEqual((await poke(g.host)).moments, []);
+});
+
+test("two silent answers in one broadcast are both listed", async () => {
+  const { host, players, pidOf } = await sparkGame("classic");
+  const v = host.views().at(-1);
+  const offs = players.filter((p) => pidOf(p) !== v.mode.current);
+  assert.equal(offs.length, 2);
+  host.clear();
+  const [a, b] = offs;
+  a.send({ t: "submit", word: fitting(v.prompt) });
+  b.send({ t: "submit", word: fitting(v.prompt) });
+  await tick();
+  assert.equal(host.views().length, 1, "one broadcast");
+  assert.deepEqual(host.views()[0].moments, [{ kind: "silent", pid: pidOf(a) }, { kind: "silent", pid: pidOf(b) }]);
+});
+
+test("no view contains the silent or ghost word", async () => {
+  const g = await sparkGame("classic");
+  const v = g.host.views().at(-1);
+  const off = g.players.find((p) => g.pidOf(p) !== v.mode.current)!;
+  const silentWord = fitting(v.prompt);
+  const everyoneElse = (sender: FakeConn) => [g.host, g.control, ...g.players.filter((p) => p !== sender)];
+  for (const c of [g.host, g.control, ...g.players]) c.clear();
+  off.send({ t: "submit", word: silentWord });
+  await tick();
+  assert.equal(off.last("result").kind, "silent");
+  for (const c of everyoneElse(off)) {
+    const json = JSON.stringify(c.msgs.filter((m) => m.t === "view"));
+    assert.ok(json.includes('"silent"'), "the spark arrived");
+    assert.ok(!json.includes(silentWord), "the silent word is in no other view");
+  }
+  // A ghost's word, seen by the host, the control window and the other laptops.
+  const ghost = await makeGhost(g);
+  const v2 = await poke(g.host);
+  const ghostWord = fitting(v2.prompt);
+  for (const c of [g.host, g.control, ...g.players]) c.clear();
+  ghost.send({ t: "submit", word: ghostWord });
+  await tick();
+  assert.equal(ghost.last("result").kind, "ghost");
+  for (const c of everyoneElse(ghost)) {
+    const json = JSON.stringify(c.msgs.filter((m) => m.t === "view"));
+    assert.ok(!json.includes(ghostWord), "the ghost word is in no other view");
+  }
+});
