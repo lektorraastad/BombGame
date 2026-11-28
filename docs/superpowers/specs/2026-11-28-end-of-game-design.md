@@ -1,6 +1,6 @@
 # Bomb game: the end of the game (batch 5)
 
-Status: draft for Roy's approval, 2026-11-28.
+Status: draft for Roy's approval, 2026-11-28 (builder review answered).
 
 Batch 5 of the second round of improvements. It builds on batch 4 (`2026-11-27-look-and-moments-design.md`, whose section 8 recorded the first decisions) and `docs/design-principles.md`. Read those first.
 
@@ -54,12 +54,12 @@ Roy agreed there is one sensible way (A), on 28 November 2026.
   4. **Comeback or Best ghost:** "Comeback" when a knocked-out student came back into the game. Otherwise "Best ghost", when anyone scored as a ghost. Otherwise no fourth card.
 - **Rules for the cards:**
   - A card with nothing to show is left out. For example, with no words played there's no Longest word card.
+  - **When the longest word is also the rarest word** (Roy's choice): one combined card, "Longest and rarest word". The freed place shows "Best ghost" when there was both a comeback and a best ghost. On the wall, that word gets one label, "Longest and rarest".
   - **Awards go to whoever earned them,** even if the same student wins several (Roy's choice). They are never handed to someone else to spread them out.
 - **Ties:**
   - **Longest word:** the first one played wins, as today.
   - **Rarest word:** the rarer word wins, then the longer, then the first played.
-  - **Most words:** every tied student is named, at most three **(Claude's call)**.
-  - **Comeback:** every student who came back is named, at most three.
+  - **Most words and Comeback** (Roy's choice): every tied student is named, in join order, in smaller text when there are many, up to 8 names. With more than 8 the card says, for example, "12 students tied", with no names.
   - **Best ghost:** the top ghost, using today's ghost ranking (ties in join order).
 - **"Game over"** stays as a small heading. The logo stays at the top left, as in the mockup.
 - **No numbers, scores or points** appear anywhere on this screen.
@@ -134,7 +134,7 @@ Next to the card, the laptop shows the winner's emoji and name, as in the mockup
 
 ## 5. Checks
 - **Engine and server unit tests:**
-  - each award's rule, including ties, the three-name cap, a card left out when empty, and a shared win;
+  - each award's rule, including ties, up to 8 names and the "N students tied" wording above that, the combined Longest and rarest card, a card left out when empty, and a shared win;
   - "Most words" counts silent answers, and no count appears in any projector view;
   - the wall has no silent or ghost words, is alphabetical and unique, and keeps a kicked player's words;
   - the summary counts turn, silent and ghost words, and only its owner receives it;
