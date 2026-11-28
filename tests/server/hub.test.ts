@@ -429,6 +429,325 @@ test("player views carry the same lastEvent as the projector: explosion, then nu
   for (const p of players) assert.equal(p.views().at(-1).lastEvent, null, "the next broadcast is not another explosion");
 });
 
+// ---- moments and the turn's age ----
+
+const FIXTURE_FITS = ["station", "stone", "street", "ring", "king", "thing", "house", "round", "sound", "return", "remember",
+  "repeat", "last", "fast", "best", "found", "ground", "sing", "out", "plant", "about", "count"];
+
+function fitting(prompt: { text: string; type: string }, not: string[] = []): string {
+  const w = FIXTURE_FITS.find((x) => !not.includes(x) &&
+    (prompt.type === "starts" ? x.startsWith(prompt.text) : prompt.type === "ends" ? x.endsWith(prompt.text) : x.includes(prompt.text)));
+  assert.ok(w, `a fixture word fits ${prompt.type}:${prompt.text}`);
+  return w;
+}
+
+/** A started two-player game; `on` holds the bomb in Classic. */
+async function gameWith(hub: Hub, settings: Record<string, unknown>) {
+  const { host, code, hostToken } = await hostRoom(hub);
+  const players = [await joinPlayer(hub, code, "Ola"), await joinPlayer(hub, code, "Kari")];
+  host.send({ t: "cmd", cmd: "settings", settings });
+  host.send({ t: "cmd", cmd: "start" });
+  assert.deepEqual(host.msgs.at(-1), { t: "result", ok: true });
+  await tick();
+  const started = host.views().at(-1);
+  const pidOf = (c: FakeConn) => c.last("welcome").pid as string;
+  const on = players.find((p) => pidOf(p) === started.mode.current) ?? players[0];
+  const off = players.find((p) => p !== on)!;
+  return { host, code, hostToken, players, started, on, off, pidOf };
+}
+
+/** Forces a broadcast without changing the game. */
+async function poke(host: FakeConn) {
+  host.send({ t: "cmd", cmd: "lock" });
+  await tick();
+  host.send({ t: "cmd", cmd: "unlock" });
+  await tick();
+  return host.views().at(-1);
+}
+
+const sameSet = (actual: unknown[], expected: unknown[]) =>
+  assert.deepEqual(new Set(actual.map((m) => JSON.stringify(m))), new Set(expected.map((m) => JSON.stringify(m))));
+
+test("moments: word, then explosion with hearts", async () => {
+  const { hub, clock } = makeHub();
+  const { host, started, on, off, pidOf, players } = await gameWith(hub, { mode: "classic", timerStyle: "visible", turnTime: 5 });
+  assert.deepEqual(started.moments, [], "starting a game has no moments");
+  assert.deepEqual(players[0].views().at(-1).moments, [], "laptops get moments too");
+  on.send({ t: "submit", word: fitting(started.prompt) });
+  assert.equal(on.last("result").ok, true);
+  await tick();
+  assert.deepEqual(host.views().at(-1).moments, [{ kind: "word", pid: pidOf(on) }]);
+  assert.deepEqual(off.views().at(-1).moments, [{ kind: "word", pid: pidOf(on) }]);
+  host.clear();
+  await clock.advance(5_000);
+  await tick();
+  sameSet(host.views().at(-1).moments, [{ kind: "hearts", pids: [pidOf(off)] }, { kind: "explosion" }]);
+  const after = await poke(host);
+  assert.deepEqual(after.moments, [], "moments are not repeated");
+});
+
+test("two moments between broadcasts are both listed", async () => {
+  const { hub, clock } = makeHub();
+  const { host, on, pidOf } = await gameWith(hub, { mode: "classic", timerStyle: "visible", turnTime: 5 });
+  host.clear();
+  await clock.advance(5_000);
+  await tick();
+  assert.equal(host.views().length, 1, "one broadcast for the explosion");
+  const ms = host.views()[0].moments;
+  assert.equal(ms.length, 2);
+  sameSet(ms, [{ kind: "hearts", pids: [pidOf(on)] }, { kind: "explosion" }]);
+});
+
+test("refused is broadcast only for the current Classic player and the four reasons", async () => {
+  const { hub } = makeHub();
+  const { host, on, off, pidOf, started } = await gameWith(hub, { mode: "classic", timerStyle: "visible", turnTime: 30 });
+  host.clear();
+  on.send({ t: "submit", word: "zzzz" });
+  assert.deepEqual(on.last("result"), { t: "result", ok: false, reason: "not-a-word" });
+  await tick();
+  assert.equal(host.views().length, 1, "a refusal queues a broadcast");
+  assert.deepEqual(host.views()[0].moments, [{ kind: "refused", pid: pidOf(on) }]);
+  assert.deepEqual(off.views().at(-1).moments, [{ kind: "refused", pid: pidOf(on) }]);
+  for (const c of [host, on, off]) assert.ok(!JSON.stringify(c.msgs.filter((m) => m.t === "view")).includes("zzzz"), "the word is never sent");
+
+  const fitsPrompt = (w: string) => { try { return fitting(started.prompt, FIXTURE_FITS.filter((x) => x !== w)) === w; } catch { return false; } };
+  const misfit = FIXTURE_FITS.find((w) => !fitsPrompt(w))!;
+  for (const [word, reason] of [["damn", "blocked"], [misfit, "doesnt-match"]] as const) {
+    host.clear();
+    on.send({ t: "submit", word });
+    assert.equal(on.last("result").reason, reason);
+    await tick();
+    assert.deepEqual(host.views().at(-1).moments, [{ kind: "refused", pid: pidOf(on) }], reason);
+  }
+
+  host.clear();
+  off.send({ t: "submit", word: "zzzz" });
+  assert.equal(off.last("result").reason, "not-a-word", "a refused silent answer");
+  off.send({ t: "submit", word: misfit });
+  assert.equal(off.last("result").reason, "doesnt-match", "another refused silent answer");
+  on.send({ t: "submit", word: "   " });
+  assert.equal(on.last("result").reason, "empty");
+  await tick();
+  assert.equal(host.views().length, 0, "neither queues a broadcast");
+  assert.deepEqual((await poke(host)).moments, [], "and neither leaves a refused moment");
+
+  // "used": the bomb passes, then the host skips until the new player's prompt fits the word already played.
+  const word = fitting(started.prompt);
+  on.send({ t: "submit", word });
+  assert.equal(on.last("result").ok, true);
+  await tick();
+  assert.equal(host.views().at(-1).mode.current, pidOf(off));
+  for (let i = 0; i < 60 && !fitsNext(host.views().at(-1).prompt, word); i++) {
+    host.send({ t: "cmd", cmd: "skip" });
+    await tick();
+  }
+  assert.ok(fitsNext(host.views().at(-1).prompt, word), "a prompt the used word fits came round");
+  host.clear();
+  off.send({ t: "submit", word });
+  assert.equal(off.last("result").reason, "used");
+  await tick();
+  assert.deepEqual(host.views().at(-1).moments, [{ kind: "refused", pid: pidOf(off) }], "used");
+});
+
+const fitsNext = (prompt: { text: string; type: string }, w: string) =>
+  prompt.type === "starts" ? w.startsWith(prompt.text) : prompt.type === "ends" ? w.endsWith(prompt.text) : w.includes(prompt.text);
+
+test("a refusal in Everyone at once causes no refused moment", async () => {
+  const { hub } = makeHub();
+  const { host, on } = await gameWith(hub, { mode: "everyone" });
+  host.clear();
+  on.send({ t: "submit", word: "zzzz" });
+  assert.equal(on.last("result").reason, "not-a-word");
+  await tick();
+  assert.equal(host.views().length, 0);
+  assert.deepEqual((await poke(host)).moments, []);
+});
+
+test("all-answered once in Everyone at once", async () => {
+  const { hub } = makeHub();
+  const { host, players, started, pidOf } = await gameWith(hub, { mode: "everyone" });
+  const word = fitting(started.prompt);
+  players[0].send({ t: "submit", word });
+  assert.equal(players[0].last("result").ok, true);
+  await tick();
+  assert.deepEqual(host.views().at(-1).moments, [{ kind: "word", pid: pidOf(players[0]) }]);
+  players[1].send({ t: "submit", word });
+  assert.equal(players[1].last("result").ok, true);
+  await tick();
+  sameSet(host.views().at(-1).moments, [{ kind: "word", pid: pidOf(players[1]) }, { kind: "all-answered" }]);
+  assert.deepEqual((await poke(host)).moments, [], "not again in the same round");
+});
+
+test("win when the game ends", async () => {
+  const { hub, clock } = makeHub();
+  const { host, on, off, pidOf } = await gameWith(hub, { mode: "classic", timerStyle: "visible", turnTime: 5, startLives: 1 });
+  host.clear();
+  await clock.advance(5_000);
+  await tick();
+  const v = host.views().at(-1);
+  assert.equal(v.phase, "results");
+  assert.deepEqual(v.results.winners, [pidOf(off)]);
+  sameSet(v.moments, [{ kind: "win", pids: v.results.winners }, { kind: "hearts", pids: [pidOf(on)] }, { kind: "explosion" }]);
+  assert.deepEqual((await poke(host)).moments, [], "the win is listed once");
+  assert.equal((await poke(host)).turnElapsedMs, undefined, "no turn age on results");
+});
+
+test("turn age: present only for a hidden fuse, from the turn's start", async () => {
+  const { hub, clock } = makeHub();
+  const { started, host } = await gameWith(hub, { mode: "classic", timerStyle: "hidden" });
+  assert.equal(started.turnElapsedMs, 0);
+  await clock.advance(2000);
+  host.send({ t: "cmd", cmd: "lock" });
+  await tick();
+  assert.equal(host.views().at(-1).turnElapsedMs, 2000);
+
+  const visible = makeHub();
+  const g = await gameWith(visible.hub, { mode: "classic", timerStyle: "visible" });
+  assert.equal(typeof g.started.bombRemainingMs, "number");
+  assert.equal(g.started.turnElapsedMs, undefined);
+  assert.equal(g.players[0].views().at(-1).turnElapsedMs, undefined);
+
+  const everyone = makeHub();
+  const e = await gameWith(everyone.hub, { mode: "everyone" });
+  assert.equal(e.started.turnElapsedMs, undefined, "Everyone at once has no current player");
+
+  const lobby = makeHub();
+  const l = await hostRoom(lobby.hub);
+  assert.equal(l.host.views().at(-1).turnElapsedMs, undefined, "none in the lobby");
+});
+
+test("turn age is measured per turn, never from the fuse: it resets when the bomb passes, and a top-up does not reset it", async () => {
+  const { hub, clock } = makeHub();
+  const { host, on, off, started, pidOf } = await gameWith(hub, { mode: "classic", timerStyle: "hidden", fuseMin: 3, fuseMax: 3, minTurn: 8 });
+  await clock.advance(2000);
+  on.send({ t: "submit", word: fitting(started.prompt) });
+  assert.equal(on.last("result").ok, true);
+  await tick();
+  const passed = host.views().at(-1);
+  assert.equal(passed.mode.current, pidOf(off), "the bomb passed");
+  assert.equal(passed.turnElapsedMs, 0, "a new turn starts at 0");
+  // The fuse had at most 3 s left, under minTurn, so the engine re-armed it to 8 s just now.
+  await clock.advance(1000);
+  host.send({ t: "cmd", cmd: "lock" });
+  await tick();
+  assert.equal(host.views().at(-1).mode.current, pidOf(off));
+  assert.equal(host.views().at(-1).turnElapsedMs, 1000, "it grows with the clock, not reset by the re-arm");
+  await clock.advance(1500);
+  host.send({ t: "cmd", cmd: "unlock" });
+  await tick();
+  assert.equal(host.views().at(-1).turnElapsedMs, 2500);
+});
+
+test("turn age resets when the bomb passes with no top-up, while the same fuse keeps running", async () => {
+  const { hub, clock } = makeHub();
+  const { host, on, off, started, pidOf } = await gameWith(hub, { mode: "classic", timerStyle: "hidden", fuseMin: 30, fuseMax: 30, minTurn: 8 });
+  await clock.advance(2000);
+  on.send({ t: "submit", word: fitting(started.prompt) });
+  assert.equal(on.last("result").ok, true);
+  await tick();
+  // About 28 s are left, more than minTurn, so the engine did not re-arm: the fuse runs on across the pass.
+  const passed = host.views().at(-1);
+  assert.equal(passed.mode.current, pidOf(off), "the bomb passed");
+  assert.equal(passed.turnElapsedMs, 0, "the new turn starts at 0, not at the fuse's 2000");
+  assert.equal(off.views().at(-1).turnElapsedMs, 0);
+  await clock.advance(3000);
+  host.send({ t: "cmd", cmd: "lock" });
+  await tick();
+  assert.equal(host.views().at(-1).mode.current, pidOf(off));
+  assert.equal(host.views().at(-1).turnElapsedMs, 3000, "it grows with the clock from the pass");
+});
+
+test("win from a paused game: a kick leaves one player", async () => {
+  const { hub } = makeHub();
+  const { host, on, off, pidOf } = await gameWith(hub, { mode: "classic", timerStyle: "hidden" });
+  host.send({ t: "cmd", cmd: "pause" });
+  await tick();
+  assert.equal(host.views().at(-1).phase, "paused");
+  host.clear();
+  host.send({ t: "cmd", cmd: "kick", pid: pidOf(on) });
+  assert.deepEqual(host.msgs.at(-1), { t: "result", ok: true });
+  await tick();
+  const v = host.views().at(-1);
+  assert.equal(v.phase, "results");
+  assert.deepEqual(v.results.winners, [pidOf(off)]);
+  assert.deepEqual(v.moments, [{ kind: "win", pids: [pidOf(off)] }]);
+  assert.deepEqual(off.views().at(-1).moments, [{ kind: "win", pids: [pidOf(off)] }]);
+  assert.deepEqual((await poke(host)).moments, [], "listed once");
+});
+
+test("turn age freezes while paused", async () => {
+  const { hub, clock } = makeHub();
+  const { host } = await gameWith(hub, { mode: "classic", timerStyle: "hidden", fuseMin: 30, fuseMax: 30 });
+  await clock.advance(2000);
+  host.send({ t: "cmd", cmd: "pause" });
+  await tick();
+  assert.equal(host.views().at(-1).phase, "paused");
+  assert.equal(host.views().at(-1).turnElapsedMs, 2000);
+  await clock.advance(10_000);
+  host.send({ t: "cmd", cmd: "lock" });
+  await tick();
+  assert.equal(host.views().at(-1).turnElapsedMs, 2000, "frozen while paused");
+  host.send({ t: "cmd", cmd: "resume" });
+  await tick();
+  assert.equal(host.views().at(-1).turnElapsedMs, 2000);
+  await clock.advance(1000);
+  host.send({ t: "cmd", cmd: "unlock" });
+  await tick();
+  assert.equal(host.views().at(-1).turnElapsedMs, 3000);
+});
+
+test("skip resets the turn age", async () => {
+  const { hub, clock } = makeHub();
+  const { host, started } = await gameWith(hub, { mode: "classic", timerStyle: "hidden", fuseMin: 30, fuseMax: 30 });
+  await clock.advance(2000);
+  host.send({ t: "cmd", cmd: "skip" });
+  await tick();
+  const v = host.views().at(-1);
+  assert.notEqual(v.prompt.text, started.prompt.text, "a new prompt");
+  assert.equal(v.mode.current, started.mode.current, "same player");
+  assert.equal(v.turnElapsedMs, 0);
+});
+
+test("control views carry no moments and no turn age", async () => {
+  const { hub, clock } = makeHub();
+  const { host, code, hostToken, on, started } = await gameWith(hub, { mode: "classic", timerStyle: "hidden" });
+  const ctl = connect(hub);
+  ctl.send({ t: "control", code, hostToken, token: "overlay-tab" });
+  await tick();
+  await clock.advance(1000);
+  on.send({ t: "submit", word: fitting(started.prompt) });
+  await tick();
+  assert.ok(host.views().at(-1).moments.length > 0);
+  assert.ok(ctl.views().length > 0);
+  for (const v of ctl.views()) {
+    assert.equal(v.moments, undefined);
+    assert.equal(v.turnElapsedMs, undefined);
+  }
+});
+
+test("the projector view still has no score, ghostPoints, token or passcode", async () => {
+  const { hub, clock } = makeHub();
+  const { host, hostToken, on, off, started } = await gameWith(hub, { mode: "classic", timerStyle: "hidden", fuseMin: 5, fuseMax: 5, startLives: 1 });
+  off.send({ t: "submit", word: fitting(started.prompt) }); // a silent answer scores privately
+  on.send({ t: "submit", word: "zzzz" });
+  await tick();
+  await clock.advance(1000);
+  on.send({ t: "submit", word: fitting(started.prompt) });
+  await tick();
+  await clock.advance(30_000);
+  await tick();
+  assert.equal(host.views().at(-1).phase, "results");
+  const keys = new Set<string>();
+  const walk = (x: unknown): void => {
+    if (Array.isArray(x)) x.forEach(walk);
+    else if (x && typeof x === "object") for (const [k, v] of Object.entries(x)) { keys.add(k); walk(v); }
+  };
+  host.views().forEach(walk);
+  for (const k of ["score", "ghostPoints", "token", "hostToken", "passcode"]) assert.ok(!keys.has(k), k);
+  const text = JSON.stringify(host.views());
+  assert.ok(!text.includes(hostToken) && !text.includes(PASS) && !text.includes("tok-Ola") && !text.includes("zzzz"));
+});
+
 // ---- playing and commands ----
 
 async function playingRoom(hub: Hub) {

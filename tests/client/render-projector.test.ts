@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { renderProjector } from "../../public/app/render-projector.js";
 import { WORD_LIST_CREDITS } from "../../src/words/credits.ts";
 import { CREDITS } from "../../public/app/credits.js";
@@ -15,6 +16,7 @@ import type { Prompt } from "../../src/engine/types.ts";
 
 const ST: Prompt = { text: "st", type: "contains", count: 480, common: 0 };
 const TOKENS = ["tok-secret-mia", "tok-secret-jon", "tok-secret-ola"];
+const CSS = readFileSync(new URL("../../public/app/style.css", import.meta.url), "utf8");
 const ui = (over: Record<string, unknown> = {}): any => ({ countdownMs: null, credits: CREDITS, site: "bomb.example", ...over });
 
 function game(settings: Record<string, unknown>) {
@@ -67,7 +69,8 @@ test("projector never contains scores, ghost points or tokens", async () => {
   assert.equal(room.players().find((p) => p.id === victim)!.alive, false);
   room.submit(victim, "storm");
   assert.ok(room.players().find((p) => p.id === victim)!.ghostPoints > 0, "the ghost has ghost points");
-  const between = draw(room);
+  // The page passes the examples while they show (here, straight after the explosion).
+  const between = draw(room, { examples: projectorView(room).examples });
   assert.ok(projectorView(room).examples!.length > 0);
   assert.ok(between.includes("Could have said"), "example answers after an explosion");
   screens.push(between);
@@ -183,14 +186,37 @@ test("classic: the circle, a lit bomb with the arrow, and the prompt on the bomb
   assert.ok(draw(v.room).includes("data-countdown"), "visible countdown on the bomb");
 });
 
-test("classic: example answers after an explosion, below the circle", async () => {
+test("classic: example answers after an explosion, under the bomb in the spotlight's place", async () => {
   const c = game({ mode: "classic", timerStyle: "visible", turnTime: 5, startLives: 2, exampleAnswers: true });
   assert.deepEqual(c.room.start(), { ok: true });
   await c.clock.advance(5_000);
-  const html = draw(c.room);
-  assert.ok(projectorView(c.room).examples!.length > 0);
-  assert.match(html, /<div class="p-examples">Could have said: [^<]+<\/div>/);
-  assert.ok(html.includes('<div class="circle">') && html.lastIndexOf('class="circle"') < html.indexOf("p-examples"));
+  const examples = projectorView(c.room).examples!;
+  assert.ok(examples.length > 0);
+  // The page passes the examples while motion.js shows them (motion.examplesShown).
+  const html = draw(c.room, { examples });
+  assert.ok(html.includes('<div class="spot-examples" '));
+  assert.ok(examples.every((w) => html.includes(tiles(w))));
+  assert.ok(!html.includes("p-examples"), "the faint line is gone with one ring");
+  // While they are not shown (null), or not passed at all, nothing extra is drawn: the view's own
+  // examples last until the next explosion, so they are never shown on their own.
+  for (const hidden of [draw(c.room, { examples: null }), draw(c.room)]) {
+    assert.ok(!hidden.includes("spot-examples") && !hidden.includes("p-examples"));
+  }
+});
+
+test("with more than 20 seats the examples stay on the bottom line, bigger, and not under the bomb", () => {
+  const players = Array.from({ length: 24 }, (_, i) => ({ id: `x${i}`, nickname: `N${i}`, avatar: 0, lives: 2, alive: true, connected: true, spectator: false }));
+  const view = { code: "ABCD", phase: "playing", paused: false, locked: false, players, prompt: { text: "st", type: "contains" }, mode: { seats: players.map((p) => p.id), current: "x0" }, examples: ["stone", "<b>"] };
+  const html = renderProjector(view, ui({ examples: ["stone", "<b>"] }));
+  assert.ok(html.includes('<div class="p-examples big">Could have said: stone, &lt;b&gt;</div>'));
+  assert.ok(!html.includes("spot-examples") && !html.includes("<b>"));
+  // Typing under the seat does not take this place, so the words stay (the page nulls ui.examples
+  // once typing appears; the view's own examples last until the next explosion).
+  const typing = renderProjector({ ...view, typing: "st" }, ui({ examples: null }));
+  assert.ok(typing.includes('<div class="p-examples big">Could have said: stone, &lt;b&gt;</div>'), typing);
+  const none = renderProjector({ ...view, examples: [] }, ui({ examples: ["x"] }));
+  assert.ok(none.includes('<div class="p-examples big"></div>'));
+  assert.match(CSS, /\.p-examples\.big \{[^}]*font-size: 4vh/);
 });
 
 test("everyone at once: no arrow, the fuse burns, ticks on seats, the round, and no words during it", () => {
@@ -293,4 +319,64 @@ test("classic: the arrow follows the ring's real shape from ui.ringAspect", () =
   assert.ok(html.includes(`--to:${Math.round(screenAngle(240, 1.75) * 10) / 10}deg"`), html.match(/--to:[^"]*/)?.[0]);
   assert.ok(draw(c.room, { bomb }).includes('--to:240deg"'), "no aspect: as given");
   assert.ok(draw(c.room, { bomb, ringAspect: Number.NaN }).includes('--to:240deg"'), "junk aspect: as given");
+});
+
+test("the lobby shows the large logo above the address line", () => {
+  const html = renderProjector(projectorView(game({}).room), ui());
+  assert.ok(html.includes("logo-large"));
+  assert.ok(html.indexOf("logo-large") < html.indexOf("p-goto"));
+});
+
+test("the playing screens show the small logo", () => {
+  for (const mode of ["classic", "everyone"]) {
+    const g = game({ mode });
+    g.room.start();
+    const html = renderProjector(projectorView(g.room), ui());
+    assert.ok(html.includes("logo-small"), mode);
+    assert.ok(!html.includes("logo-large"), mode);
+  }
+});
+
+test("results show the large logo", () => {
+  const html = renderProjector({ code: "QWER", phase: "results", players: [], results: { winners: [], ghostRanking: [] } }, ui());
+  assert.ok(html.includes("logo-large"));
+});
+
+test("the win burst has 16 tiles spelling WORDFIRE twice, only while win() runs", () => {
+  const html = renderProjector(resultsView({ winners: ["p1"] }), ui({ win: { pids: ["p1"], elapsedMs: 400 } }));
+  const burst = part(html, "win-burst");
+  const letters = [...burst.matchAll(/<span class="burst-tile" style="([^"]*)"><span class="tile">(.)<\/span><\/span>/g)];
+  assert.equal(letters.length, 16);
+  assert.equal(letters.map((m) => m[2]).join(""), "WORDFIREWORDFIRE");
+  assert.ok(letters.every((m) => m[1].startsWith("animation-delay:-400ms;")));
+  // The winner pops, and the name's tiles drop in 80 ms apart (still to come: a positive delay).
+  const winner = html.match(/<div class="p-winner winning" style="animation-delay:-400ms">(.*?)<\/div>/s);
+  assert.ok(winner, html);
+  assert.ok(winner[1].startsWith(avatarImg(3, "big")));
+  assert.equal(text(winner[1]), "Mia");
+  assert.deepEqual([...winner[1].matchAll(/<span class="tile" style="animation-delay:(-?\d+)ms">/g)].map((m) => Number(m[1])), [-80, 0, 80]);
+  // Shared winners pop together; the burst plays once.
+  const shared = renderProjector(resultsView({ winners: ["p1", "p3"] }), ui({ win: { pids: ["p1", "p3"], elapsedMs: 0 } }));
+  assert.equal((shared.match(/class="p-winner winning"/g) ?? []).length, 2);
+  assert.equal((shared.match(/class="win-burst"/g) ?? []).length, 1);
+  // When win() is over (null), the plain podium.
+  const after = renderProjector(resultsView({ winners: ["p1"] }), ui({ win: null }));
+  assert.ok(!after.includes("win-burst") && !after.includes("winning"));
+  assert.ok(after.includes(`<div class="p-winner">${avatarImg(3, "big")}${tiles("Mia")}</div>`));
+});
+
+test("no win burst without a winner", () => {
+  const html = renderProjector(resultsView({}), ui({ win: { pids: [], elapsedMs: 100 } }));
+  assert.ok(!html.includes("win-burst") && !html.includes("winning"));
+});
+
+test("the projector passes the moments to the circle", () => {
+  const players = ["a", "b"].map((id) => ({ id, nickname: id, avatar: 0, lives: 1, alive: true, connected: true, spectator: false, lastWord: { word: "stone", prompt: { text: "st", type: "contains" } } }));
+  const view = { code: "ABCD", phase: "playing", paused: false, locked: false, players, prompt: { text: "st", type: "contains" }, mode: { seats: ["a", "b"], current: "b" } };
+  const html = renderProjector(view, ui({
+    word: { pid: "a", word: "stone", prompt: { text: "st", type: "contains" }, fromSpotlight: true, elapsedMs: 5 },
+    refused: { pid: "b", elapsedMs: 5 },
+    hearts: new Map([["a", 5]]),
+  }));
+  assert.ok(html.includes('class="fly-word"') && html.includes("name shake") && html.includes('class="crack"'));
 });

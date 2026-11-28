@@ -354,7 +354,7 @@ async function smallRoom(): Promise<void> {
   }
   if (!ghostShotDone) console.warn("  Aisha was never a ghost during the game: no ghost screenshot");
   await host.locator(".p-results").waitFor({ timeout: WAIT });
-  await sleep(500);
+  await sleep(1800); // the winner's moment (1.5 s) is over: the shots show where it ends
   await everyTheme(ctl, [[host, "13-projector-results"], [jonas, "14-student-results"]]);
 }
 

@@ -131,3 +131,29 @@ test("the arrow starts outside the prompt's tiles, stays short of the inner ring
   assert.ok(html.indexOf('class="bomb-arrow') > html.indexOf('class="bomb-flame"'), "arrow after the flame");
   assert.ok(html.indexOf('class="bomb-arrow') > html.indexOf('class="bomb-fuse'), "arrow after the fuse");
 });
+
+test("tension grows the flame in one CSS animation from the turn's age, up to 1.45; absent when null", () => {
+  const html = renderBomb(still({ tension: { elapsedMs: 12_345.6, running: true } }), "");
+  assert.match(html, /^<div class="bomb[^"]*" data-bomb data-tension-ms="12346">/);
+  const grow = html.match(/<g class="bomb-grow" style="([^"]*)">/);
+  assert.ok(grow, "the flame sits in a growing group");
+  assert.match(grow[1], /animation-delay:-12346ms/);
+  assert.ok(!grow[1].includes("paused"));
+  // Paused (or the game paused): held where it is.
+  const held = renderBomb(still({ tension: { elapsedMs: 3000, running: false } }), "");
+  assert.match(held, /<g class="bomb-grow" style="[^"]*animation-play-state:paused/);
+  // The flicker speeds up from 0.9 s towards 0.45 s, in steps, as the turn goes on.
+  assert.match(renderBomb(still({ tension: { elapsedMs: 0, running: true } }), ""), /class="bomb-flame" style="[^"]*animation-duration:0\.9s/);
+  assert.match(renderBomb(still({ tension: { elapsedMs: 25_000, running: true } }), ""), /class="bomb-flame" style="[^"]*animation-duration:0\.45s/);
+  assert.match(renderBomb(still({ tension: { elapsedMs: 60_000, running: true } }), ""), /class="bomb-flame" style="[^"]*animation-duration:0\.45s/);
+  // The CSS: one animation over TENSION_FULL_MS, ease-in, forwards, to 1.45; only with motion allowed.
+  assert.match(BOMB_CSS, /@keyframes bomb-grow \{ from \{ transform: scale\(1\); \} to \{ transform: scale\(1\.45\); \} \}/);
+  assert.match(BOMB_CSS, /\.bomb-grow \{[^}]*animation: bomb-grow 25000ms ease-in forwards/);
+  const noPref = BOMB_CSS.slice(BOMB_CSS.indexOf("@media (prefers-reduced-motion: no-preference)"));
+  assert.ok(noPref.includes("animation: bomb-grow"), "the growth only with motion allowed");
+  // Without tension: no attribute, no growth.
+  for (const t of [null, undefined]) {
+    const plain = renderBomb(still({ tension: t }), "");
+    assert.ok(!plain.includes("data-tension-ms") && !plain.includes("bomb-grow"));
+  }
+});

@@ -11,6 +11,7 @@ const read = (f: string) => readFileSync(new URL(f, APP), "utf8");
 const NAMES = [
   "--stage", "--tile", "--tile-edge", "--tile-ink", "--bomb", "--bomb-shade", "--spark", "--names", "--muted", "--lives",
   "--panel", "--answered", "--refusal", "--turn", "--bomb-rim",
+  "--plate", "--plate-ink", "--turn-ink", "--stage-light",
 ];
 
 /** Each theme's colours from themes.css: { workshop: { "--stage": "#1F2A36", … }, … }. */
@@ -35,7 +36,7 @@ function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-test("every theme defines the same 15 colours", () => {
+test("every theme defines the same 19 colours", () => {
   const themes = parseThemes();
   for (const id of THEME_IDS) {
     assert.ok(themes[id], `a block for ${id}`);
@@ -64,6 +65,11 @@ test("readable in every theme", () => {
     ["--tile-ink", "--refusal", 4.5], ["--tile-ink", "--answered", 4.5],
     // The countdown number on the bomb (large text), calm and urgent.
     ["--names", "--bomb", 3], ["--spark", "--bomb", 3],
+    // Name plates: the name on its plate, the current player's name on the turn colour, and the
+    // light ring (the plate colour) round the turn plate, which must show against the stage.
+    ["--plate-ink", "--plate", 4.5], ["--turn-ink", "--turn", 4.5], ["--plate", "--stage", 3],
+    // The soft light behind the bomb never lowers the text contrast.
+    ["--names", "--stage-light", 4.5], ["--muted", "--stage-light", 4.5],
   ];
   // Those are the colours the bomb file gives the countdown.
   assert.match(BOMB_CSS, /\.bomb-count \{[^}]*color: var\(--names\)/);
@@ -76,9 +82,17 @@ test("readable in every theme", () => {
   }
 });
 
+test("the soft light stays subtle", () => {
+  for (const [theme, c] of Object.entries(parseThemes())) {
+    assert.ok(luminance(c["--stage-light"]) > luminance(c["--stage"]), `${theme}: the light is lighter than the stage`);
+    const ratio = contrast(c["--stage-light"], c["--stage"]);
+    assert.ok(ratio <= 1.25, `${theme}: the light is ${ratio.toFixed(2)} against the stage`);
+  }
+});
+
 test("Workshop keeps Roy's colours", () => {
   assert.deepEqual(
-    Object.fromEntries(Object.entries(parseThemes().workshop).filter(([k]) => !["--panel", "--answered", "--refusal", "--turn", "--bomb-rim"].includes(k))),
+    Object.fromEntries(Object.entries(parseThemes().workshop).filter(([k]) => !["--panel", "--answered", "--refusal", "--turn", "--bomb-rim", "--plate", "--plate-ink", "--turn-ink", "--stage-light"].includes(k))),
     {
       "--stage": "#1F2A36", "--tile": "#E8C48C", "--tile-edge": "#B48A4E", "--tile-ink": "#2B1D10", "--bomb": "#C8243A",
       "--bomb-shade": "#8E1626", "--spark": "#FFC93C", "--names": "#F3EDE2", "--muted": "#8D9AA8", "--lives": "#FF6B6B",

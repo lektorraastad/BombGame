@@ -35,6 +35,8 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 
+/* The soft light behind the bomb: fades to nothing inside its box, so it has no edge. */
+:root { --bomb-glow: radial-gradient(ellipse 46% 56% at 50% 50%, var(--stage-light), transparent); }
 body {
   margin: 0;
   font-family: var(--font-read);
@@ -43,6 +45,9 @@ body {
   line-height: 1.35;
   color: var(--names);
   background-color: var(--stage);
+  /* Slightly darker towards the screen's corners; the light behind the bomb is --bomb-glow. */
+  background-image: radial-gradient(ellipse at 50% 50%, transparent 55%, color-mix(in srgb, var(--stage) 60%, black) 130%);
+  background-attachment: fixed;
   min-height: 100vh;
 }
 
@@ -83,7 +88,15 @@ button:disabled { cursor: default; }
   padding: 8px 12px; border-radius: 10px; margin-bottom: 10px; text-align: center;
 }
 .top { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); margin-bottom: 12px; font-size: 18px; }
-.top .who { color: var(--names); font-family: var(--font-display); font-weight: 800; }
+.top .who { color: var(--names); font-family: var(--font-display); font-weight: 800; margin-right: auto; }
+.top { align-items: center; }
+
+/* The Wordfire logo (logo.js). Its box is 481 x 94, so the width follows the height. */
+.logo { display: block; flex: none; width: auto; overflow: visible; }
+.logo-small { height: 28px; }
+.top .logo-small { height: 24px; }
+.projector .logo-small { position: absolute; top: 2vh; left: 3vw; height: 3.4vh; z-index: 1; }
+.logo-large { height: 9vh; }
 .gamepage main h1 { font-size: 34px; margin: 12px 0; }
 .names { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .names li {
@@ -134,6 +147,7 @@ main.turn-on, main.waiting, main.ghost {
    measures its shape (ui.ringAspect) so the arrow still points at the seat. */
 .arena { flex: 1 1 0; min-height: 140px; width: 100%; container-type: size; display: flex; align-items: center; justify-content: center; }
 .arena .circle {
+  background: var(--bomb-glow);
   aspect-ratio: auto; width: min(100cqw, 210cqh); height: min(100cqh, 100cqw); max-width: none; container-type: size;
 }
 
@@ -272,13 +286,13 @@ main.turn-on .letters, main.waiting .letters { margin-top: 2px; }
 /* More than 20 on the circle: two rings, everything smaller. */
 .circle .seat.small { font-size: calc(var(--seat-size) * 0.8); }
 .circle .seat .avatar { width: 1.9em; height: 1.9em; }
-/* The name on a light tile label with a dark outline. */
+/* The name on a smooth cream plate: fully rounded ends, no border, a soft shadow. */
 /* Never cut short: students find their seat by name. A long name wraps onto a second line at a
    space; only a single word too long for the label (wider than "Mohammed" or "Christoffer") breaks. */
 .circle .seat .name {
-  max-width: 6.8em; overflow-wrap: break-word; line-height: 1.05;
-  font-family: var(--font-display); font-weight: 800; background: var(--tile); color: var(--tile-ink);
-  border: 0.08em solid var(--tile-ink); border-radius: 0.3em; padding: 0.04em 0.35em 0.1em;
+  max-width: 7.1em; overflow-wrap: break-word; line-height: 1.05;
+  font-family: var(--font-display); font-weight: 800; background: var(--plate); color: var(--plate-ink);
+  border-radius: 999px; padding: 0.08em 0.45em 0.12em; box-shadow: 0 0.08em 0.22em color-mix(in srgb, var(--stage) 60%, black);
 }
 .circle .seat .lives { font-size: 0.75em; color: var(--lives); letter-spacing: 0.05em; line-height: 1; white-space: nowrap; }
 .circle .seat .away { font-size: 0.65em; color: var(--muted); }
@@ -343,14 +357,15 @@ main:not(.p-lobby) .circle .seat:not(.small) .answered { left: 0.8em; }
   display: inline-block; width: 0.14em; height: 1.2em; margin-left: 0.12em; border-radius: 0.07em;
   background: var(--spark); vertical-align: middle;
 }
-/* Whose turn: a little bigger, and the name ringed in the turn colour, so not by colour alone. Only
-   a little: the arrow points at the seat too, and a much bigger seat runs into its neighbours. */
+/* Whose turn: a little bigger, and the plate in the turn colour with a light ring (the plate colour),
+   so not by colour alone. Only a little: the arrow points at the seat too, and a much bigger seat
+   runs into its neighbours. */
 .circle .seat.on { font-size: calc(var(--seat-size) * 1.12); z-index: 2; }
 .circle .seat.small.on { font-size: calc(var(--seat-size) * 0.84); } /* 1.05 x the two-ring seat */
-.circle .seat.on .name { box-shadow: 0 0 0 0.14em var(--turn); }
+.circle .seat.on .name { background: var(--turn); color: var(--turn-ink); box-shadow: 0 0 0 0.14em var(--plate); }
 /* Knocked out: greyed, with a dashed outline on the name. */
 .circle .seat.out .avatar { filter: grayscale(1); opacity: 0.5; }
-.circle .seat.out .name { background: transparent; color: var(--muted); border: 0.08em dashed var(--muted); }
+.circle .seat.out .name { background: transparent; color: var(--muted); border: 0.08em dashed var(--muted); box-shadow: none; }
 .circle .seat.out .lives { color: var(--muted); }
 /* A new arrival pops in (the one animation outside the bomb). Lasts POP_MS from motion.js. */
 .circle .seat.pop { animation: seat-pop 400ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
@@ -383,7 +398,10 @@ main:not(.p-lobby) .circle .seat:not(.small) .answered { left: 0.8em; }
    The ring box is a size container, and so is the oval, so every size inside is in cqh of the oval:
    the height sets how big things can be read. The page measures the oval's shape (ui.ringAspect)
    so the arrow still points at the seat. The student screen does the same (.arena .circle). */
-.p-ring { flex: 1; min-height: 0; width: 100%; container-type: size; display: flex; align-items: center; justify-content: center; }
+.p-ring {
+  flex: 1; min-height: 0; width: 100%; container-type: size; display: flex; align-items: center; justify-content: center;
+  background: var(--bomb-glow);
+}
 .p-ring .circle {
   aspect-ratio: auto; width: min(100cqw, 250cqh); height: 100cqh; max-width: none; container-type: size; --seat-size: 3.2cqh;
 }
@@ -430,8 +448,12 @@ main:not(.p-lobby) .circle .seat:not(.small) .answered { left: 0.8em; }
 /* Moved down a little, into the space above the toolbar, so a bottom seat's two-line name (which
    can reach about 17px below the circle at 1920x1080) stays clear of it. */
 .p-examples { flex: none; min-height: 1.35em; font-size: 2.8vh; color: var(--muted); position: relative; top: 2vh; }
+/* With one ring the examples show under the bomb instead (the moments, below), and the line is
+   gone; its space stays, so the circle keeps the size its seats were measured at. The padding is
+   the line's height from the rule above (min-height 1.35em at font-size 2.8vh): change them together. */
+.projector main.p-classic:not(:has(> .p-examples)), .projector main.p-everyone:not(:has(> .p-examples)) { padding-bottom: calc(1.35 * 2.8vh); }
 /* In the corner, out of the circle's way. */
-.p-round { position: absolute; top: 2vh; left: 3vw; font-size: 3.2vh; color: var(--muted); font-weight: 600; }
+.p-round { position: absolute; top: 6.6vh; left: 3vw; font-size: 3.2vh; color: var(--muted); font-weight: 600; }
 
 /* Lobby: the site, the code on big tiles, then the circle as students join. */
 .p-goto { flex: none; font-size: 4.2vh; margin: 0; }
@@ -580,4 +602,127 @@ main.results h1 { color: var(--muted); margin: 4px 0 0; }
   .joinpage h1 { font-size: 44px; }
   .ctl-buttons { grid-template-columns: repeat(2, 1fr); }
   .ctl th, .ctl td { padding: 5px 2px; }
+}
+
+/* ---- The moments (render-circle.js, render-projector.js), drawn from motion.js's elapsed times ---- */
+/* Each is started part-way through by an inline negative animation-delay, which the parts inside
+   inherit. Every movement is under prefers-reduced-motion: no-preference; without it only the end
+   states show: the word sits in its seat, nothing shakes, the lost heart is gone, the winner shows. */
+
+/* The example words after an explosion, big, under the bomb in the spotlight's place (one ring).
+   --n counts their letters and gaps, so a long set gets smaller tiles and stays clear of the seats. */
+.spot-examples {
+  --n: 12;
+  position: absolute; left: 50%; top: calc(50% + var(--bomb-size) * 0.62); transform: translateX(-50%);
+  z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 0.3em;
+  font-size: min(5.5cqh, calc(44cqw / (1.1 * var(--n) + 0.3)));
+}
+.arena .spot-examples { font-size: min(5cqh, calc(44cqw / (1.1 * var(--n) + 0.3))); }
+.spot-examples-row { display: flex; flex-wrap: nowrap; gap: 1em; white-space: nowrap; }
+.spot-examples-row .tiles { flex-wrap: nowrap; max-width: none; }
+.spot-examples-label {
+  font-family: var(--font-display); font-weight: 800; font-size: max(0.4em, 1.8cqh); letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--muted); white-space: nowrap;
+}
+/* More than 20 on the circle: the bottom line, bigger than it was. */
+.p-examples.big { font-size: 4vh; color: var(--names); }
+
+/* The correct word flying from the spotlight to its seat: only with motion allowed. */
+.fly-word { display: none; }
+/* The cracking heart: only with motion allowed (without, the heart is simply gone). */
+.crack { display: none; }
+/* The win burst: only with motion allowed (without, the winner simply shows). */
+.win-burst { display: none; }
+.p-podium { position: relative; }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* The correct word (WORD_MS, 650 ms): the matched letters light up and hop (about 200 ms), then
+     the word shrinks and flies to the seat's word (about 350 ms) and fades as the seat pops. On top
+     of everything: the next turn draws as normal underneath. */
+  .fly-word {
+    --n: 12;
+    display: inline-flex; position: absolute; z-index: 4; pointer-events: none; white-space: nowrap;
+    left: var(--x); top: calc(var(--y) + var(--seat-size) * 0.9); transform-origin: 50% 0;
+    font-size: min(6.5cqh, calc(44cqw / (1.1 * var(--n) + 0.3)));
+    animation: fly-word 650ms cubic-bezier(0.5, 0, 0.4, 1) both;
+  }
+  .arena .fly-word { font-size: min(6cqh, calc(44cqw / (1.1 * var(--n) + 0.3))); }
+  .fly-word .tiles { flex-wrap: nowrap; max-width: none; animation-delay: inherit; }
+  .fly-word .tile.matched { animation: fly-hop 650ms ease-out both; animation-delay: inherit; }
+  @keyframes fly-word {
+    0%, 31% { left: 50%; top: calc(50% + var(--bomb-size) * 0.62); transform: translateX(-50%) scale(1); opacity: 1; }
+    85% { left: var(--x); top: calc(var(--y) + var(--seat-size) * 0.9); transform: translateX(-50%) scale(0.42); opacity: 0.9; }
+    100% { left: var(--x); top: calc(var(--y) + var(--seat-size) * 0.9); transform: translateX(-50%) scale(0.42); opacity: 0; }
+  }
+  @keyframes fly-hop {
+    0% { transform: none; background: var(--tile); }
+    12% { transform: translateY(-0.55em); background: var(--spark); }
+    31%, 100% { transform: translateY(-0.2em); background: var(--spark); }
+  }
+  /* The seat's word appears as the flying word arrives, and the seat gives a small pop. */
+  .circle .seat.landing { animation: seat-land 650ms ease-out both; }
+  .circle .seat .last-word.landing { animation: word-land 650ms linear both; }
+  @keyframes seat-land {
+    0%, 82% { transform: translate(-50%, -50%) scale(1); }
+    91% { transform: translate(-50%, -50%) scale(1.14); }
+    100% { transform: translate(-50%, -50%) scale(1); }
+  }
+  @keyframes word-land { 0%, 84% { opacity: 0; } 100% { opacity: 1; } }
+  /* Without a spotlight the word just pops in at the seat. */
+  .circle .seat .last-word.pop-in { animation: word-pop-in 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+  @keyframes word-pop-in { from { transform: scale(0.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  /* The refused word (REFUSED_MS): a gentle sideways shake (about 0.4 s) and the tiles dull for a
+     moment. The spotlight keeps its centring while it shakes. */
+  .spotlight.refused { --shake-base: translateX(-50%); animation: shake 420ms ease-out both; }
+  .circle .seat .shake { animation: shake 420ms ease-out both; }
+  .spotlight.refused .tiles, .shake .tiles { animation-delay: inherit; }
+  .spotlight.refused .tile, .shake .tile { animation: dull 450ms linear both; animation-delay: inherit; }
+  @keyframes shake {
+    0%, 100% { transform: var(--shake-base, translate(0)) translateX(0); }
+    15% { transform: var(--shake-base, translate(0)) translateX(-0.22em); }
+    35% { transform: var(--shake-base, translate(0)) translateX(0.22em); }
+    55% { transform: var(--shake-base, translate(0)) translateX(-0.15em); }
+    75% { transform: var(--shake-base, translate(0)) translateX(0.15em); }
+    90% { transform: var(--shake-base, translate(0)) translateX(-0.05em); }
+  }
+  @keyframes dull { 0%, 75% { filter: saturate(0.25) brightness(0.8); opacity: 0.7; } 100% { filter: none; opacity: 1; } }
+
+  /* The lost heart (HEART_MS, 900 ms): it swells, cracks in two and the halves fall away. */
+  .crack { display: inline-block; position: relative; animation: crack-swell 900ms ease-out both; }
+  .crack > span { animation-delay: inherit; }
+  .crack-l { display: inline-block; clip-path: inset(0 50% 0 0); animation: crack-l 900ms cubic-bezier(0.4, 0, 0.8, 0.6) both; }
+  .crack-r { position: absolute; left: 0; top: 0; clip-path: inset(0 0 0 50%); animation: crack-r 900ms cubic-bezier(0.4, 0, 0.8, 0.6) both; }
+  @keyframes crack-swell {
+    0% { transform: scale(1); }
+    18% { transform: scale(1.6); }
+    25%, 100% { transform: scale(1.3); }
+  }
+  @keyframes crack-l {
+    0%, 25% { transform: none; opacity: 1; }
+    100% { transform: translate(-0.35em, 1.6em) rotate(-35deg); opacity: 0; }
+  }
+  @keyframes crack-r {
+    0%, 25% { transform: none; opacity: 1; }
+    100% { transform: translate(0.35em, 1.6em) rotate(35deg); opacity: 0; }
+  }
+
+  /* The win (WIN_MS, 1.5 s): the winner's emoji pops up, the name drops in tile by tile (each
+     tile's own delay, 80 ms apart) and 16 letter tiles burst out and fall. */
+  .p-winner.winning .avatar { animation: win-pop 450ms ease-out both; animation-delay: inherit; }
+  .p-winner.winning .tile { animation: win-drop 300ms ease-out both; }
+  @keyframes win-pop { 0% { transform: scale(0); } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
+  @keyframes win-drop {
+    0% { transform: translateY(-1.2em); opacity: 0; }
+    70% { transform: translateY(0.08em); opacity: 1; }
+    100% { transform: none; opacity: 1; }
+  }
+  .win-burst { display: block; position: absolute; left: 50%; top: 45%; width: 0; height: 0; z-index: 2; pointer-events: none; font-size: 4vh; }
+  .results .win-burst { font-size: 22px; }
+  .burst-tile { position: absolute; left: 0; top: 0; animation: burst-tile 1500ms cubic-bezier(0.2, 0.7, 0.4, 1) both; }
+  @keyframes burst-tile {
+    0% { transform: translate(-50%, -50%) scale(0.3) rotate(0deg); opacity: 1; }
+    45% { transform: translate(calc(-50% + var(--bx)), calc(-50% + var(--by))) scale(1) rotate(var(--spin)); opacity: 1; }
+    100% { transform: translate(calc(-50% + var(--bx) * 1.1), calc(-50% + var(--by) + 3em)) scale(0.9) rotate(calc(var(--spin) * 1.6)); opacity: 0; }
+  }
 }

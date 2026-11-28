@@ -3,12 +3,36 @@
 // draw says how long ago the arrow started swinging, the bomb exploded or a player joined, and the
 // bomb file turns that into a negative animation-delay. Pure: the clock is passed in.
 import { arrowAngle } from "./circle-geometry.js";
-import { ARROW_SWING_MS, EXPLOSION_MS } from "./bomb.js";
+import { ARROW_SWING_MS, EXPLOSION_MS, TENSION_FULL_MS } from "./bomb.js";
 
 /** How long a newly joined player's pop lasts. */
 export const POP_MS = 400;
+/** How long a correct Classic word takes to light up, hop and fly to its seat. */
+export const WORD_MS = 650;
+/** How long a refused word's shake lasts. */
+export const REFUSED_MS = 450;
+/** How long a lost heart takes to swell, crack and fall away. */
+export const HEART_MS = 900;
+/** How long the winner's moment lasts on the results screen. */
+export const WIN_MS = 1500;
+/** How long the circle stays up after the last explosion before the results show. */
+export const RESULTS_HOLD_MS = 1500;
+/** How long the example words show under the bomb after an explosion. */
+export const EXAMPLES_MS = 4000;
+/** How long a hidden-fuse turn lasts before the flame is at its biggest (bomb.js draws it). */
+export { TENSION_FULL_MS };
 
 /** @typedef {import("./bomb.js").BombState} BombState */
+/** The hidden fuse's turn (bomb.js draws the flame's growth from it). @typedef {import("./bomb.js").Tension} Tension */
+
+/** @param {any} v */
+const isClassic = (v) => Array.isArray(v?.mode?.seats);
+/** @param {any} v @returns {any[]} */
+const momentsOf = (v) => (Array.isArray(v?.moments) ? v.moments.filter((/** @type {any} */ m) => m && typeof m === "object") : []);
+/** @param {unknown} pids @returns {string[]} */
+const pidList = (pids) => (Array.isArray(pids) ? pids.filter((p) => typeof p === "string") : []);
+/** @param {any} v */
+const typed = (v) => typeof v?.typing === "string" && v.typing.length > 0;
 
 /**
  * @param {() => number} now
@@ -28,8 +52,47 @@ export function createMotion(now) {
   /** @type {Map<string, number>} */
   const joinedAt = new Map();
 
+  /** The previous view, and the last one with the game playing (held over the results). @type {any} */
+  let prev = null;
+  /** @type {any} */
+  let lastPlaying = null;
+  /** @type {null | { pid: string, word: string, prompt: { text: string, type: string }, fromSpotlight: boolean }} */
+  let wordInfo = null;
+  let wordAt = -Infinity;
+  /** @type {string | null} */
+  let refusedPid = null;
+  let refusedAt = -Infinity;
+  /** @type {Map<string, number>} */
+  const heartAt = new Map();
+  /** @type {string[]} */
+  let winPids = [];
+  let winAt = -Infinity;
+  /** The held results: the playing view drawn instead, until holdUntil. @type {any} */
+  let holdBase = null;
+  let holdUntil = -Infinity;
+  /** The explosion that brought the example words, and whether the next player has typed since. */
+  let examplesAt = -Infinity;
+  let typedSince = false;
+  /** The hidden turn's age from the last view that had one, and when that view came. @type {number | null} */
+  let turnBase = null;
+  let turnSeenAt = 0;
+  let turnRunning = false;
+  /** Whether the latest view had example words. */
+  let hasExamples = false;
+
   const swinging = () => to !== null && now() - swingAt < ARROW_SWING_MS;
   const exploding = () => now() - explodedAt < EXPLOSION_MS;
+  const holding = () => now() < holdUntil;
+  const showingWord = () => wordInfo !== null && now() - wordAt < WORD_MS;
+  const showingRefused = () => refusedPid !== null && now() - refusedAt < REFUSED_MS;
+  const showingWin = () => winPids.length > 0 && now() - winAt < WIN_MS; // includes the wait through a hold
+  const showingExamples = () => now() - examplesAt < EXAMPLES_MS && !typedSince;
+  /** The hidden turn's age: the last turnElapsedMs, plus the local time since while it runs. */
+  const turnAge = () => (turnBase === null ? null : turnBase + (turnRunning ? Math.max(0, now() - turnSeenAt) : 0));
+  const tension = () => {
+    const age = turnAge();
+    return age === null ? 0 : Math.min(1, Math.max(0, age / TENSION_FULL_MS));
+  };
 
   return {
     /** Feed every view from the server, in order. @param {any} v */
@@ -74,6 +137,60 @@ export function createMotion(now) {
         known.add(p.id);
         if (!first) joinedAt.set(p.id, now());
       }
+
+      // The hidden fuse's tension: the turn's age is a state, not a moment, so the first view uses it too.
+      if (typeof v?.turnElapsedMs === "number" && Number.isFinite(v.turnElapsedMs) && v.turnElapsedMs >= 0) {
+        turnBase = v.turnElapsedMs;
+        turnSeenAt = now();
+        turnRunning = v.phase === "playing" && v.paused !== true;
+      } else {
+        turnBase = null;
+      }
+
+      // The moments: never started from the first view after a load or refresh.
+      const moments = first ? [] : momentsOf(v);
+      const t = now();
+      const exploded = moments.some((m) => m.kind === "explosion");
+      if (exploded) {
+        examplesAt = t;
+        typedSince = false;
+      }
+      if (isClassic(v) && typed(v)) typedSince = true;
+
+      // The results wait while the class sees the last explosion, and the win starts after.
+      const toResults = v?.phase === "results" && prev?.phase !== "results";
+      if (toResults && exploded && lastPlaying) {
+        holdBase = lastPlaying;
+        holdUntil = t + RESULTS_HOLD_MS;
+      }
+
+      for (const m of moments) {
+        if (m.kind === "word" && typeof m.pid === "string") {
+          if (isClassic(v)) {
+            const p = (Array.isArray(v.players) ? v.players : []).find((/** @type {any} */ p) => p?.id === m.pid);
+            const lw = p?.lastWord;
+            if (typeof lw?.word === "string" && typeof lw.prompt?.text === "string" && typeof lw.prompt?.type === "string") {
+              const fromSpotlight = typed(prev) && prev?.mode?.current === m.pid;
+              wordInfo = { pid: m.pid, word: lw.word, prompt: { text: lw.prompt.text, type: lw.prompt.type }, fromSpotlight };
+              wordAt = t;
+            }
+          } else {
+            joinedAt.set(m.pid, t); // Everyone at once: the ✓ arrives with the seat's pop
+          }
+        } else if (m.kind === "refused" && typeof m.pid === "string") {
+          refusedPid = m.pid;
+          refusedAt = t;
+        } else if (m.kind === "hearts") {
+          for (const pid of pidList(m.pids)) heartAt.set(pid, t);
+        } else if (m.kind === "win") {
+          winPids = pidList(m.pids);
+          winAt = holding() ? holdUntil : t;
+        }
+      }
+
+      hasExamples = Array.isArray(v?.examples) && v.examples.length > 0;
+      if (v?.phase === "playing") lastPlaying = v;
+      prev = v;
     },
 
     /**
@@ -89,8 +206,67 @@ export function createMotion(now) {
         countdownMs,
         fuse: countdownMs === null || fuseKey === "" ? null : { totalMs: fuseTotal, elapsedMs: Math.max(0, fuseTotal - countdownMs) },
         explosion: exploding() ? { elapsedMs: t - explodedAt } : null,
+        tension: (() => {
+          const age = turnAge();
+          return age === null ? null : { elapsedMs: age, running: turnRunning };
+        })(),
       };
     },
+
+    /** The correct Classic word flying to its seat, for WORD_MS; null otherwise. */
+    word() {
+      return showingWord() && wordInfo ? { ...wordInfo, prompt: { ...wordInfo.prompt }, elapsedMs: now() - wordAt } : null;
+    },
+
+    /** The refused word's shake, for REFUSED_MS; null otherwise. */
+    refused() {
+      return showingRefused() && refusedPid !== null ? { pid: refusedPid, elapsedMs: now() - refusedAt } : null;
+    },
+
+    /** Each lost heart still cracking: player id to elapsed ms, each for HEART_MS. */
+    hearts() {
+      const t = now();
+      /** @type {Map<string, number>} */
+      const out = new Map();
+      for (const [pid, at] of heartAt) if (t - at < HEART_MS) out.set(pid, t - at);
+      return out;
+    },
+
+    /** The winner's moment, for WIN_MS from when the results show (after any hold); null otherwise. */
+    win() {
+      const elapsed = now() - winAt;
+      return winPids.length > 0 && elapsed >= 0 && elapsed < WIN_MS ? { pids: [...winPids], elapsedMs: elapsed } : null;
+    },
+
+    /**
+     * The view to draw: for RESULTS_HOLD_MS after the last explosion, the circle as it was while
+     * playing, with the results' players and own hearts (so the last heart cracks) and example words, and without
+     * the old typing, timer or turn age; otherwise the view itself. Display only: the server's phase
+     * has already changed. @param {any} v
+     */
+    heldView(v) {
+      if (v?.phase !== "results" || !holding() || !holdBase) return v;
+      const { typing: _t, bombRemainingMs: _b, turnElapsedMs: _e, ...base } = holdBase;
+      const held = { ...base, players: v.players, examples: v.examples, phase: "playing", paused: false, moments: [] };
+      // A laptop's own view: the results' hearts and score, but still the playing circle (not the
+      // out screen) and nobody's turn, so the text box isn't live. Enter then does nothing harmful:
+      // the server refuses a word outside a game.
+      if (base.me && v.me) held.me = { ...base.me, lives: v.me.lives, score: v.me.score, isOn: false, canAnswerSilently: false };
+      return held;
+    },
+
+    /**
+     * Whether to show the example words under the bomb: for EXAMPLES_MS after the explosion that
+     * brought them, and in Classic only until the next player starts typing. @param {any} v
+     */
+    examplesShown(v) {
+      if (!Array.isArray(v?.examples) || v.examples.length === 0) return false;
+      if (isClassic(v) && typed(v)) return false;
+      return showingExamples();
+    },
+
+    /** How far the hidden fuse's turn has gone, from 0 to 1 at TENSION_FULL_MS; 0 without one (for the sound). */
+    tension,
 
     /** How long ago this player joined, while their pop runs; null otherwise. @param {string} pid */
     popElapsed(pid) {
@@ -100,7 +276,10 @@ export function createMotion(now) {
       return elapsed < POP_MS ? elapsed : null;
     },
 
-    /** True while a swing, an explosion or a pop is still running, so the page keeps redrawing. */
+    /**
+     * True while a swing, an explosion, a pop, a moment, the results hold or the example words are
+     * still running, so the page keeps redrawing. The hidden fuse's flame grows in CSS: not here.
+     */
     busy() {
       const t = now();
       let popping = false;
@@ -108,7 +287,13 @@ export function createMotion(now) {
         if (t - at < POP_MS) popping = true;
         else joinedAt.delete(pid); // finished: forget it
       }
-      return popping || swinging() || exploding();
+      let cracking = false;
+      for (const [pid, at] of heartAt) {
+        if (t - at < HEART_MS) cracking = true;
+        else heartAt.delete(pid);
+      }
+      return popping || cracking || swinging() || exploding() || holding() || showingWord() || showingRefused()
+        || showingWin() || (hasExamples && showingExamples());
     },
   };
 }

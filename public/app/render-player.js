@@ -5,9 +5,10 @@
 // screen shows only their own score.
 import { AVATARS, avatarImg } from "./avatars.js";
 import { esc } from "./escape.js";
-import { renderCircle } from "./render-circle.js";
+import { renderCircle, circleMoments } from "./render-circle.js";
 import { onBomb, resultParts } from "./render-projector.js";
 import { tiles } from "./tiles.js";
+import { renderLogo } from "./logo.js";
 
 /**
  * @typedef {{ text: string, type: "contains" | "starts" | "ends" }} PromptInfo
@@ -18,6 +19,11 @@ import { tiles } from "./tiles.js";
  *   status: string,
  *   bomb?: import("./bomb.js").BombState,
  *   ringAspect?: number,   // the circle's width / height, measured by the page: the arrow turns to the seat
+ *   word?: import("./render-circle.js").CircleOptions["word"],         // the moments from motion.js,
+ *   refused?: import("./render-circle.js").CircleOptions["refused"],   // as on the projector
+ *   hearts?: Map<string, number>,
+ *   examples?: string[] | null,
+ *   win?: import("./render-projector.js").WinMoment,
  * }} PlayerUi
  */
 
@@ -108,9 +114,10 @@ function resultLine(r, prompt) {
  * @param {PlayerUi} ui
  */
 function arena(view, ui) {
-  const bomb = ui.bomb ?? { lit: view.phase === "playing" && !view.paused, arrow: null, countdownMs: ui.countdownMs, fuse: null, explosion: null };
+  const bomb = ui.bomb ?? { lit: view.phase === "playing" && !view.paused, arrow: null, countdownMs: ui.countdownMs, fuse: null, explosion: null, tension: null };
   const nobodyOn = typeof view.mode?.current !== "string";
-  return `<div class="arena">${renderCircle(view, { compact: true, bomb: nobodyOn ? { ...bomb, arrow: null } : bomb, centre: onBomb(view), aspect: ui.ringAspect })}</div>`;
+  const opts = { compact: true, bomb: nobodyOn ? { ...bomb, arrow: null } : bomb, centre: onBomb(view), aspect: ui.ringAspect, ...circleMoments(ui) };
+  return `<div class="arena">${renderCircle(view, opts)}</div>`;
 }
 
 /** @param {any} view */
@@ -161,7 +168,7 @@ export function wordTiles(value, caret) {
 export function renderPlayer(view, ui) {
   const banner = ui.status !== "open" && ui.status !== "connecting" ? `<div class="banner">Reconnecting...</div>` : "";
   const body = screen(view, ui);
-  return `${banner}<header class="top"><span class="who">${esc(view.me.nickname)}</span><span class="room">Room ${esc(view.code)}</span></header>${body}`;
+  return `${banner}<header class="top">${renderLogo("small")}<span class="who">${esc(view.me.nickname)}</span><span class="room">Room ${esc(view.code)}</span></header>${body}`;
 }
 
 /**
@@ -211,7 +218,7 @@ function screen(view, ui) {
     return `<main class="lobby"><h1>You're in!</h1><p class="big">Waiting for the host to start the game...</p>${renderPicker(view)}${resultLine(ui.lastResult, null)}<ul class="names">${names}</ul></main>`;
   }
 
-  if (view.phase === "results") return results(view);
+  if (view.phase === "results") return results(view, ui);
 
   const paused = view.paused ? `<div class="banner">Paused by the host</div>` : "";
 
@@ -251,10 +258,10 @@ function screen(view, ui) {
 
 /**
  * The projector's results, compact, plus the student's own score.
- * @param {any} view
+ * @param {any} view @param {PlayerUi} ui
  */
-function results(view) {
-  const { podium, longest, ghosts } = resultParts(view);
+function results(view, ui) {
+  const { podium, longest, ghosts } = resultParts(view, ui.win ?? null);
   const winners = Array.isArray(view.results?.winners) ? view.results.winners : [];
   const won = view.players.some((/** @type {any} */ p) => isMe(view, p) && winners.includes(p.id));
   return `<main class="results"><h1>Game over</h1><div class="p-podium">${podium}</div>`

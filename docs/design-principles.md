@@ -28,10 +28,10 @@ The bomb, its animated flame and the turn arrow are one self-contained drawing i
 
 ## 6. Identity: "letter tiles and a lit fuse"
 - **The game's identity comes from its subject:** words made of letters, and a bomb with a fuse. The prompt, the matched letters and the text box all use the same chunky letter-tile style, like modern game pieces. There's no wood grain or letter points, so it doesn't copy a specific board game.
-- **Boldness goes in one place: the bomb.** The flame flickers and the arrow swings once per turn with a small bounce. The explosion is the single big animation, and everything else stays still. Reduced-motion settings are respected.
+- Boldness goes in one place: the bomb. The flame flickers and the arrow swings once per turn. The explosion is the single big animation. A few short moments, each under a second, mark a correct word, a refused word and a lost heart, and the win gets a short celebration. Nothing else moves. Reduced-motion settings are respected: moments show their end state without movement.
 - **Two typefaces:**
   - **Lexend for reading:** player words, the text box and messages. It's designed for easier reading, which suits second-language readers.
-  - **Rubik, in a heavy weight, for display:** letter tiles, names and headings.
+  - **Rubik, in a heavy weight, for display:** letter tiles, names, headings and the Wordfire logo.
 
   Both are free (OFL) and stored in the project, never loaded from outside. Roy will download the font files.
 - **No decoration for its own sake:** no halftone patterns, hard shadows everywhere, or identical boxes for everything.
@@ -60,8 +60,12 @@ The bomb, its animated flame and the turn arrow are one self-contained drawing i
 - **The bomb's rim (decided in the redesign):** in Enamel and Night fuse the bomb stays dark, as sketched, and gets a light rim (`--bomb-rim`) so it can't disappear on a washed-out projector. Workshop has a rim too, because its red bomb is only 2.6:1 against the stage. Every theme's rim must be at least 3:1 against the stage, and a test checks this along with every text colour.
 - **Rejected:** the BombParty screenshot's brown colours, pixel-art styles, and generic "dark background plus one neon accent" palettes.
 
-## Agreed layout (redesign)
+## Agreed layout (redesign, then batch 4)
 - **The circle:** a bomb in the middle with the prompt on it as letter tiles and an animated lit fuse. In Classic, an arrow rotates to the student whose turn it is.
+- **Two kinds of tile (batch 4):** names sit on smooth, fully rounded **name plates** (light fill, soft shadow, no chunky edge). Only letters and words keep the chunky tile look: the prompt, last words, typing, the text box and the room code. The current player's plate takes the theme's turn colour with a light ring round it, and doesn't grow. Knocked-out players keep their faded, dashed look, as a plate.
+- **The soft light (batch 4):** a faint, still, warm light behind the bomb that fades out before the seats, and a slight darkening towards the screen's corners. Each theme sets its own (`--stage-light`). It never makes any text harder to read.
+- **The Wordfire logo (batch 4):** "wordfire" with a lit fuse under it, curling up into a flame after the "e" (`public/app/logo.js`, its measured shape in the batch 4 design, section 4.3). Large at the top of the projector's lobby and results, small in the projector's top-left corner during a game (in Everyone at once, "Round n" sits under it), and small in the laptops' top bar next to the student's name.
+- **The moments (batch 4):** a correct word lights up, hops and flies to its seat; a refused word shakes and dulls (never showing its text); a lost heart swells, cracks and falls away; after an explosion the example words show big under the bomb for about 4 s; the winner gets a pop, a name dropped in tile by tile and a burst of letter tiles; and with a hidden fuse the flame grows and flickers faster as the turn goes on. The projector keeps the circle up for about 1.5 s after the last explosion before the results. The projector plays a chime, a falling note and a short tune for them; laptops stay silent.
 - **Each player:** their chosen emoji avatar (from a fixed set of 60), name, lives and last word, with the prompt letters highlighted as tiles. Live typing is shown with a cursor (Roy accepts an occasional rude word as a tradeoff), and known rude words from the block list are masked (★★★★) as they're typed.
 - **The spotlight:** in Classic with live typing on and up to 20 players, what the current player is typing shows large under the bomb, so the whole class can read it. The seat whose turn it is shows nothing under the name. Above 20 players the typing stays under the seat, as before.
 - **Bomb and names:** the bomb is smaller than before (about 31% of the circle's height on the projector) so the names can be bigger (about 41 px at 1920×1080 with up to 16 players, never smaller than before). Last words are 0.72 times the size of the name.
@@ -69,7 +73,7 @@ The bomb, its animated flame and the turn arrow are one self-contained drawing i
 - **Everyone at once:** there's no arrow. The bomb stays in the middle with its fuse burning down for the round, names tick off with ✓ as students answer, and words are shown after the round.
 - **Large classes:** names and avatars shrink, and above 20 players they sit in two rings. On student laptops, above 20 players the circle shows names and hearts but not last words (the projector still shows them all).
 - **Joining:** students type their name, then tap one of the 60 emoji in a grid. They can change it in the lobby, and a taken emoji says "Taken, pick another".
-- **Lobby:** the room code shown large on letter tiles, with avatars popping into the circle as students join. The pop is the only animation outside the bomb.
-- **Results:** the winner's avatar in the middle where the bomb was, with the longest word and the best ghosts (ranked, without points).
+- **Lobby:** the logo at the top, then the room code shown large on letter tiles, with avatars popping into the circle as students join.
+- **Results:** the logo at the top, the winner's avatar in the middle where the bomb was, with the longest word and the best ghosts (ranked, without points). Batch 5 redesigns this screen.
 
 Screenshots of every screen in every theme are in `docs/screenshots/` (`npm run screenshots` makes them again).

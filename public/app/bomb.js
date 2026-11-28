@@ -1,6 +1,7 @@
 // The bomb: its drawing, the flickering flame, the burning fuse, the turn arrow and the explosion,
 // all in this one file. A new bomb design means replacing this file, keeping renderBomb, BOMB_CSS,
 // ARROW_SWING_MS, EXPLOSION_MS, data-bomb on the root and data-countdown on the number.
+// (data-tension-ms on the root shows the hidden fuse's turn age, for tests.)
 //
 // Pure: renderBomb returns an HTML string. The pages replace their HTML on every view, so every
 // animation is started part-way through with a negative animation-delay of the time already gone.
@@ -18,7 +19,18 @@ export const EXPLOSION_MS = 1200;
  *   countdownMs: number | null,                              // visible timer → number on the bomb with data-countdown
  *   fuse: null | { totalMs: number, elapsedMs: number },     // visible timer → fuse burns down over totalMs
  *   explosion: null | { elapsedMs: number },                 // within EXPLOSION_MS of an explosion
+ *   tension?: Tension,                                       // hidden fuse: the flame grows as the turn goes on
  * }} BombState */
+/**
+ * The hidden fuse's turn: how long it has gone, and whether it is still going (playing, not paused).
+ * The flame grows over TENSION_FULL_MS as one CSS animation, so it needs no redraws.
+ * @typedef {null | { elapsedMs: number, running: boolean }} Tension
+ */
+
+/** How long a hidden-fuse turn lasts before the flame is at its biggest (and flickers fastest). */
+export const TENSION_FULL_MS = 25000;
+/** The flame's size at TENSION_FULL_MS. */
+const TENSION_SCALE = 1.45;
 
 // ---- The drawing, in a 120 × 120 box. The body is in the middle, so the arrow turns about it. ----
 
@@ -110,7 +122,18 @@ export function renderBomb(state, inner) {
   // The flame rides the tip of the fuse and flickers; the burst takes its place in an explosion.
   // The flicker starts from a clock that keeps running between redraws, so it never restarts.
   const flickerAt = num(fuse ? fuse.elapsedMs : state.arrow ? state.arrow.elapsedMs : 0);
-  const flameInner = `<g class="bomb-flame" style="animation-delay:-${flickerAt}ms">${FLAME}</g>`;
+  // The hidden fuse's tension: the flame grows in one animation started part-way through, held while
+  // the turn is paused, and flickers faster in steps of 0.05 s (each new view may take the next step).
+  const t = state.tension;
+  const age = t && typeof t === "object" ? Math.max(0, num(t.elapsedMs)) : null;
+  const flickerS = age === null ? null : Math.round(20 * (0.9 - 0.45 * Math.min(1, age / TENSION_FULL_MS))) / 20;
+  const flickerStyle = `animation-delay:-${flickerAt}ms${flickerS === null ? "" : `;animation-duration:${flickerS}s`}`;
+  const flickering = `<g class="bomb-flame" style="${flickerStyle}">${FLAME}</g>`;
+  // Without motion the flame is drawn at its size for now (ease-in, as the animation), on each view.
+  const p = age === null ? 0 : Math.min(1, age / TENSION_FULL_MS);
+  const flameInner = age === null
+    ? flickering
+    : `<g class="bomb-grow" style="transform:scale(${num(1 + (TENSION_SCALE - 1) * p * p, 3)});animation-delay:-${age}ms${t?.running ? "" : ";animation-play-state:paused"}">${flickering}</g>`;
   const flame = !lit || boom !== null
     ? ""
     : burning
@@ -138,7 +161,8 @@ ${DEBRIS_ANGLES.map((a, i) => `<circle class="bomb-debris${i % 2 ? " alt" : ""}"
 </svg>`;
 
   const count = ms === null ? "" : `<span class="bomb-count" data-countdown>${Math.ceil(ms / 1000)}</span>`;
-  return `<div class="${cls}" data-bomb><svg class="bomb-svg" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+  const tensionAttr = age === null ? "" : ` data-tension-ms="${age}"`;
+  return `<div class="${cls}" data-bomb${tensionAttr}><svg class="bomb-svg" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
 ${fusePaths}
 <g class="bomb-body"${delay}>${BODY}</g>
 ${flame}${arrow}
@@ -172,6 +196,7 @@ export const BOMB_CSS = `
 .bomb-flame-out { fill: var(--lives); stroke: var(--spark); stroke-width: 1.5; stroke-linejoin: round; }
 .bomb-flame-in { fill: var(--spark); }
 .urgent .bomb-flame { animation-duration: 0.22s; }
+.bomb-grow { transform-origin: ${px(TIP)}; }
 
 .bomb-arrow { transform-origin: 60px 60px; transform: rotate(var(--to)); }
 .bomb-arrow polygon { fill: var(--spark); stroke: var(--tile-ink); stroke-width: 2.5; stroke-linejoin: round; }
@@ -244,6 +269,13 @@ export const BOMB_CSS = `
   100% { transform: rotate(var(--a)) translateY(-100px) scale(0.4); opacity: 0; }
 }
 @keyframes bomb-flash { from { opacity: 1; } to { opacity: 0; } }
+
+/* The hidden fuse's growing flame, started part-way through (animation-delay on the element). Without
+   motion allowed, its inline scale is the size for now, updated on each view. */
+@media (prefers-reduced-motion: no-preference) {
+  .bomb-grow { animation: bomb-grow ${TENSION_FULL_MS}ms ease-in forwards; }
+  @keyframes bomb-grow { from { transform: scale(1); } to { transform: scale(${TENSION_SCALE}); } }
+}
 
 /* Reduced motion: the flame is still, the arrow jumps, the fuse moves only when the screen is
    redrawn, and the explosion is a brief still flash. */

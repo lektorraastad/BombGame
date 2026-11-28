@@ -56,22 +56,95 @@ type HubRoom = {
   broadcastQueued: boolean;
   /** What the last broadcast showed, to tell an explosion or a word from the one before. */
   seen: Seen | null;
+  /** The current Classic player whose word was just refused, for the next broadcast only. Never the word. */
+  refused: string | null;
+  /** The current turn (who has the bomb, and which prompt), timed from when the hub first saw it. */
+  turn: { key: string; startedAt: number; pausedAt: number | null; pausedMs: number } | null;
 };
 
-/** The parts of a room that lastEvent compares between broadcasts. */
-type Seen = { phase: string; lives: Map<string, number>; lastWord: string | null; answered: Set<string> };
+/** The parts of a room that lastEvent and the moments compare between broadcasts. */
+type Seen = {
+  phase: string;
+  lives: Map<string, number>;
+  lastWord: string | null;
+  lastWordPid: string | null;
+  answered: Set<string>;
+  /** Classic's current player; null in Everyone at once and the lobby. */
+  current: string | null;
+  /** Alive players with role "player". */
+  alive: Set<string>;
+  winners: string[];
+  /** The prompt being played, as type:text; "" with none. */
+  promptKey: string;
+};
 
 export type LastEvent = "explosion" | "word" | null;
+
+/** Something that just happened, for the screens to mark briefly. No moment ever carries a typed word. */
+export type Moment =
+  | { kind: "word"; pid: string } // Classic: lastWord changed; Everyone: a new id in answered
+  | { kind: "hearts"; pids: string[] } // players whose lives went down
+  | { kind: "explosion" }
+  | { kind: "refused"; pid: string } // only the current Classic player
+  | { kind: "all-answered" } // Everyone: every alive player has answered this round
+  | { kind: "win"; pids: string[] }; // phase became results with at least one winner
+
+/** The refusal reasons that show a "refused" moment; any other refusal stays private to the sender. */
+export const REFUSED_SHOWN: readonly string[] = ["not-a-word", "doesnt-match", "used", "blocked"];
 
 function seenOf(room: Room): Seen {
   const mode = room.phase === "lobby" ? null : room.modeView();
   const lw = mode?.lastWord as { pid: string; word: string } | null | undefined;
+  const prompt = room.phase === "lobby" ? null : room.prompt();
   return {
     phase: room.phase,
     lives: new Map(room.players().map((p) => [p.id, p.lives])),
     lastWord: lw ? `${lw.pid}:${lw.word}` : null,
+    lastWordPid: lw ? lw.pid : null,
     answered: new Set(Array.isArray(mode?.answered) ? (mode.answered as string[]) : []),
+    current: typeof mode?.current === "string" ? mode.current : null,
+    alive: new Set(room.players().filter((p) => p.role === "player" && p.alive).map((p) => p.id)),
+    winners: [...room.winners],
+    promptKey: prompt ? `${prompt.type}:${prompt.text}` : "",
   };
+}
+
+/** The game ended with a winner since the last broadcast. */
+const won = (next: Seen): Moment[] =>
+  next.phase === "results" && next.winners.length > 0 ? [{ kind: "win", pids: [...next.winners] }] : [];
+
+/**
+ * Every moment since the last broadcast. Like lastEvent, nothing counts unless the game was playing,
+ * and nothing on the way back to the lobby. The one exception is a win from a paused game (a kick
+ * during a pause can leave one player). A refusal is passed in, as the room keeps no record of it.
+ */
+function momentsBetween(prev: Seen | null, next: Seen, refused: string | null): Moment[] {
+  if (prev && prev.phase === "paused") return won(next);
+  if (!prev || prev.phase !== "playing" || next.phase === "lobby") return [];
+  const out: Moment[] = [];
+  const words = new Set<string>();
+  if (next.lastWord !== null && next.lastWord !== prev.lastWord && next.lastWordPid) words.add(next.lastWordPid);
+  // A new prompt (a new round) starts a fresh answered list, so every id in it is new.
+  const before = next.promptKey === prev.promptKey ? prev.answered : new Set<string>();
+  const fresh = [...next.answered].filter((id) => !before.has(id));
+  for (const id of fresh) words.add(id);
+  for (const pid of words) out.push({ kind: "word", pid });
+
+  const hearts: string[] = [];
+  for (const [id, lives] of next.lives) {
+    const was = prev.lives.get(id);
+    if (was !== undefined && lives < was) hearts.push(id);
+  }
+  if (hearts.length > 0) out.push({ kind: "hearts", pids: hearts }, { kind: "explosion" });
+
+  if (refused !== null && next.phase === "playing") out.push({ kind: "refused", pid: refused });
+
+  if (fresh.length > 0 && next.alive.size > 0 && [...next.alive].every((id) => next.answered.has(id))) {
+    out.push({ kind: "all-answered" });
+  }
+
+  out.push(...won(next));
+  return out;
 }
 
 /**
@@ -185,7 +258,7 @@ export class Hub {
     if (this.rooms.size >= MAX_ROOMS) return this.send(c, { t: "error", reason: "server-full" });
 
     const code = makeRoomCode(this.deps.random, new Set(this.rooms.keys()));
-    const hr: HubRoom = { room: undefined as unknown as Room, hostToken: randomUUID(), clients: new Set(), idle: null, broadcastQueued: false, seen: null };
+    const hr: HubRoom = { room: undefined as unknown as Room, hostToken: randomUUID(), clients: new Set(), idle: null, broadcastQueued: false, seen: null, refused: null, turn: null };
     hr.room = createRoom({
       code,
       deps: this.deps,
@@ -247,8 +320,17 @@ export class Hub {
 
   private submit(c: Client, word: string): void {
     if (!c.room || c.role !== "player" || !c.pid) return this.send(c, { t: "result", ok: false, reason: "not-player" });
-    const r = c.room.room.submit(c.pid, word);
+    const hr = c.room;
+    const r = hr.room.submit(c.pid, word);
     this.send(c, r.ok ? { t: "result", ok: true, kind: r.kind } : { t: "result", ok: false, reason: r.reason });
+    // The class sees that the player on turn was refused, never what they typed. Silent and ghost words stay private.
+    if (!r.ok && REFUSED_SHOWN.includes(r.reason) && hr.room.phase === "playing") {
+      const mode = hr.room.modeView();
+      if (mode?.current === c.pid && Array.isArray(mode.seats)) {
+        hr.refused = c.pid;
+        this.queueBroadcast(hr);
+      }
+    }
   }
 
   private typing(c: Client, text: string): void {
@@ -365,13 +447,21 @@ export class Hub {
     const room = hr.room;
     const shared = new Map<Role, string | null>();
     let lastEvent: LastEvent = null;
+    let moments: Moment[] = [];
+    let turnElapsedMs: number | undefined;
     try {
       const seen = seenOf(room);
       lastEvent = lastEventBetween(hr.seen, seen);
+      moments = momentsBetween(hr.seen, seen, hr.refused);
       hr.seen = seen;
+      turnElapsedMs = this.turnAge(hr, seen);
     } catch {
       this.log("broadcast-error");
     }
+    hr.refused = null;
+    // Only a hidden fuse gets the turn's age: a visible countdown already shows the time.
+    const withMoments = <V extends object>(v: V): V & { lastEvent: LastEvent; moments: Moment[]; turnElapsedMs?: number } =>
+      turnElapsedMs !== undefined && !("bombRemainingMs" in v) ? { ...v, lastEvent, moments, turnElapsedMs } : { ...v, lastEvent, moments };
     const viewText = (make: () => unknown): string | null => {
       try {
         const view = make();
@@ -385,13 +475,13 @@ export class Hub {
       let text: string | null = null;
       if (c.role === "host" || c.role === "control") {
         const role = c.role;
-        if (!shared.has(role)) shared.set(role, viewText(() => (role === "host" ? { ...projectorView(room), lastEvent } : { ...controlView(room), promptCounts: this.promptCounts })));
+        if (!shared.has(role)) shared.set(role, viewText(() => (role === "host" ? withMoments(projectorView(room)) : { ...controlView(room), promptCounts: this.promptCounts })));
         text = shared.get(role)!;
       } else if (c.role === "player" && c.pid) {
         const pid = c.pid;
         text = viewText(() => {
           const v = playerView(room, pid);
-          return v ? { ...v, lastEvent } : null;
+          return v ? withMoments(v) : null;
         });
       }
       if (text === null) continue;
@@ -401,6 +491,29 @@ export class Hub {
         this.log("broadcast-error");
       }
     }
+  }
+
+  /**
+   * How long the current Classic turn has lasted, paused time left out. A turn is one player with one
+   * prompt; it starts when a broadcast first sees it. It is measured from the turn, never from the fuse,
+   * so a fuse topped up to the minimum turn time changes nothing here and tells the class nothing.
+   */
+  private turnAge(hr: HubRoom, seen: Seen): number | undefined {
+    const running = seen.phase === "playing" || seen.phase === "paused";
+    if (!running || seen.current === null) {
+      hr.turn = null;
+      return undefined;
+    }
+    const now = this.deps.now();
+    const key = `${seen.current}|${seen.promptKey}`;
+    if (!hr.turn || hr.turn.key !== key) hr.turn = { key, startedAt: now, pausedAt: null, pausedMs: 0 };
+    const t = hr.turn;
+    if (seen.phase === "paused" && t.pausedAt === null) t.pausedAt = now;
+    if (seen.phase === "playing" && t.pausedAt !== null) {
+      t.pausedMs += now - t.pausedAt;
+      t.pausedAt = null;
+    }
+    return Math.max(0, (t.pausedAt ?? now) - t.startedAt - t.pausedMs);
   }
 
   /** Restarts the room's idle timer. */
