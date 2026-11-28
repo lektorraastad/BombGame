@@ -72,7 +72,7 @@ test("blocked words never reach known, dictionary or examples", () => {
   assert.ok(!d.known.includes("butt"));
   assert.ok(!d.dictionary.includes("butt"));
   assert.equal(prompt(d, "contains", "utt")?.count, 25);
-  const checker = createWordChecker({ dictionary: d.dictionary, known: d.known, blocked: d.blockedWords });
+  const checker = createWordChecker({ dictionary: d.dictionary, known: d.known, blocked: d.blockedWords, everyday: [...d.known, "butt"] });
   const p = prompt(d, "contains", "utt")!;
   for (let i = 0; i < 50; i++) assert.ok(!checker.examples(p as any, 3, Math.random).includes("butt"));
 });
