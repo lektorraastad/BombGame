@@ -567,8 +567,11 @@ main.results h1 { color: var(--muted); margin: 4px 0 0; }
 .your-game p { margin: 0; font-size: 18px; }
 .yg-row { display: grid; gap: 4px; }
 .yg-k { font-family: var(--font-display); font-weight: 800; font-size: 19px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--spark); }
-.yg-v { font-size: 18px; display: flex; flex-wrap: wrap; gap: 4px 14px; }
-.yg-v .tiles { font-size: 24px; justify-content: flex-start; }
+.yg-v { font-size: 18px; display: flex; flex-wrap: wrap; gap: 4px 14px; container-type: inline-size; }
+/* A word on the card: one row of tiles, shrunk to the card's width for a long word (--n letters;
+   a tile with its gap is about 1.4em wide). */
+.yg-word { --n: 8; font-size: min(24px, calc(100cqw / (1.42 * var(--n)))); max-width: 100%; }
+.yg-word .tiles { flex-wrap: nowrap; justify-content: flex-start; }
 
 .netstatus {
   position: fixed; top: 1vh; left: 50%; transform: translateX(-50%); z-index: 6;

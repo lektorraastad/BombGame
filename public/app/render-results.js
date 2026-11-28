@@ -184,6 +184,8 @@ export function renderResults(view, ui) {
 
 /** @param {string} label @param {string} value */
 const row = (label, value) => `<div class="yg-row"><span class="yg-k">${label}</span><span class="yg-v">${value}</span></div>`;
+/** A word on the card as one row of tiles; --n (its letters) lets a long word shrink to fit. @param {string} w */
+const cardWord = (w) => `<span class="yg-word" style="--n:${Array.from(w).length}">${tiles(w)}</span>`;
 /** @param {unknown} n */
 const num = (n) => (typeof n === "number" && Number.isInteger(n) && n >= 0 ? n : 0);
 
@@ -204,8 +206,8 @@ export function renderSummaryCard(view) {
   const played = `You played ${count(total, "word")}: ${turn} on your turns, ${silent} silently${ghost > 0 ? `, and ${ghost} as a ghost` : ""}`;
   const awards = (Array.isArray(s.awards) ? s.awards : []).filter((/** @type {any} */ k) => typeof k === "string" && AWARD_LABEL[k]);
   return `<section class="your-game">${head}<p class="yg-played">${played}</p>`
-    + `${typeof s.longest === "string" ? row("Your longest", tiles(s.longest)) : ""}`
-    + `${typeof s.rarest === "string" ? row("Your rarest", tiles(s.rarest)) : ""}`
+    + `${typeof s.longest === "string" ? row("Your longest", cardWord(s.longest)) : ""}`
+    + `${typeof s.rarest === "string" ? row("Your rarest", cardWord(s.rarest)) : ""}`
     + `${awards.length ? row("Award", awards.map((/** @type {string} */ k) => `<span class="yg-award">${AWARD_LABEL[k]} 🎉</span>`).join("")) : ""}`
     + `</section>`;
 }
