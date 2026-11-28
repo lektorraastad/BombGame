@@ -108,6 +108,20 @@ In the control panel you can:
 - **Lock** the room so nobody new can join.
 - **Rename** a player with an unsuitable nickname, or **Kick** a player (click **Kick**, then **Really kick?**). A kicked student can't join that room again from the same browser, even in a new tab. A determined student could still get back in from a private window as a new player, so if you kick someone, **Lock** the room straight after.
 
+**At the end of a game**, the projector shows two screens:
+
+1. **The winner and the awards**, for about 10 seconds: Longest word, Rarest word, Most words, and Comeback or Best ghost when one happened. The cards show names and words, never numbers or scores, and nobody is ever shown in last place.
+2. **Words we played**: every word the class saw during the game, each once, in alphabetical order, with no names. Words students typed silently or as ghosts are never shown.
+
+In the control panel (overlay, control window or phone):
+
+- **Show words** moves the projector to "Words we played" straight away.
+- **Copy words** copies all the words on the wall, one per line. Paste them into a worksheet or Quizlet for a later lesson. The button says "Copied" for a moment. If your browser won't copy, the words appear in a small box: click in it, press Ctrl+A and then Ctrl+C. The words are copied in your browser only, and nothing is saved: once the room closes, they are gone.
+
+Each laptop shows the student a private **Your game** card: how many words they played (on their turns, silently and as a ghost), their longest and rarest word, and any award they won. Only that student sees it. The laptops no longer show "Your score" at the end of a game.
+
+Click **Play again** when you're ready for the next game.
+
 Sound plays only on the projector. The **Sound** button at the bottom of the projector screen switches between **Normal**, **Quiet** and **Off**. The projector browser remembers your choice for the next lesson.
 
 Things that are fine during a lesson:

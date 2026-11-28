@@ -99,7 +99,7 @@ Next to the card, the laptop shows the winner's emoji and name, as in the mockup
 
 ### 4.4 What "rarest" means
 "Rarest" is worked out from the word lists the game already builds, at build time, into a small generated ranking file **(Claude's call on the format)**:
-- **Names never count.** A word counts as a name when it is on a name list (places, nationalities, languages, holidays, brands, Roy's `names-extra.txt`) and **not** also an ordinary word in the NGSL or CEFR-J lists **(Claude's call, after review)**. So "english", "turkey" and "china" are ordinary words, and "barbados" or "tiktok" are names. Names are skipped. If a student only played names, there is no Rarest word for them.
+- **Names never count.** A word counts as a name when it is on a name list (places, nationalities, languages, holidays, brands, Roy's `names-extra.txt`) and **not** also an ordinary word in the NGSL or CEFR-J lists **(Claude's call, after review)**. So "turkey" and "polish" are ordinary words, and "barbados" or "tiktok" are names. ("english" and "china" are names too: neither is in the NGSL or CEFR-J lists.) Names are skipped. If a student only played names, there is no Rarest word for them.
 - **Word forms count as their base word (Claude's call, after review).** A plural or other form ("apples", "played", "running") is ranked as its base word when the base is in the lists: strip -s, -es, -ed, -ing (with the usual spelling changes, such as a doubled consonant or a dropped e), or use the NGSL's own word families. This stops "apples" counting as rarer than "magnificent".
 - **From most common to rarest:**
   1. beginner words (`beginner.txt`);

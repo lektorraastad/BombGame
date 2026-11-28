@@ -281,7 +281,11 @@ const CLASS_OF_30 = [
   "Per", "Ida", "Jakob", "Thea", "Noah", "Amalie", "Elias", "Hedda", "Tobias", "Selma",
 ];
 
-/** Room 1: three players in the lobby; then a short game with ghosts to its results. */
+/**
+ * Room 1: three players in the lobby; then a short game with ghosts to its results: the winner and
+ * the awards, "Words we played" (a few dozen words) and Jonas's private "Your game" card (he plays
+ * words on his turns and silently while he waits).
+ */
 async function smallRoom(): Promise<void> {
   console.log("Lobby with 3, ghost, results");
   const { host, code, ctl } = await createRoom();
@@ -306,8 +310,13 @@ async function smallRoom(): Promise<void> {
   });
   await ctl.cmd({ cmd: "start" });
 
-  // Ingrid always answers, and wins. Jonas answers until Aisha's ghost screen is taken. The others
-  // let the bomb go off; once out, the computer players answer each prompt as ghosts.
+  // Ingrid always answers, and wins. Jonas answers until Aisha's ghost screen is taken and the class
+  // has played enough words for the wall, and answers silently on a few of the others' turns. The
+  // others let the bomb go off; once out, the computer players answer each prompt as ghosts.
+  const WALL_WORDS = 36;
+  const SILENT_WORDS = 3;
+  let silentLeft = SILENT_WORDS;
+  let played = 0; // words played on a turn: the wall's words
   const used = new Set<string>();
   const ghostAnswered = new Map<string, string>();
   let jonasPlays = true;
@@ -339,7 +348,15 @@ async function smallRoom(): Promise<void> {
       await aisha.locator(".result.good").waitFor({ timeout: WAIT });
       await everyTheme(ctl, [[aisha, "12-student-ghost"]]);
       ghostShotDone = true;
-      jonasPlays = false;
+    }
+    if (jonasPlays && ghostShotDone && played >= WALL_WORDS) jonasPlays = false;
+    // Jonas answers silently while someone else is on (Ingrid, so the turn doesn't move on meanwhile).
+    if (silentLeft > 0 && t.name === "Ingrid" && (await jonas.locator("main.waiting").count()) > 0) {
+      const score = (await jonas.locator(".corner .score").textContent()) ?? "";
+      await jonas.fill("#word", wordFor(t.prompt, used, 6, 11));
+      await jonas.press("#word", "Enter");
+      const ok = await jonas.waitForFunction((s: string) => document.querySelector(".corner .score")?.textContent !== s, score, { timeout: 3000 }).then(() => true, () => false);
+      if (ok) silentLeft--;
     }
     if (t.name === "Ingrid" || (t.name === "Jonas" && jonasPlays)) {
       await sleep(900); // the arrow's swing, so the turns don't fly past
@@ -350,12 +367,29 @@ async function smallRoom(): Promise<void> {
         await jonas.fill("#word", word);
         await jonas.press("#word", "Enter");
       }
+      played++;
     }
   }
   if (!ghostShotDone) console.warn("  Aisha was never a ghost during the game: no ghost screenshot");
-  await host.locator(".p-results").waitFor({ timeout: WAIT });
+  if (silentLeft > 0) console.warn(`  Jonas answered only ${SILENT_WORDS - silentLeft} of ${SILENT_WORDS} words silently`);
+  await host.locator(".p-results.step-awards").waitFor({ timeout: WAIT });
   await sleep(1800); // the winner's moment (1.5 s) is over: the shots show where it ends
-  await everyTheme(ctl, [[host, "13-projector-results"], [jonas, "14-student-results"]]);
+  // The awards show for 10 s: only the projector is shot now. Jonas's card stays through both steps.
+  await everyTheme(ctl, [[host, "13-projector-results"]]);
+  if (ctl.view().results?.step !== "awards") console.warn("  the wall came before every awards shot was taken");
+  await ctl.cmd({ cmd: "showWords" });
+  await host.locator(".p-results.step-words .r-word").first().waitFor({ timeout: WAIT });
+  await sleep(500);
+  console.log(`  the wall has ${ctl.view().words?.length ?? "?"} words`);
+  await everyTheme(ctl, [[host, "21-projector-results-words"], [jonas, "14-student-results"]]);
+
+  // The control panel on the results, with Show words (done) and Copy words (Workshop only).
+  const panel = await newPage("/control", LAPTOP);
+  await panel.fill("#code", code);
+  await panel.fill("#passcode", PASSCODE);
+  await panel.click("#controlbtn");
+  await panel.locator("[data-copy-words]").waitFor({ timeout: WAIT });
+  await shoot(panel, "workshop-22-control-results", true);
 }
 
 /** Room 2: the usual class of 15, playing Classic. Then the Workshop-only extras. */

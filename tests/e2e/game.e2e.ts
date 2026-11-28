@@ -1320,6 +1320,345 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
     assert.deepEqual(state, { value: "helloé", same: true, focused: true, at: 6 });
   });
 
+  // ---- Batch 5: the end of the game ----
+
+  /** A game of Everyone at once with `names` over the API, and the words the class saw. */
+  async function everyoneGame(names: string[], { ghostGame = false, fewTied = false, laptop = null as string | null } = {}) {
+    const { host, code } = await hostRoom();
+    const bots: Awaited<ReturnType<typeof wsPlayer>>[] = [];
+    for (const name of names) bots.push(await wsPlayer(code, name));
+    const student = laptop ? await joinPlayer(code, laptop, LAPTOP_VIEWPORT) : null;
+    const n = names.length + (laptop ? 1 : 0);
+    await host.locator(".seat").nth(n - 1).waitFor({ timeout: WAIT });
+    await host.setViewportSize({ width: 1920, height: 1080 });
+    await settings(host, code, {
+      mode: "everyone", roundTime: 7, startLives: 1, maxLives: 1, knockout: "ghost", comeback: false, promptTypes: ["contains"], band: "easy",
+    });
+    await command(host, code, "start");
+    await host.locator(".p-everyone").waitFor({ timeout: WAIT });
+    /** Words the class saw (answers), and every word sent (ghost words too), each room-unique. */
+    const seen: string[] = [];
+    const used = new Set<string>();
+    const usedBy = new Map<number, Set<string>>();
+    const view = () => bots[0].view();
+    const pick = (p: Prompt, i: number) => {
+      const t = p.text.toLowerCase();
+      const mine = usedBy.get(i) ?? usedBy.set(i, new Set()).get(i)!;
+      const fits = (w: string) => /^[a-z]+$/.test(w) && w.includes(t) && !mine.has(w);
+      const ok = (w: string) => fits(w) && !used.has(w);
+      // A spread of lengths, as a class plays: mostly 4 to 8 letters, now and then a long one.
+      // A word another student already played, when the prompt has no new one left.
+      const want = i % 9 === 4 ? [10, 13] : [4, 8];
+      const w = KNOWN.find((x) => ok(x) && x.length >= want[0] && x.length <= want[1]) ?? KNOWN.find(ok) ?? KNOWN.find(fits);
+      assert.ok(w, `no word for ${t}`);
+      used.add(w);
+      mine.add(w);
+      return w;
+    };
+    /** One round: the players at `who` answer (and the ghost at `ghost`); the round ends with a skip or the bomb. */
+    const round = async (who: number[], end: "skip" | "explode" | "none", ghost?: number) => {
+      const prompt = view().prompt as Prompt;
+      for (const i of who) {
+        const w = pick(prompt, i);
+        seen.push(w);
+        bots[i].send({ t: "submit", word: w });
+      }
+      await host.waitForFunction((k: number) => document.querySelectorAll("#projector .seat .answered").length >= k, who.length, { timeout: WAIT });
+      if (ghost !== undefined) {
+        bots[ghost].send({ t: "submit", word: pick(prompt, ghost) });
+        const deadline = Date.now() + WAIT;
+        while (!(Number(bots[ghost].view()?.me?.activity?.ghostPoints) > 0) && Date.now() < deadline) await host.waitForTimeout(25);
+      }
+      if (end === "skip") await command(host, code, "skip");
+      if (end !== "none") {
+        // The next prompt: nobody has answered it yet, on the projector and in the players' views.
+        await host.waitForFunction(() => document.querySelectorAll("#projector .seat .answered").length === 0, null, { timeout: WAIT });
+        const deadline = Date.now() + WAIT;
+        while (view()?.players.some((p: any) => p.answered) && Date.now() < deadline) await host.waitForTimeout(25);
+      }
+    };
+    const all = names.map((_, i) => i);
+    if (ghostGame) {
+      // Round 1 (skipped): everyone but the first answers (with fewTied, nor do the 9th to the
+      // second last). Round 2: everyone but the last answers; the bomb puts the last out, as a
+      // ghost. Round 3 (skipped): the rest answer, the ghost too. Round 4: only the first answers
+      // and wins. So the first and all who answered round 1 to 3 tie for Most words.
+      const last = names.length - 1;
+      await round(all.filter((i) => i !== 0 && !(fewTied && i >= 8 && i < last)), "skip");
+      await round(all.filter((i) => i !== last), "explode");
+      await round(all.filter((i) => i !== last), "skip", last);
+      await round([0], "none");
+      await host.locator(".p-results").waitFor({ timeout: WAIT });
+    } else {
+      for (let k = 0; k < 3; k++) await round(all, "skip");
+      await command(host, code, "end");
+      await host.locator(".p-results").waitFor({ timeout: WAIT });
+    }
+    return { host, code, bots, student, seen };
+  }
+
+  /** Each word once, in the wall's alphabetical order. */
+  const alphabetical = (words: string[]) => [...new Set(words)].sort((a, b) => a.localeCompare(b, "en"));
+
+  /** Sends a host command over a control connection, as settings() does. */
+  async function command(host: any, code: string, cmd: string): Promise<void> {
+    const res = await host.evaluate(
+      ({ code, cmd }: { code: string; cmd: string }) =>
+        new Promise((resolve) => {
+          const ws = new WebSocket(location.origin.replace(/^http/, "ws") + "/api/ws");
+          const hostToken = sessionStorage.getItem("bomb.hostToken");
+          ws.onopen = () => ws.send(JSON.stringify({ t: "control", code, token: crypto.randomUUID(), hostToken }));
+          ws.onmessage = (ev) => {
+            const m = JSON.parse(String(ev.data));
+            if (m.t === "welcome") ws.send(JSON.stringify({ t: "cmd", cmd }));
+            else if (m.t === "result" || m.t === "error") {
+              ws.close();
+              resolve(m);
+            }
+          };
+        }),
+      { code, cmd },
+    );
+    assert.deepEqual(res, { t: "result", ok: true }, cmd);
+  }
+
+  /** A control window (/control) on its own laptop, signed in with the passcode. */
+  async function controlWindow(code: string, viewport = { width: 1366, height: 768 }, perms: string[] = []): Promise<any> {
+    const ctl = await newPage("/control", viewport);
+    if (perms.length) await ctl.context().grantPermissions(perms, { origin: server.url });
+    await ctl.fill("#code", code);
+    await ctl.fill("#passcode", PASSCODE);
+    await ctl.click("#controlbtn");
+    await ctl.locator("#panel .ctl").waitFor({ timeout: WAIT });
+    return ctl;
+  }
+
+  /** Overlaps between boxes of one group, each pair once. */
+  function withinProblems(name: string, boxes: Box[]): string[] {
+    const out: string[] = [];
+    for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+      if (overlaps(boxes[i], boxes[j])) out.push(`${name} ${i} overlaps ${name} ${j} ${by(boxes[i], boxes[j])}`);
+    }
+    return out;
+  }
+
+  /** Boxes that reach past the screen (#projector), by more than half a pixel. */
+  function outside(name: string, boxes: Box[], screen: Box): string[] {
+    return boxes.flatMap((b, i) => {
+      const past = Math.max(screen.left - b.left, screen.top - b.top, b.right - screen.right, b.bottom - screen.bottom);
+      return past > 0.5 ? [`${name} ${i} is ${past.toFixed(1)} px off the screen`] : [];
+    });
+  }
+
+  test("30-player awards fit: the cards, the winner and the logo overlap nothing at 1920×1080 (and with 15)", async () => {
+    for (const n of [15, 30]) {
+      const { host } = await everyoneGame(CLASS_30.slice(0, n), { ghostGame: true, fewTied: n === 15 });
+      await host.locator("#projector .step-awards .r-card").first().waitFor({ timeout: WAIT });
+      await host.waitForTimeout(2500); // the win moment's burst is over
+      const where = `${n} players`;
+      // The winner is the first; Most words names the 8 tied (15) or says how many tied (30); the ghost has Best ghost.
+      assert.deepEqual(await host.locator("#projector .p-winner .tiles").allTextContents(), [CLASS_30[0].replace(/ /g, "")], where);
+      const kinds = await host.locator("#projector .r-card").evaluateAll((els: Element[]) => els.map((e) => (e as HTMLElement).dataset.kind));
+      assert.ok(kinds.includes("mostWords") && kinds.includes("bestGhost") && (kinds.includes("longestRarest") || kinds.includes("rarest")), `${where}: ${kinds}`);
+      const most = host.locator('#projector .r-card[data-kind="mostWords"]');
+      if (n === 15) assert.deepEqual(await most.locator(".r-plate").allTextContents(), CLASS_30.slice(0, 8), where);
+      else assert.equal((await most.locator(".r-tied").textContent()).trim(), "29 students tied", where);
+      const g = await drawnBoxes(host, {
+        logo: "=#projector .logo-small", title: "#projector .p-results > h1", podium: "#projector .p-podium", card: "#projector .r-card",
+        button: "#toolbar button", screen: "=#projector",
+      });
+      assert.equal(g.logo.length, 1, `${where}: the logo shows`);
+      assert.ok(g.card.length >= 3 && g.card.length <= 4, `${where}: ${g.card.length} cards`);
+      assert.deepEqual([
+        ...withinProblems("card", g.card),
+        ...boxProblems(g, [["logo", "title"], ["logo", "podium"], ["logo", "card"], ["title", "podium"], ["title", "card"], ["podium", "card"], ["card", "button"], ["podium", "button"]]),
+        ...outside("card", g.card, g.screen[0]), ...outside("podium", g.podium, g.screen[0]),
+      ], [], where);
+      // Each card's names and word stay inside the card.
+      const spill = await host.evaluate(() => [...document.querySelectorAll("#projector .r-card")].flatMap((c) => {
+        const r = c.getBoundingClientRect();
+        return [...c.querySelectorAll(".tile, .r-plate, .avatar, .r-tied")].filter((el) => {
+          const b = el.getBoundingClientRect();
+          return b.left < r.left - 0.5 || b.right > r.right + 0.5 || b.top < r.top - 0.5 || b.bottom > r.bottom + 0.5;
+        }).map((el) => `${(c as HTMLElement).dataset.kind}: ${el.textContent}`);
+      }));
+      assert.deepEqual(spill, [], `${where}: inside their cards`);
+      await closeContexts();
+    }
+  });
+
+  test("the wall fits with 15 and 30 players: every word on the screen, none on another", async () => {
+    for (const n of [15, 30]) {
+      const { host, code, seen } = await everyoneGame(CLASS_30.slice(0, n));
+      await command(host, code, "showWords");
+      await host.locator("#projector .step-words .r-word").first().waitFor({ timeout: WAIT });
+      await host.waitForTimeout(400);
+      const unique = new Set(seen).size; // with 30, a word can come up twice (a prompt with few words)
+      const where = `${n} players, ${unique} words`;
+      const g = await drawnBoxes(host, { word: "#projector .r-word", head: "#projector .r-wallhead", logo: "=#projector .logo-small", screen: "=#projector", button: "#toolbar button" });
+      assert.equal(g.word.length, unique, `${where}: every word shows (no "+ more" needed)`);
+      assert.equal(await host.locator("#projector .r-more").count(), 0, where);
+      assert.deepEqual(await host.locator("#projector .r-word > .tiles").allTextContents(), alphabetical(seen), `${where}: alphabetical, once each`);
+      assert.equal((await host.locator("#projector .r-count").textContent()).trim(), `${unique} words`, where);
+      assert.deepEqual([
+        ...outside("word", g.word, g.screen[0]), ...withinProblems("word", g.word),
+        ...boxProblems(g, [["word", "head"], ["word", "logo"], ["logo", "head"], ["word", "button"]]),
+      ], [], where);
+      const tile = await host.evaluate(() => document.querySelector("#projector .r-word:not(.hl) .tile")!.getBoundingClientRect().height);
+      assert.ok(tile >= 18, `${where}: tiles are ${tile.toFixed(1)} px tall`);
+      await closeContexts();
+    }
+  });
+
+  test("Show words moves the projector, the overlay and a second control window together", async () => {
+    const { host, code } = await everyoneGame(["Ann", "Ben", "Cat"]);
+    const ctl = await controlWindow(code);
+    const overlay = await openOverlay(host);
+    await host.locator("#projector .step-awards").waitFor({ timeout: WAIT });
+    for (const panel of [ctl, overlay]) await panel.locator('button[data-cmd="showWords"]:not([disabled])').waitFor({ timeout: WAIT });
+    await ctl.click('button[data-cmd="showWords"]');
+    await host.locator("#projector .step-words").waitFor({ timeout: 3000 });
+    for (const panel of [ctl, overlay]) await panel.locator('button[data-cmd="showWords"][disabled]').waitFor({ timeout: 3000 });
+    assert.equal(await host.locator("#projector .step-awards").count(), 0);
+  });
+
+  test("Copy words puts the wall's words on the clipboard", async () => {
+    const { host, code, seen } = await everyoneGame(["Ann", "Ben", "Cat"]);
+    const ctl = await controlWindow(code, undefined, ["clipboard-read", "clipboard-write"]);
+    await command(host, code, "showWords");
+    await host.locator("#projector .step-words .r-word").first().waitFor({ timeout: WAIT });
+    const wall = await host.locator("#projector .r-word > .tiles").allTextContents();
+    await ctl.click("[data-copy-words]");
+    await ctl.locator("[data-copy-words]", { hasText: "Copied" }).waitFor({ timeout: WAIT });
+    const text = await ctl.evaluate(() => navigator.clipboard.readText());
+    assert.equal(text, alphabetical(seen).join("\n"));
+    assert.equal(text, wall.join("\n"), "the same words as the wall");
+    assert.equal(await ctl.locator("[data-copy-fallback]").isHidden(), true, "no fallback box when the copy works");
+  });
+
+  test("a refreshed projector keeps the words step", async () => {
+    const { host, code } = await everyoneGame(["Ann", "Ben", "Cat"]);
+    await command(host, code, "showWords");
+    await host.locator("#projector .step-words").waitFor({ timeout: WAIT });
+    await host.reload();
+    await host.locator("#projector .step-words .r-word").first().waitFor({ timeout: WAIT });
+    await host.waitForTimeout(500);
+    assert.equal(await host.locator("#projector .step-awards").count(), 0, "never the awards again");
+  });
+
+  test("the wall comes by itself about 10 s after the results appear", async () => {
+    const { host } = await everyoneGame(["Ann", "Ben", "Cat"]);
+    const shown = Date.now();
+    await host.locator("#projector .step-awards").waitFor({ timeout: WAIT });
+    await host.locator("#projector .step-words").waitFor({ timeout: 14_000 });
+    const after = Date.now() - shown;
+    assert.ok(after >= 9_000 && after <= 13_000, `after ${after} ms`);
+  });
+
+  test("each laptop shows its own Your game numbers", async () => {
+    const { host, code } = await hostRoom();
+    const bot = await wsPlayer(code, "Ann");
+    const cat = await joinPlayer(code, "Cat", LAPTOP_VIEWPORT);
+    const dan = await joinPlayer(code, "Dan", LAPTOP_VIEWPORT);
+    const laptops = new Map([["Cat", cat], ["Dan", dan]]);
+    await host.locator(".seat").nth(2).waitFor({ timeout: WAIT });
+    await settings(host, code, { mode: "classic", timerStyle: "visible", turnTime: 60, promptTypes: ["contains"], band: "easy", silentAnswers: true });
+    await startFromOverlay(host);
+    const used = new Set<string>();
+    const mine = new Map<string, { turn: string[]; silent: string[] }>([["Cat", { turn: [], silent: [] }], ["Dan", { turn: [], silent: [] }]]);
+    const pick = (p: Prompt, min: number, max: number) => {
+      const t = p.text.toLowerCase();
+      const w = KNOWN.find((x) => x.includes(t) && !used.has(x) && x.length >= min && x.length <= max) ?? KNOWN.find((x) => x.includes(t) && !used.has(x));
+      assert.ok(w, `no word for ${t}`);
+      used.add(w);
+      return w;
+    };
+    // Six turns. Before each, a waiting laptop student answers silently: Cat on every turn, Dan once.
+    for (let k = 0; k < 6; k++) {
+      const prompt = await projectorPrompt(host);
+      // Who is on, from the projector (it drew the last word and the new turn in one view).
+      const onName = ((await host.locator("#projector .seat.on .name").allTextContents())[0] ?? "").trim();
+      const ready = onName === "Ann" || (onName && (await laptops.get(onName)!.locator("main.turn-on").count()) > 0);
+      if (!ready) {
+        await host.waitForTimeout(50);
+        k--;
+        continue;
+      }
+      for (const [name, page] of laptops) {
+        if (name === onName || (name === "Dan" && mine.get("Dan")!.silent.length > 0)) continue;
+        const w = pick(prompt, 11, 16); // the silent words are the longest
+        const score = (await page.locator(".corner .score").textContent()).trim();
+        await page.fill("#word", w);
+        await page.press("#word", "Enter");
+        // Accepted: the private score goes up (the word shows nowhere else).
+        await page.locator(".corner .score", { hasNotText: new RegExp(`^${score}$`) }).waitFor({ timeout: WAIT });
+        mine.get(name)!.silent.push(w);
+      }
+      const word = pick(prompt, 4, 7);
+      if (onName === "Ann") bot.send({ t: "submit", word });
+      else {
+        const page = laptops.get(onName)!;
+        await page.fill("#word", word);
+        await page.press("#word", "Enter");
+        mine.get(onName)!.turn.push(word);
+      }
+      await host.locator(".seat .last-word", { hasText: new RegExp(`^${word}$`) }).waitFor({ timeout: WAIT });
+    }
+    await command(host, code, "end");
+    for (const [name, page] of laptops) {
+      const m = mine.get(name)!;
+      const card = page.locator("main.results .your-game");
+      await card.waitFor({ timeout: WAIT });
+      const total = m.turn.length + m.silent.length;
+      assert.equal(
+        (await card.locator(".yg-played").textContent()).trim(),
+        `You played ${total} word${total === 1 ? "" : "s"}: ${m.turn.length} on your turns, ${m.silent.length} silently`,
+        name,
+      );
+      const longest = [...m.turn, ...m.silent].reduce((a, w) => (w.length > a.length ? w : a), "");
+      assert.equal(await card.locator(".yg-row", { hasText: "Your longest" }).locator(".tiles").textContent(), longest, name);
+      // A long word (up to 16 letters) stays one row of tiles, inside the card.
+      const rows = await tileRows(page, "main.results .your-game .yg-v .tiles");
+      assert.ok(rows.length >= 1 && rows.every((r) => r === 1), `${name}: ${longest} on ${rows} rows`);
+      const spill = await page.evaluate(() => {
+        const c = document.querySelector("main.results .your-game")!.getBoundingClientRect();
+        return [...document.querySelectorAll("main.results .your-game .tile")].some((t) => t.getBoundingClientRect().right > c.right + 0.5);
+      });
+      assert.equal(spill, false, `${name}: the tiles stay inside the card`);
+      // Never the other student's silent words, and no score.
+      const other = mine.get(name === "Cat" ? "Dan" : "Cat")!;
+      const shownWords = await page.locator("main.results .tiles").allTextContents();
+      for (const w of other.silent) assert.ok(!shownWords.includes(w), `${name}'s laptop shows ${w}`);
+      assert.ok(shownWords.every((w: string) => [...m.turn, ...m.silent].includes(w) || w === "Ann"), `${name}'s laptop shows only their own words: ${shownWords}`);
+      assert.doesNotMatch((await page.locator("main.results").textContent()) ?? "", /score/i, name);
+    }
+    // And the projector never shows a silent word.
+    const onProjector = await host.locator("#projector .tiles").allTextContents();
+    for (const m of mine.values()) for (const w of m.silent) assert.ok(!onProjector.includes(w), `the projector shows ${w}`);
+  });
+
+  test("the projector never shows a count per student, on either step", async () => {
+    const { host, code } = await everyoneGame(["Ann", "Ben", "Cat", "Dan"], { ghostGame: true });
+    await host.locator('#projector .r-card[data-kind="bestGhost"]').waitFor({ timeout: WAIT });
+    await host.waitForTimeout(2500);
+    /** The projector's text with its two allowed numbers taken out: "N students tied" and the wall's "N words". */
+    const digits = async () => {
+      const text = await host.evaluate(() => {
+        const main = document.querySelector("#projector main.p-results")!;
+        const parts = [...main.querySelectorAll("*")].filter((el) => !el.closest(".r-tied, .r-count")).flatMap((el) =>
+          [...el.childNodes].filter((c) => c.nodeType === Node.TEXT_NODE).map((c) => c.textContent ?? ""));
+        return parts.join(" ");
+      });
+      return text.match(/\d+/g) ?? [];
+    };
+    assert.deepEqual(await digits(), [], "the awards");
+    assert.doesNotMatch(await host.locator("#projector").innerHTML(), /score|points/i);
+    await command(host, code, "showWords");
+    await host.locator("#projector .step-words .r-word").first().waitFor({ timeout: WAIT });
+    assert.deepEqual(await digits(), [], "the wall");
+    assert.match((await host.locator("#projector .r-count").textContent()).trim(), /^\d+ words?$/);
+  });
+
   test("the example words under the bomb overlap no seat and never cover the prompt, with 15 players", async () => {
     const { host, student } = await spotlightRoom("champ", SPOT_NAMES, { turnTime: 5 });
     // The player on doesn't answer: the bomb goes off and the example words show under the bomb.
