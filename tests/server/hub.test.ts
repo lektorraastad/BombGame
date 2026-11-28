@@ -14,7 +14,7 @@ function makeHub(...args: [passcode?: string | undefined]) {
   const events: string[] = [];
   const hub = new Hub({
     deps,
-    words: { checker: makeTestChecker(), bank: createPromptBank(fixturePrompts), blockedNames: fixtureBlocked },
+    words: { checker: makeTestChecker(), bank: createPromptBank(fixturePrompts), blockedNames: fixtureBlocked, rarity: () => 1 },
     passcode,
     log: (e) => events.push(e),
   });

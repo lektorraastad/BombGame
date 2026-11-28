@@ -464,3 +464,23 @@ test("the control view carries the words", () => {
   room.playAgain();
   assert.equal(controlView(room).words, undefined);
 });
+
+test("a tie of more than 8 keeps every id out of the shared results", () => {
+  const { deps } = makeDeps(11);
+  const room = createRoom({ code: "ABCD", deps, checker: makeTestChecker(), bank: createPromptBank([ST]), blockedNames: fixtureBlocked });
+  const ids: PlayerId[] = [];
+  for (let i = 0; i < 10; i++) { const j = room.join("tok-" + i, "Player" + i); if (j.ok) ids.push(j.playerId); }
+  room.updateSettings({ startLives: 1, timerStyle: "visible" });
+  room.start();
+  for (const id of ids.filter((x) => x !== current(room))) room.submit(id, "stone");
+  room.submit(current(room), "street");
+  room.context().endGame([]);
+  for (const r of [projectorView(room).results!, playerView(room, ids[0])!.results!, controlView(room).results!]) {
+    const most = r.awards.find((a) => a.kind === "mostWords")!;
+    assert.deepEqual(most, { kind: "mostWords", players: [], tied: 10 });
+    const keys = keysOf(r.awards);
+    assert.ok(!keys.has("ids"), "no internal id list");
+    assert.ok([...keys].every((k) => ["kind", "players", "word", "tied", "id", "nickname", "avatar"].includes(k)));
+  }
+  assert.ok(playerView(room, ids[3])!.me.summary!.awards.includes("mostWords"));
+});

@@ -266,3 +266,40 @@ test("summary awards lists the kinds naming this player", () => {
   assert.deepEqual(summaryOf(room, c)!.awards, ["bestGhost"]);
   assert.deepEqual(summaryOf(room, d)!.awards, []);
 });
+
+test("more than 8 tied: every tied student's own summary still lists the award", () => {
+  {
+    const { room, ids } = setup(10);
+    for (const id of ids.filter((x) => x !== cur(room))) silent(room, id, "stone");
+    turn(room, "street");
+    room.context().endGame([]);
+    assert.deepEqual(awardsOf(room).find((x) => x.kind === "mostWords"), { kind: "mostWords", players: [], tied: 10 });
+    for (const id of ids) assert.ok(summaryOf(room, id)!.awards.includes("mostWords"), "mostWords for every tied student");
+  }
+  {
+    const { room, ids } = setup(12, { settings: { comeback: true, comebackStreak: 2 } });
+    const ghosts = ids.filter((id) => id !== cur(room)).slice(0, 9);
+    for (const g of ghosts) room.context().loseLife(g);
+    for (const g of ghosts) ghost(room, g, "station");
+    turn(room, "street");
+    for (const g of ghosts) ghost(room, g, "stone");
+    room.context().endGame([]);
+    assert.deepEqual(awardsOf(room).find((x) => x.kind === "comeback"), { kind: "comeback", players: [], tied: 9 });
+    for (const g of ghosts) assert.ok(summaryOf(room, g)!.awards.includes("comeback"), "comeback for every tied student");
+    for (const id of ids.filter((x) => !ghosts.includes(x))) assert.ok(!summaryOf(room, id)!.awards.includes("comeback"));
+  }
+});
+
+test("awards carry only kind, players, word and tied", () => {
+  const { room, ids } = setup(10);
+  for (const id of ids.filter((x) => x !== cur(room))) silent(room, id, "stone");
+  turn(room, "street");
+  room.context().endGame([]);
+  for (const a of awardsOf(room)) for (const k of Object.keys(a)) assert.ok(["kind", "players", "word", "tied"].includes(k), `no key ${k}`);
+});
+
+test("a summary lists every award earned, even one the 4-card limit leaves off the screen", () => {
+  const { room, g1 } = comebackGame(table({ strong: 900 }));
+  assert.ok(!kinds(room).includes("bestGhost"), "Best ghost is cut from the shared cards");
+  assert.deepEqual(summaryOf(room, g1)!.awards, ["comeback", "bestGhost"]);
+});

@@ -165,7 +165,7 @@ function lastEventBetween(prev: Seen | null, next: Seen): LastEvent {
 
 export class Hub {
   private readonly deps: EngineDeps;
-  private readonly words: { checker: WordChecker; bank: PromptBank; blockedNames: string[]; rarity?: Rarity };
+  private readonly words: { checker: WordChecker; bank: PromptBank; blockedNames: string[]; rarity: Rarity };
   private readonly passcode: string | undefined;
   private readonly log: (event: string, n?: number) => void;
   private readonly rooms = new Map<string, HubRoom>();
@@ -175,7 +175,7 @@ export class Hub {
 
   constructor(opts: {
     deps: EngineDeps;
-    words: { checker: WordChecker; bank: PromptBank; blockedNames: string[]; rarity?: Rarity };
+    words: { checker: WordChecker; bank: PromptBank; blockedNames: string[]; rarity: Rarity };
     passcode: string | undefined;
     log?: (event: string, n?: number) => void;
   }) {

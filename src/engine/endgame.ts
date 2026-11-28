@@ -45,26 +45,33 @@ function rarestOf(words: string[], rarity: (w: string) => number | null): number
   return best;
 }
 
-/** A card naming every player in `group` (join order), or "N tied" with no names above 8. */
-function groupAward(kind: AwardKind, group: Player[]): Award {
-  return group.length > MAX_NAMES ? { kind, players: [], tied: group.length } : { kind, players: group.map(who) };
+/** An award with everyone who earned it. `ids` is internal: it never leaves this module. */
+type Earned = { award: Award; ids: PlayerId[] };
+
+const single = (kind: AwardKind, p: Player, word?: string): Earned =>
+  ({ award: word === undefined ? { kind, players: [who(p)] } : { kind, players: [who(p)], word }, ids: [p.id] });
+
+/** A card naming every player in `group` (join order), or "N tied" with no names above 8; ids keeps them all. */
+function groupAward(kind: AwardKind, group: Player[]): Earned {
+  const award: Award = group.length > MAX_NAMES ? { kind, players: [], tied: group.length } : { kind, players: group.map(who) };
+  return { award, ids: group.map((p) => p.id) };
 }
 
 /** Every award earned, in the spec's order; kicked players' words count for nobody. */
-function allAwards(room: Room): Award[] {
+function allAwards(room: Room): Earned[] {
   const players = room.players();
   const byId = new Map(players.map((p) => [p.id, p]));
   const played = room.acceptedWords.filter((w) => byId.has(w.pid));
   const words = played.map((w) => w.word);
-  const out: Award[] = [];
+  const out: Earned[] = [];
 
   const li = longestOf(words);
   const ri = rarestOf(words, (w) => room.rarityOf(w));
   if (li >= 0 && ri >= 0 && words[li] === words[ri]) {
-    out.push({ kind: "longestRarest", players: [who(byId.get(played[li].pid)!)], word: words[li] });
+    out.push(single("longestRarest", byId.get(played[li].pid)!, words[li]));
   } else {
-    if (li >= 0) out.push({ kind: "longest", players: [who(byId.get(played[li].pid)!)], word: words[li] });
-    if (ri >= 0) out.push({ kind: "rarest", players: [who(byId.get(played[ri].pid)!)], word: words[ri] });
+    if (li >= 0) out.push(single("longest", byId.get(played[li].pid)!, words[li]));
+    if (ri >= 0) out.push(single("rarest", byId.get(played[ri].pid)!, words[ri]));
   }
 
   // Most words: words on a turn plus silent answers. Ghost words have their own card.
@@ -78,13 +85,14 @@ function allAwards(room: Room): Award[] {
   // Today's ghost ranking: most ghost points first, ties in join order.
   let ghost: Player | undefined;
   for (const p of players) if (p.ghostPoints > 0 && (!ghost || p.ghostPoints > ghost.ghostPoints)) ghost = p;
-  if (ghost) out.push({ kind: "bestGhost", players: [who(ghost)] });
+  if (ghost) out.push(single("bestGhost", ghost));
   return out;
 }
 
 /** The award cards shown: at most 4, in order Longest, Rarest (or both in one), Most words, Comeback, Best ghost. */
 export function awardsOf(room: Room): Award[] {
-  return allAwards(room).slice(0, MAX_AWARDS);
+  // Simply the first 4 in order: Best ghost shows beside Comeback whenever fewer than 4 cards come before it.
+  return allAwards(room).slice(0, MAX_AWARDS).map((e) => e.award);
 }
 
 /** The wall: every word the class saw (kicked players' too), each once, alphabetical. */
@@ -107,6 +115,7 @@ export function summaryOf(room: Room, pid: PlayerId): PlayerSummary | null {
     ghostWords: ghost.length,
     longest: li >= 0 ? all[li] : null,
     rarest: ri >= 0 ? all[ri] : null,
-    awards: awardsOf(room).filter((a) => a.players.some((p) => p.id === pid)).map((a) => a.kind),
+    // Every award this player earned: also one in a tie above 8, or one the 4-card limit leaves off the screen.
+    awards: allAwards(room).filter((e) => e.ids.includes(pid)).map((e) => e.award.kind),
   };
 }
