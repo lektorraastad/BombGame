@@ -42,6 +42,7 @@ export function makeTestChecker() {
   return createWordChecker({
     dictionary: [...fixtureWords, ...fixtureBlocked],
     known: fixtureWords,
+    everyday: fixtureWords,
     blocked: fixtureBlocked,
   });
 }

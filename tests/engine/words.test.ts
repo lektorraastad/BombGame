@@ -50,17 +50,29 @@ test("examples prefer beginner words", () => {
   }
 });
 
-test("examples fill from known when beginner is short, never from blocked", () => {
-  const known = ["stab", "stack", "staff", "stage", "stain", "damn"];
-  const c = createWordChecker({ dictionary: known, known, blocked: ["stain", "stamp"], beginner: ["stamp", "stage", "other"] });
+test("examples: beginner first, then everyday, never other known words", () => {
+  const known = ["stab", "stack", "staff", "stage", "stain", "stalk", "stare"];
+  const c = createWordChecker({
+    dictionary: known, known, blocked: ["stain"], beginner: ["stage", "stare"], everyday: ["stab", "stack", "stage", "stain"],
+  });
   const p = { text: "sta", type: "starts" as const, count: 0, common: 0 };
   for (let i = 0; i < 20; i++) {
     const ex = c.examples(p, 3, Math.random);
     assert.equal(ex.length, 3);
-    assert.equal(ex[0], "stage");
-    assert.equal(new Set(ex).size, 3);
-    for (const w of ex.slice(1)) assert.ok(["stab", "stack", "staff"].includes(w), w);
+    assert.deepEqual(ex.slice(0, 2).sort(), ["stage", "stare"]);
+    assert.ok(["stab", "stack"].includes(ex[2]), ex[2]);
+    assert.ok(!ex.includes("staff") && !ex.includes("stalk") && !ex.includes("stain"));
   }
+});
+
+test("examples: fewer, or none", () => {
+  const known = ["stabs", "staffed", "stag"];
+  const c = createWordChecker({ dictionary: known, known, blocked: [], beginner: [], everyday: ["stag"] });
+  const p = { text: "sta", type: "starts" as const, count: 0, common: 0 };
+  assert.deepEqual(c.examples(p, 3, Math.random), ["stag"]);
+  assert.deepEqual(c.examples({ ...p, text: "staf" }, 3, Math.random), []);
+  const none = createWordChecker({ dictionary: known, known, blocked: [] });
+  assert.deepEqual(none.examples(p, 3, Math.random), []);
 });
 
 test("isBlockedName catches embedded words and Norwegian", () => {
