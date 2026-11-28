@@ -50,7 +50,7 @@ Roy agreed there is one sensible way (A), on 28 November 2026.
 - **Award cards:** up to four, in this order:
   1. **Longest word:** the word on tiles, with the student's emoji and name.
   2. **Rarest word:** the word on tiles, with the student's emoji and name.
-  3. **Most words:** the student's emoji and name. **No number.**
+  3. **Most words:** the student's emoji and name. **No number.** It counts words played on a turn plus silent answers. Ghost words don't count, because ghosts have their own card **(Claude's call, after review)**.
   4. **Comeback or Best ghost:** "Comeback" when a knocked-out student came back into the game. Otherwise "Best ghost", when anyone scored as a ghost. Otherwise no fourth card.
 - **Rules for the cards:**
   - A card with nothing to show is left out. For example, with no words played there's no Longest word card.
@@ -68,7 +68,7 @@ Roy agreed there is one sensible way (A), on 28 November 2026.
 - **The words:** every word the class **already saw** during the game: words played on a turn, and Everyone-at-once answers. Silent words and ghost words are never included.
 - **Layout:**
   - Each word appears once, in alphabetical order, on tiles, with **no names**.
-  - The heading reads "Words we played", plus the class total, for example "98 words". That's the whole class's total, not anyone's score.
+  - The heading reads "Words we played", plus the class total, for example "98 words". That's the whole class's total, not anyone's score. It's the number of different words on the wall, not every answer counted separately **(Claude's call, after review)**.
 - **The award words** (longest and rarest) glow in the matched-letter colour, a little bigger, with a small "Longest" or "Rarest" label under them.
 - **Size:** the wall shrinks its words to fit one screen (Roy's choice). If a very long game would need tiles smaller than about 18 px tall at 1920×1080, the wall shows the award words plus as many others as fit, in alphabetical order, then "+ 40 more: Copy words in the control panel" **(Claude's call)**.
 - **Kicked students:** their words stay on the wall, since the wall has no names. Kicked students never receive an award, as today.
@@ -99,7 +99,8 @@ Next to the card, the laptop shows the winner's emoji and name, as in the mockup
 
 ### 4.4 What "rarest" means
 "Rarest" is worked out from the word lists the game already builds, at build time, into a small generated ranking file **(Claude's call on the format)**:
-- **Names never count.** Places, nationalities, languages, holidays, brands and Roy's `names-extra.txt` are skipped. If a student only played names, there is no Rarest word for them.
+- **Names never count.** A word counts as a name when it is on a name list (places, nationalities, languages, holidays, brands, Roy's `names-extra.txt`) and **not** also an ordinary word in the NGSL or CEFR-J lists **(Claude's call, after review)**. So "english", "turkey" and "china" are ordinary words, and "barbados" or "tiktok" are names. Names are skipped. If a student only played names, there is no Rarest word for them.
+- **Word forms count as their base word (Claude's call, after review).** A plural or other form ("apples", "played", "running") is ranked as its base word when the base is in the lists: strip -s, -es, -ed, -ing (with the usual spelling changes, such as a doubled consonant or a dropped e), or use the NGSL's own word families. This stops "apples" counting as rarer than "magnificent".
 - **From most common to rarest:**
   1. beginner words (`beginner.txt`);
   2. other known words (`known.txt`);
