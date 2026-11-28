@@ -59,6 +59,8 @@ type HubRoom = {
   seen: Seen | null;
   /** The current Classic player whose word was just refused, for the next broadcast only. Never the word. */
   refused: string | null;
+  /** Who gave an accepted silent or ghost answer since the last broadcast, in order. Never the words. */
+  sparks: Moment[];
   /** The current turn (who has the bomb, and which prompt), timed from when the hub first saw it. */
   turn: { key: string; startedAt: number; pausedAt: number | null; pausedMs: number } | null;
 };
@@ -87,6 +89,8 @@ export type Moment =
   | { kind: "hearts"; pids: string[] } // players whose lives went down
   | { kind: "explosion" }
   | { kind: "refused"; pid: string } // only the current Classic player
+  | { kind: "silent"; pid: string } // a student off the bomb gave an accepted silent answer; who, never what
+  | { kind: "ghost"; pid: string } // a knocked-out student gave an accepted ghost answer; who, never what
   | { kind: "all-answered" } // Everyone: every alive player has answered this round
   | { kind: "win"; pids: string[] }; // phase became results with at least one winner
 
@@ -119,7 +123,7 @@ const won = (next: Seen): Moment[] =>
  * and nothing on the way back to the lobby. The one exception is a win from a paused game (a kick
  * during a pause can leave one player). A refusal is passed in, as the room keeps no record of it.
  */
-function momentsBetween(prev: Seen | null, next: Seen, refused: string | null): Moment[] {
+function momentsBetween(prev: Seen | null, next: Seen, refused: string | null, sparks: Moment[] = []): Moment[] {
   if (prev && prev.phase === "paused") return won(next);
   if (!prev || prev.phase !== "playing" || next.phase === "lobby") return [];
   const out: Moment[] = [];
@@ -139,6 +143,7 @@ function momentsBetween(prev: Seen | null, next: Seen, refused: string | null): 
   if (hearts.length > 0) out.push({ kind: "hearts", pids: hearts }, { kind: "explosion" });
 
   if (refused !== null && next.phase === "playing") out.push({ kind: "refused", pid: refused });
+  if (next.phase === "playing") out.push(...sparks);
 
   if (fresh.length > 0 && next.alive.size > 0 && [...next.alive].every((id) => next.answered.has(id))) {
     out.push({ kind: "all-answered" });
@@ -259,7 +264,7 @@ export class Hub {
     if (this.rooms.size >= MAX_ROOMS) return this.send(c, { t: "error", reason: "server-full" });
 
     const code = makeRoomCode(this.deps.random, new Set(this.rooms.keys()));
-    const hr: HubRoom = { room: undefined as unknown as Room, hostToken: randomUUID(), clients: new Set(), idle: null, broadcastQueued: false, seen: null, refused: null, turn: null };
+    const hr: HubRoom = { room: undefined as unknown as Room, hostToken: randomUUID(), clients: new Set(), idle: null, broadcastQueued: false, seen: null, refused: null, sparks: [], turn: null };
     hr.room = createRoom({
       code,
       deps: this.deps,
@@ -325,6 +330,11 @@ export class Hub {
     const hr = c.room;
     const r = hr.room.submit(c.pid, word);
     this.send(c, r.ok ? { t: "result", ok: true, kind: r.kind } : { t: "result", ok: false, reason: r.reason });
+    // A silent or ghost answer shows as a spark on that student's seat: who, never the word.
+    if (r.ok && (r.kind === "silent" || r.kind === "ghost") && hr.room.phase === "playing") {
+      hr.sparks.push({ kind: r.kind, pid: c.pid });
+      this.queueBroadcast(hr);
+    }
     // The class sees that the player on turn was refused, never what they typed. Silent and ghost words stay private.
     if (!r.ok && REFUSED_SHOWN.includes(r.reason) && hr.room.phase === "playing") {
       const mode = hr.room.modeView();
@@ -455,13 +465,14 @@ export class Hub {
     try {
       const seen = seenOf(room);
       lastEvent = lastEventBetween(hr.seen, seen);
-      moments = momentsBetween(hr.seen, seen, hr.refused);
+      moments = momentsBetween(hr.seen, seen, hr.refused, hr.sparks);
       hr.seen = seen;
       turnElapsedMs = this.turnAge(hr, seen);
     } catch {
       this.log("broadcast-error");
     }
     hr.refused = null;
+    hr.sparks = [];
     // Only a hidden fuse gets the turn's age: a visible countdown already shows the time.
     const withMoments = <V extends object>(v: V): V & { lastEvent: LastEvent; moments: Moment[]; turnElapsedMs?: number } =>
       turnElapsedMs !== undefined && !("bombRemainingMs" in v) ? { ...v, lastEvent, moments, turnElapsedMs } : { ...v, lastEvent, moments };

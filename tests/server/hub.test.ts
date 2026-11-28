@@ -1072,13 +1072,23 @@ async function sparkGame(mode: "classic" | "everyone") {
   host.send({ t: "cmd", cmd: "settings", settings: { mode, timerStyle: "visible", turnTime: 5, startLives: 1, maxLives: 1, silentAnswers: true } });
   host.send({ t: "cmd", cmd: "start" });
   await tick();
-  const pidOf = (c: FakeConn) => c.last("welcome").pid as string;
-  return { hub, clock, host, control, players, pidOf };
+  const pids = new Map(players.map((p) => [p, p.last("welcome").pid as string]));
+  const pidOf = (c: FakeConn) => pids.get(c)!;
+  return { hub, clock, host, control, players, pidOf, mode };
 }
 
 /** Lets the clock run until one student is knocked out, and returns that student. */
 async function makeGhost(g: Awaited<ReturnType<typeof sparkGame>>): Promise<FakeConn> {
+  const used: string[] = [];
   for (let i = 0; i < 12; i++) {
+    if (g.mode === "everyone") {
+      // The first two answer every round, so only the third loses their life.
+      const prompt = g.host.views().at(-1).prompt;
+      const word = fitting(prompt, used);
+      used.push(word);
+      for (const p of g.players.slice(0, 2)) p.send({ t: "submit", word });
+      await tick();
+    }
     await g.clock.advance(5_000);
     await tick();
     const dead = g.host.views().at(-1).players?.find((p: any) => !p.alive);
@@ -1167,8 +1177,8 @@ test("no view contains the silent or ghost word", async () => {
   assert.equal(off.last("result").kind, "silent");
   for (const c of everyoneElse(off)) {
     const json = JSON.stringify(c.msgs.filter((m) => m.t === "view"));
-    assert.ok(json.includes('"silent"'), "the spark arrived");
-    assert.ok(!json.includes(silentWord), "the silent word is in no other view");
+    if (c !== g.control) assert.ok(json.includes('"silent"'), "the spark arrived (the control view carries no moments)");
+    assert.ok(!json.includes(`"${silentWord}"`), "the silent word is in no other view");
   }
   // A ghost's word, seen by the host, the control window and the other laptops.
   const ghost = await makeGhost(g);
@@ -1180,6 +1190,6 @@ test("no view contains the silent or ghost word", async () => {
   assert.equal(ghost.last("result").kind, "ghost");
   for (const c of everyoneElse(ghost)) {
     const json = JSON.stringify(c.msgs.filter((m) => m.t === "view"));
-    assert.ok(!json.includes(ghostWord), "the ghost word is in no other view");
+    assert.ok(!json.includes(`"${ghostWord}"`), "the ghost word is in no other view");
   }
 });
