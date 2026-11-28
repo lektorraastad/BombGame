@@ -323,6 +323,7 @@ async function smallRoom(): Promise<void> {
   let lastKey = "";
   let longWords = 1;
   let ghostShotDone = false;
+  let sparkShotDone = false;
   const deadline = Date.now() + 180_000;
   while (ctl.view().phase !== "results") {
     if (Date.now() > deadline) throw new Error("the small game didn't end");
@@ -357,6 +358,14 @@ async function smallRoom(): Promise<void> {
       await jonas.press("#word", "Enter");
       const ok = await jonas.waitForFunction((s: string) => document.querySelector(".corner .score")?.textContent !== s, score, { timeout: 3000 }).then(() => true, () => false);
       if (ok) silentLeft--;
+      // The first silent answer's spark on Jonas's seat, part-way through its 0.7 s (Workshop only).
+      if (ok && !sparkShotDone) {
+        const seen = await host.locator("#projector .seat > .spark").first().waitFor({ state: "attached", timeout: 1000 }).then(() => true, () => false);
+        if (seen) {
+          await shoot(host, "workshop-23-projector-spark");
+          sparkShotDone = true;
+        }
+      }
     }
     if (t.name === "Ingrid" || (t.name === "Jonas" && jonasPlays)) {
       await sleep(900); // the arrow's swing, so the turns don't fly past
@@ -371,6 +380,7 @@ async function smallRoom(): Promise<void> {
     }
   }
   if (!ghostShotDone) console.warn("  Aisha was never a ghost during the game: no ghost screenshot");
+  if (!sparkShotDone) console.warn("  no spark was caught on the projector: no spark screenshot");
   if (silentLeft > 0) console.warn(`  Jonas answered only ${SILENT_WORDS - silentLeft} of ${SILENT_WORDS} words silently`);
   await host.locator(".p-results.step-awards").waitFor({ timeout: WAIT });
   await sleep(1800); // the winner's moment (1.5 s) is over: the shots show where it ends

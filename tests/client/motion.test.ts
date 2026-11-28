@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   createMotion, POP_MS, WORD_MS, REFUSED_MS, HEART_MS, WIN_MS, RESULTS_HOLD_MS, EXAMPLES_MS, TENSION_FULL_MS,
+  SPARK_MS, SPARK_GAP_MS,
 } from "../../public/app/motion.js";
 import { seatPosition, seatedPlayers, arrowAngle, screenAngle } from "../../public/app/circle-geometry.js";
 import { ARROW_SWING_MS, EXPLOSION_MS } from "../../public/app/bomb.js";
@@ -543,4 +544,61 @@ test("a laptop's held view has the results' hearts and score, and is nobody's tu
   assert.equal(held.me.isOn, false, "no live text box turn during the hold");
   assert.equal(held.me.alive, true, "still drawn as the playing circle, not the out screen");
   assert.deepEqual(held.me.bonusLeft, ["x"]);
+});
+
+// ---- sparks (batch 6): a silent or ghost answer sparks that seat, never showing the word ----
+
+test("a silent moment sparks that seat for SPARK_MS", () => {
+  const { clock, m } = tracker();
+  m.view(classicView("a"));
+  assert.equal(m.sparks().size, 0);
+  m.view(classicView("a", { moments: [{ kind: "silent", pid: "c" }] }));
+  assert.deepEqual([...m.sparks()], [["c", { elapsedMs: 0, ghost: false }]]);
+  assert.equal(m.busy(), true);
+  clock.t += SPARK_MS - 1;
+  assert.deepEqual([...m.sparks()], [["c", { elapsedMs: SPARK_MS - 1, ghost: false }]]);
+  assert.equal(m.busy(), true);
+  clock.t += 1;
+  assert.equal(m.sparks().size, 0);
+  assert.equal(m.busy(), false);
+});
+
+test("a ghost moment sparks with ghost: true", () => {
+  const { m } = tracker();
+  m.view(everyoneView());
+  m.view(everyoneView({ moments: [{ kind: "ghost", pid: "b" }, { kind: "silent", pid: "d" }] }));
+  assert.deepEqual([...m.sparks()].sort(), [["b", { elapsedMs: 0, ghost: true }], ["d", { elapsedMs: 0, ghost: false }]]);
+});
+
+test("a second spark on the same seat within SPARK_GAP_MS is skipped, after it starts again", () => {
+  const { clock, m } = tracker();
+  m.view(classicView("a"));
+  m.view(classicView("a", { moments: [{ kind: "silent", pid: "c" }, { kind: "silent", pid: "c" }] }));
+  assert.deepEqual([...m.sparks()], [["c", { elapsedMs: 0, ghost: false }]]);
+  clock.t += 300;
+  m.view(classicView("a", { moments: [{ kind: "ghost", pid: "c" }] }));
+  assert.deepEqual([...m.sparks()], [["c", { elapsedMs: 300, ghost: false }]], "skipped: not restarted");
+  clock.t += SPARK_GAP_MS - 300 - 1;
+  assert.equal(m.busy(), false, "nothing to draw while only the gap runs");
+  m.view(classicView("a", { moments: [{ kind: "silent", pid: "c" }] }));
+  assert.equal(m.sparks().size, 0, "still inside the gap");
+  clock.t += 1;
+  m.view(classicView("a", { moments: [{ kind: "ghost", pid: "c" }] }));
+  assert.deepEqual([...m.sparks()], [["c", { elapsedMs: 0, ghost: true }]]);
+});
+
+test("first view never sparks", () => {
+  const { m } = tracker();
+  m.view(classicView("a", { moments: [{ kind: "silent", pid: "c" }, { kind: "ghost", pid: "d" }] }));
+  assert.equal(m.sparks().size, 0);
+  assert.equal(m.busy(), false);
+});
+
+test("sparks never start in the lobby or on the results, and junk moments are ignored", () => {
+  const { m } = tracker();
+  m.view(classicView("a"));
+  m.view(classicView(null, { phase: "lobby", moments: [{ kind: "silent", pid: "a" }] }));
+  m.view(classicView(null, { phase: "results", moments: [{ kind: "ghost", pid: "b" }] }));
+  m.view(classicView("a", { moments: [{ kind: "silent" }, { kind: "ghost", pid: 7 }, { kind: "silent", pid: "" }] }));
+  assert.equal(m.sparks().size, 0);
 });

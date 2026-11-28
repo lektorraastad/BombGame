@@ -20,6 +20,7 @@ import { renderResults } from "./render-results.js";
  *   word?: import("./render-circle.js").CircleOptions["word"],         // the moments from motion.js,
  *   refused?: import("./render-circle.js").CircleOptions["refused"],   // passed on to the circle
  *   hearts?: Map<string, number>,
+ *   sparks?: import("./render-circle.js").CircleOptions["sparks"],  // motion.sparks(): silent and ghost answers
  *   examples?: string[] | null,                    // the example words to show now (motion.examplesShown), else null or left out
  *   win?: WinMoment,                               // motion.win(): the winner's moment on the results
  *   maxWords?: number,                             // how many words fit on the results' word wall (host-page.js measures it)

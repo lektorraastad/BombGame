@@ -207,7 +207,7 @@ function draw(again = true) {
   const bomb = motion.bombState(countdownMs, shown.phase === "playing" && !shown.paused);
   const html = renderPlayer(shown, {
     countdownMs, lastResult, status, bomb, ringAspect,
-    word: motion.word(), refused: motion.refused(), hearts: motion.hearts(), win: motion.win(),
+    word: motion.word(), refused: motion.refused(), hearts: motion.hearts(), sparks: motion.sparks(), win: motion.win(),
     examples: motion.examplesShown(shown) ? shown.examples : null,
   });
   // Kept as it is when it can be, the text box keeps its text, cursor, focus and any half-typed accent.

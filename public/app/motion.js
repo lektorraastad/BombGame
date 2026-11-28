@@ -19,6 +19,10 @@ export const WIN_MS = 1500;
 export const RESULTS_HOLD_MS = 1500;
 /** How long the example words show under the bomb after an explosion. */
 export const EXAMPLES_MS = 4000;
+/** How long a seat's spark lasts, for a silent or a ghost answer. */
+export const SPARK_MS = 700;
+/** A seat sparks at most once in this long: extra answers inside it are skipped. */
+export const SPARK_GAP_MS = 1000;
 /** How long a hidden-fuse turn lasts before the flame is at its biggest (bomb.js draws it). */
 export { TENSION_FULL_MS };
 
@@ -79,6 +83,8 @@ export function createMotion(now) {
   let turnRunning = false;
   /** Whether the latest view had example words. */
   let hasExamples = false;
+  /** Each seat's last spark: when it started, and whether it was a ghost's. Kept through the gap. @type {Map<string, { at: number, ghost: boolean }>} */
+  const sparkAt = new Map();
 
   const swinging = () => to !== null && now() - swingAt < ARROW_SWING_MS;
   const exploding = () => now() - explodedAt < EXPLOSION_MS;
@@ -182,6 +188,10 @@ export function createMotion(now) {
           refusedAt = t;
         } else if (m.kind === "hearts") {
           for (const pid of pidList(m.pids)) heartAt.set(pid, t);
+        } else if ((m.kind === "silent" || m.kind === "ghost") && typeof m.pid === "string" && m.pid !== "" && v?.phase === "playing") {
+          // One spark per answer, but a seat sparks at most once per SPARK_GAP_MS. The moment never carries the word.
+          const last = sparkAt.get(m.pid);
+          if (!last || t - last.at >= SPARK_GAP_MS) sparkAt.set(m.pid, { at: t, ghost: m.kind === "ghost" });
         } else if (m.kind === "win") {
           winPids = pidList(m.pids);
           winAt = holding() ? holdUntil : t;
@@ -232,6 +242,15 @@ export function createMotion(now) {
       return out;
     },
 
+    /** Each seat still sparking: player id to its elapsed ms and whether it is a ghost's, each for SPARK_MS. */
+    sparks() {
+      const t = now();
+      /** @type {Map<string, { elapsedMs: number, ghost: boolean }>} */
+      const out = new Map();
+      for (const [pid, s] of sparkAt) if (t - s.at < SPARK_MS) out.set(pid, { elapsedMs: t - s.at, ghost: s.ghost });
+      return out;
+    },
+
     /** The winner's moment, for WIN_MS from when the results show (after any hold); null otherwise. */
     win() {
       const elapsed = now() - winAt;
@@ -277,7 +296,7 @@ export function createMotion(now) {
     },
 
     /**
-     * True while a swing, an explosion, a pop, a moment, the results hold or the example words are
+     * True while a swing, an explosion, a pop, a spark, a moment, the results hold or the example words are
      * still running, so the page keeps redrawing. The hidden fuse's flame grows in CSS: not here.
      */
     busy() {
@@ -292,7 +311,12 @@ export function createMotion(now) {
         if (t - at < HEART_MS) cracking = true;
         else heartAt.delete(pid);
       }
-      return popping || cracking || swinging() || exploding() || holding() || showingWord() || showingRefused()
+      let sparking = false;
+      for (const [pid, s] of sparkAt) {
+        if (t - s.at < SPARK_MS) sparking = true;
+        else if (t - s.at >= SPARK_GAP_MS) sparkAt.delete(pid); // the gap is over too: forget it
+      }
+      return popping || cracking || sparking || swinging() || exploding() || holding() || showingWord() || showingRefused()
         || showingWin() || (hasExamples && showingExamples());
     },
   };

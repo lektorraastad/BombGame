@@ -1166,6 +1166,7 @@ test("two silent answers in one broadcast are both listed", async () => {
 });
 
 test("no view contains the silent or ghost word", async () => {
+  // It looks for the word in quotes, as a whole JSON string: a bare substring could match inside another word.
   const g = await sparkGame("classic");
   const v = g.host.views().at(-1);
   const off = g.players.find((p) => g.pidOf(p) !== v.mode.current)!;

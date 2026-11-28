@@ -390,6 +390,64 @@ test("circleMoments passes the moments on, and examples left out mean none", () 
   assert.ok(!draw(view, circleMoments({})).includes("spot-examples"), "the view's own examples are never used");
 });
 
+// ---- sparks (batch 6) ----
+
+const sparkOf = (inner: string) => inner.match(/<span class="spark[^"]*"[^>]*>.*?<\/span>(?:<i [^>]*><\/i>)*<\/span>/s)?.[0] ?? null;
+
+test("a spark draws a ring and 6 points with a negative delay", () => {
+  const view = classic([player("a"), player("b"), player("c")], "a");
+  const [a, b] = seats(draw(view, { sparks: new Map([["b", { elapsedMs: 240.4, ghost: false }]]) }));
+  assert.equal(sparkOf(a.inner), null);
+  const s = sparkOf(b.inner)!;
+  assert.ok(s, b.inner);
+  assert.match(s, /^<span class="spark" style="animation-delay:-240ms" aria-hidden="true">/);
+  assert.equal((s.match(/<span class="ring"><\/span>/g) ?? []).length, 1);
+  const points = [...s.matchAll(/<i style="--a:(\d+)deg"><\/i>/g)].map((m) => Number(m[1]));
+  assert.deepEqual(points, [0, 60, 120, 180, 240, 300]);
+  assert.ok(b.inner.startsWith(avatarImg(0) + s), "right after the emoji, in its place");
+  assert.ok(!draw(view).includes("spark"), "no spark without one");
+});
+
+test("ghost spark has the ghost class", () => {
+  const view = everyone([player("a", { alive: false }), player("b")]);
+  const [a, b] = seats(draw(view, { sparks: new Map([["a", { elapsedMs: 100, ghost: true }], ["b", { elapsedMs: 5, ghost: false }]]) }));
+  assert.match(a.inner, /<span class="spark ghost" style="animation-delay:-100ms"/);
+  assert.match(b.inner, /<span class="spark" style="animation-delay:-5ms"/);
+});
+
+test("spark markup has no player text", () => {
+  const evil = "<b>secretword</b>";
+  const view = classic([player("a", { nickname: evil }), player("b")], "b");
+  const html = draw(view, { sparks: new Map([["a", { elapsedMs: 10, ghost: false, word: evil } as any]]) });
+  const s = sparkOf(seats(html)[0].inner)!;
+  assert.ok(s);
+  assert.ok(!/secretword|&lt;|\bb\b/.test(s), s);
+  // Junk times draw nothing.
+  for (const junk of [NaN, Infinity, "10", null, { elapsedMs: "x" }]) {
+    assert.ok(!draw(view, { sparks: new Map([["a", junk as any]]) }).includes("spark"), String(junk));
+  }
+  assert.ok(!draw(view, { sparks: "a" as any }).includes("spark"));
+});
+
+test("a spark then a word moment on the same seat both draw", () => {
+  const view = classic([player("a", { lastWord: { word: "stone", prompt: { text: "st", type: "contains" } } }), player("b")], "b");
+  const html = draw(view, {
+    sparks: new Map([["a", { elapsedMs: 200, ghost: false }]]),
+    word: { pid: "a", word: "stone", prompt: { text: "st", type: "contains" }, fromSpotlight: false, elapsedMs: 50 },
+    hearts: new Map([["a", 30]]),
+  });
+  const a = seats(html)[0];
+  assert.ok(sparkOf(a.inner), "spark");
+  assert.ok(a.inner.includes(`last-word pop-in" style="animation-delay:-50ms"`), "word");
+  assert.ok(a.inner.includes(`class="crack"`), "heart");
+});
+
+test("circleMoments passes the sparks on", () => {
+  const sparks = new Map([["a", { elapsedMs: 1, ghost: false }]]);
+  assert.equal(circleMoments({ sparks }).sparks, sparks);
+  assert.equal(circleMoments({}).sparks, undefined);
+});
+
 test("with more than 20 seats the examples are not drawn under the bomb", () => {
   const many = Array.from({ length: 24 }, (_, i) => player(`x${i}`));
   assert.ok(!draw(classic(many, "x0"), { examples: ["stone"] }).includes("spot-examples"));
@@ -434,4 +492,23 @@ test("every moment's keyframes and animations are inside the no-preference media
   assert.match(section, /\.fly-word \{[^}]*display: none/);
   assert.match(section, /\.crack \{[^}]*display: none/);
   assert.match(section, /\.win-burst \{[^}]*display: none/);
+});
+
+test("reduced-motion CSS: spark keyframes only under no-preference", () => {
+  const start = CSS.indexOf("/* ---- The moments");
+  const section = CSS.slice(start).replace(/\/\*[^]*?\*\//g, "");
+  const open = section.indexOf("@media (prefers-reduced-motion: no-preference)");
+  assert.ok(open >= 0);
+  const before = section.slice(0, open);
+  const inside = section.slice(open);
+  for (const k of ["spark-ring", "spark-fly", "spark-ring-faint", "spark-fly-faint"]) {
+    assert.ok(new RegExp(`@keyframes ${k} `).test(inside), `${k} under no-preference`);
+    assert.ok(!before.includes(`@keyframes ${k}`), `${k} not outside`);
+  }
+  // Without motion: a still ring for the spark's time, and no star points.
+  assert.match(before, /\.spark \.ring \{[^}]*opacity: 0\.\d/);
+  assert.match(before, /\.spark i \{[^}]*display: none/);
+  // The colours come from the theme: the spark colour, and muted for a ghost.
+  assert.match(CSS, /\.spark \.ring \{[^}]*var\(--spark\)/);
+  assert.match(CSS, /\.spark\.ghost \.ring \{[^}]*var\(--muted\)/);
 });

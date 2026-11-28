@@ -232,6 +232,7 @@ export function createSoundDriver(sound, now) {
         if (m?.kind === "word") word = true;
         else if (m?.kind === "hearts") hearts = true;
         else if (m?.kind === "all-answered") all = true;
+        // "silent" and "ghost" moments are deliberately silent: their sparks have no sound.
       }
       if (word) {
         if (!everyone) sound.chime();
