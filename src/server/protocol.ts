@@ -4,7 +4,7 @@ import { AVATAR_COUNT } from "../engine/avatars.ts";
 
 export const MAX_MESSAGE_BYTES = 2000;
 
-export const COMMANDS = ["start", "pause", "resume", "skip", "end", "playAgain", "lock", "unlock"] as const;
+export const COMMANDS = ["start", "pause", "resume", "skip", "end", "playAgain", "showWords", "lock", "unlock"] as const;
 export type SimpleCommand = (typeof COMMANDS)[number];
 
 export type ClientMsg =

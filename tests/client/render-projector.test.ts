@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { renderProjector } from "../../public/app/render-projector.js";
+import { renderResults } from "../../public/app/render-results.js";
 import { WORD_LIST_CREDITS } from "../../src/words/credits.ts";
 import { CREDITS } from "../../public/app/credits.js";
 import { AVATARS, EMOJI_CREDIT, avatarImg } from "../../public/app/avatars.js";
@@ -281,28 +282,19 @@ test("results: shared winners side by side, escaped; no winner says so", () => {
   assert.equal(text(part(none, "p-podium")), "No winner this time");
 });
 
-test("results: the longest word on tiles with who played it, and the best ghosts numbered with emoji, no points", () => {
-  const html = renderProjector(
-    resultsView({
-      winners: ["p1"],
-      longestWord: { nickname: "<b>Jon</b>", avatar: 5, word: "remember" },
-      ghostRanking: [{ id: "p2", nickname: "<b>Jon</b>", avatar: 5 }, { id: "p3", nickname: "Åse 😀", avatar: 7 }],
-    }),
-    ui(),
-  );
-  const longest = part(html, "p-longest");
-  assert.equal(longest, `Longest word: ${tiles("remember")} <span class="by">(&lt;b&gt;Jon&lt;/b&gt;)</span>`);
-  assert.ok(html.includes("Best ghosts"));
-  const ghosts = part(html, "p-ghosts");
-  const items = [...ghosts.matchAll(/<li>(.*?)<\/li>/gs)].map((m) => m[1]);
-  assert.deepEqual(items, [
-    `<span class="rank">1.</span>${avatarImg(5)}<span class="who">&lt;b&gt;Jon&lt;/b&gt;</span>`,
-    `<span class="rank">2.</span>${avatarImg(7)}<span class="who">Åse 😀</span>`,
-  ]);
-  assert.ok(!/points?/i.test(html), "no ghost points");
-
-  const plain = renderProjector(resultsView({ winners: ["p1"] }), ui());
-  assert.ok(!plain.includes("Best ghosts") && !plain.includes("p-longest"), "nothing to show, nothing shown");
+test("results are drawn by renderResults: the awards step, then the wall", () => {
+  const v = resultsView({
+    winners: ["p1"],
+    awards: [{ kind: "longest", players: [{ id: "p2", nickname: "<b>Jon</b>", avatar: 5 }], word: "remember" }],
+    words: ["remember", "stone"], step: "awards",
+  });
+  const html = renderProjector(v, ui({ win: { pids: ["p1"], elapsedMs: 100 } }));
+  assert.equal(html, renderResults(v, { win: { pids: ["p1"], elapsedMs: 100 } }));
+  assert.ok(html.includes('data-kind="longest"') && html.includes("win-burst"));
+  assert.ok(!html.includes("p-longest") && !html.includes("Best ghosts"), "the old longest line and ghost list are gone");
+  const wall = { ...v, results: { ...v.results, step: "words" } };
+  assert.equal(renderProjector(wall, ui({ maxWords: 1 })), renderResults(wall, { maxWords: 1 }));
+  assert.ok(renderProjector(wall, ui()).includes("r-wall"));
 });
 
 test("the lobby credits the word lists and the emoji", () => {
@@ -337,9 +329,9 @@ test("the playing screens show the small logo", () => {
   }
 });
 
-test("results show the large logo", () => {
+test("results show the small logo at the top left", () => {
   const html = renderProjector({ code: "QWER", phase: "results", players: [], results: { winners: [], ghostRanking: [] } }, ui());
-  assert.ok(html.includes("logo-large"));
+  assert.ok(html.includes("logo-small") && !html.includes("logo-large"));
 });
 
 test("the win burst has 16 tiles spelling WORDFIRE twice, only while win() runs", () => {

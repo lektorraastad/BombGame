@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import type { Band, EngineDeps, PromptType } from "../engine/types.ts";
 import type { WordChecker } from "../engine/words.ts";
+import type { Rarity } from "../engine/rarity.ts";
 import type { PromptBank } from "../engine/prompts.ts";
 import type { PlayerId, Room } from "../engine/room.ts";
 import { makeRoomCode } from "../engine/room.ts";
@@ -164,7 +165,7 @@ function lastEventBetween(prev: Seen | null, next: Seen): LastEvent {
 
 export class Hub {
   private readonly deps: EngineDeps;
-  private readonly words: { checker: WordChecker; bank: PromptBank; blockedNames: string[] };
+  private readonly words: { checker: WordChecker; bank: PromptBank; blockedNames: string[]; rarity: Rarity };
   private readonly passcode: string | undefined;
   private readonly log: (event: string, n?: number) => void;
   private readonly rooms = new Map<string, HubRoom>();
@@ -174,7 +175,7 @@ export class Hub {
 
   constructor(opts: {
     deps: EngineDeps;
-    words: { checker: WordChecker; bank: PromptBank; blockedNames: string[] };
+    words: { checker: WordChecker; bank: PromptBank; blockedNames: string[]; rarity: Rarity };
     passcode: string | undefined;
     log?: (event: string, n?: number) => void;
   }) {
@@ -265,6 +266,7 @@ export class Hub {
       checker: this.words.checker,
       bank: this.words.bank,
       blockedNames: this.words.blockedNames,
+      rarity: this.words.rarity,
       onChange: () => this.queueBroadcast(hr),
     });
     this.rooms.set(code, hr);
@@ -358,6 +360,7 @@ export class Hub {
       case "skip": room.skipPrompt(); break;
       case "end": room.endGame(); break;
       case "playAgain": room.playAgain(); break;
+      case "showWords": room.showWords(); break;
       case "lock": room.setLocked(true); break;
       case "unlock": room.setLocked(false); break;
       case "settings": res = room.updateSettings(msg.settings); break;
@@ -537,6 +540,7 @@ export class Hub {
       this.safeClose(c, CLOSE_ROOM_CLOSED, "Room closed");
     }
     hr.room.endGame(); // stops the bomb timer of a running game
+    hr.room.close(); // and the results step timer
     this.log("room-closed", this.rooms.size);
   }
 

@@ -1,13 +1,13 @@
 // The projector screen as an HTML string. Pure: no DOM access, and every piece of text that came from
-// a player (nicknames, words) goes through esc(), here or in tiles.js and render-circle.js. The
-// projector view has no scores, ghost points or tokens to show: the results' ghost ranking is names
-// in order, without points.
+// a player (nicknames, words) goes through esc(), here or in tiles.js, render-circle.js and
+// render-results.js. The projector view has no scores, ghost points or tokens to show.
 import { esc } from "./escape.js";
 import { renderCircle, circleMoments } from "./render-circle.js";
 import { tiles } from "./tiles.js";
 import { ONE_RING_MAX, seatedPlayers } from "./circle-geometry.js";
 import { renderLogo } from "./logo.js";
-import { avatarImg, trophyImg, EMOJI_CREDIT } from "./avatars.js";
+import { EMOJI_CREDIT } from "./avatars.js";
+import { renderResults } from "./render-results.js";
 
 /**
  * @typedef {{
@@ -22,6 +22,7 @@ import { avatarImg, trophyImg, EMOJI_CREDIT } from "./avatars.js";
  *   hearts?: Map<string, number>,
  *   examples?: string[] | null,                    // the example words to show now (motion.examplesShown), else null or left out
  *   win?: WinMoment,                               // motion.win(): the winner's moment on the results
+ *   maxWords?: number,                             // how many words fit on the results' word wall (host-page.js measures it)
  * }} ProjectorUi
  */
 /** @typedef {ReturnType<ReturnType<import("./motion.js").createMotion>["win"]>} WinMoment */
@@ -138,83 +139,7 @@ ${examples(view, ui)}
 </main>`;
 }
 
-/** The burst's letters: "WORDFIRE" twice, one tile each. */
-const BURST = Array.from("WORDFIREWORDFIRE");
-/** When the winner's name starts dropping in, and how far apart its tiles land (at most). */
-const NAME_AT_MS = 320;
-const NAME_STEP_MS = 80;
-
-/**
- * The winner's name as tiles that drop in one after another: each tile's own delay (positive while
- * it is still to come). Every character goes through esc(), as in tiles.js.
- * @param {string} name @param {number} ms the win moment's elapsed time
- */
-function droppingName(name, ms) {
-  const chars = Array.from(String(name));
-  const step = Math.min(NAME_STEP_MS, 880 / Math.max(1, chars.length - 1)); // the last lands within the moment
-  const inner = chars
-    .map((c, i) => (/^\s$/u.test(c)
-      ? `<span class="gap"></span>`
-      : `<span class="tile" style="animation-delay:${Math.round(NAME_AT_MS + i * step - ms)}ms">${esc(c)}</span>`))
-    .join("");
-  return `<span class="tiles">${inner}</span>`;
-}
-
-/**
- * The burst of letter tiles flying out from the winner and falling, all from the same moment.
- * Each tile's direction is fixed by its place, so the burst looks the same on every redraw.
- * @param {number} ms
- */
-function winBurst(ms) {
-  const parts = BURST.map((c, i) => {
-    const a = ((i + 0.5) / BURST.length) * 2 * Math.PI;
-    const r = i % 2 ? 4.2 : 5.6; // em, out from the middle
-    const x = (Math.cos(a) * r).toFixed(2);
-    const y = (Math.sin(a) * r * 0.6).toFixed(2);
-    const spin = ((i * 47) % 120) - 60;
-    return `<span class="burst-tile" style="animation-delay:-${ms}ms;--bx:${x}em;--by:${y}em;--spin:${spin}deg"><span class="tile">${c}</span></span>`;
-  });
-  return `<div class="win-burst" aria-hidden="true">${parts.join("")}</div>`;
-}
-
-/**
- * The results' parts: the winners' podium, the longest word, and the best ghosts in order without
- * points. Shared with the student screens, which add the student's own score. While the win moment
- * runs (motion.win()), the winners' emoji pop, their names drop in and the burst plays once.
- * @param {any} view a projector or player view in the results phase
- * @param {WinMoment} [win]
- * @returns {{ podium: string, longest: string, ghosts: string }}
- */
-export function resultParts(view, win = null) {
-  const r = view.results ?? {};
-  const winners = (Array.isArray(r.winners) ? r.winners : [])
-    .map((/** @type {string} */ id) => playerOf(view, id))
-    .filter((/** @type {any} */ p) => p && typeof p.nickname === "string");
-  const winMs = win && typeof win.elapsedMs === "number" && Number.isFinite(win.elapsedMs) ? Math.max(0, Math.round(win.elapsedMs)) : null;
-  const pids = winMs !== null && Array.isArray(win?.pids) ? win.pids : [];
-  /** @param {any} p */
-  const winner = (p) => (winMs !== null && pids.includes(p.id)
-    ? `<div class="p-winner winning" style="animation-delay:-${winMs}ms">${avatarImg(p.avatar, "big")}${droppingName(p.nickname, winMs)}</div>`
-    : `<div class="p-winner">${avatarImg(p.avatar, "big")}${tiles(p.nickname)}</div>`);
-  const bursting = winMs !== null && winners.some((/** @type {any} */ p) => pids.includes(p.id));
-  const podium = winners.length
-    ? `${trophyImg()}<div class="p-winners">${winners.map(winner).join("")}</div>${bursting ? winBurst(winMs ?? 0) : ""}`
-    : `<p class="p-nowinner">No winner this time</p>`;
-  const lw = r.longestWord;
-  const longest = lw && typeof lw.word === "string"
-    ? `<p class="p-longest">Longest word: ${tiles(lw.word)} <span class="by">(${esc(lw.nickname)})</span></p>`
-    : "";
-  const ranking = Array.isArray(r.ghostRanking) ? r.ghostRanking : [];
-  const ghosts = ranking.length
-    ? `<h2>Best ghosts</h2><ol class="p-ghosts">${ranking
-        .map((/** @type {any} */ g, /** @type {number} */ i) => `<li><span class="rank">${i + 1}.</span>${avatarImg(g.avatar)}<span class="who">${esc(g.nickname)}</span></li>`)
-        .join("")}</ol>`
-    : "";
-  return { podium, longest, ghosts };
-}
-
-/** @param {any} view @param {ProjectorUi} ui */
+/** The results: the winner and the award cards, then the word wall (render-results.js). @param {any} view @param {ProjectorUi} ui */
 function results(view, ui) {
-  const { podium, longest, ghosts } = resultParts(view, ui.win ?? null);
-  return `<main class="p-results">${renderLogo("large")}<h1>Game over</h1><div class="p-podium">${podium}</div>${longest}${ghosts}</main>`;
+  return renderResults(view, { win: ui.win ?? null, maxWords: ui.maxWords });
 }

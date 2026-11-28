@@ -164,11 +164,15 @@ function draw(again = true) {
   const shown = motion.heldView(view);
   const countdownMs = countdown.remainingMs();
   const bomb = motion.bombState(countdownMs, shown.phase === "playing" && !shown.paused);
-  $("projector").innerHTML = renderProjector(shown, {
+  const ui = {
     countdownMs, credits: CREDITS, site: location.host, bomb, popElapsed: motion.popElapsed, ringAspect,
     word: motion.word(), refused: motion.refused(), hearts: motion.hearts(), win: motion.win(),
     examples: motion.examplesShown(shown) ? shown.examples : null,
-  });
+  };
+  /** @param {number | undefined} maxWords */
+  const paint = (maxWords) => void ($("projector").innerHTML = renderProjector(shown, { ...ui, maxWords }));
+  paint(wallFit.maxWords);
+  if (shown.phase === "results" && shown.results?.step === "words") fitWall(paint, Array.isArray(shown.results.words) ? shown.results.words : []);
   // The winner's tune, as the results appear after a win (never after a refresh: then there is no win moment).
   const onResults = shown.phase === "results";
   if (onResults && !resultsDrawn && motion.win()) sounds.resultsShown();
@@ -180,6 +184,70 @@ function draw(again = true) {
     if (again) draw(false);
   }
 }
+// ---- the word wall: its tiles shrink to fit the screen, and never below MIN_TILE_PX tall ----
+
+/** The smallest a tile on the wall may be, in px: below it, the wall shows fewer words and "+ N more". */
+const MIN_TILE_PX = 18;
+/** Worked out once per word list and projector size: the wall's font size, and how many words fit. */
+let wallFit = { key: "", px: 0, maxWords: /** @type {number | undefined} */ (undefined) };
+
+const wallEl = () => /** @type {HTMLElement | null} */ (document.querySelector("#projector .r-wall"));
+
+/** Whether the wall's words all fit in its box at this font size (it sets the size). @param {number} px */
+function wallFits(px) {
+  const wall = wallEl();
+  if (!wall) return true;
+  wall.style.fontSize = `${px}px`;
+  return wall.scrollHeight <= wall.clientHeight + 1 && wall.scrollWidth <= wall.clientWidth + 1;
+}
+
+/**
+ * The biggest font size at which every word fits, down to tiles MIN_TILE_PX tall; below that, the
+ * most words that fit at that size (the award words always stay: render-results.js keeps them).
+ * @param {(maxWords: number | undefined) => void} paint draws the projector with a word limit
+ * @param {number} n how many words the wall has
+ */
+function measureWall(paint, n) {
+  paint(undefined);
+  const hi = Math.max(16, $("projector").clientHeight * 0.06);
+  const fitsAll = wallFits(hi);
+  // A tile's height for each px of font size, measured on a plain word (award words are bigger).
+  const tile = document.querySelector("#projector .r-word:not(.hl) .tile") ?? document.querySelector("#projector .r-wall .tile");
+  const ratio = tile ? tile.getBoundingClientRect().height / hi : 1.42;
+  if (fitsAll) return { px: hi, maxWords: undefined };
+  const lo = Math.min(hi, MIN_TILE_PX / (ratio > 0 ? ratio : 1.42));
+  if (wallFits(lo)) {
+    let a = lo, b = hi; // a fits, b doesn't
+    for (let i = 0; i < 10 && b - a > 0.25; i++) {
+      const m = (a + b) / 2;
+      if (wallFits(m)) a = m; else b = m;
+    }
+    return { px: a, maxWords: undefined };
+  }
+  let a = 0, b = n; // a words fit, b don't
+  while (b - a > 1) {
+    const m = Math.floor((a + b) / 2);
+    paint(m);
+    if (wallFits(lo)) a = m; else b = m;
+  }
+  return { px: lo, maxWords: a };
+}
+
+/**
+ * Fit the wall to the projector, measuring again only when the words or the screen size change.
+ * @param {(maxWords: number | undefined) => void} paint @param {string[]} words
+ */
+function fitWall(paint, words) {
+  const proj = $("projector");
+  const key = `${proj.clientWidth}x${proj.clientHeight}|${words.join("\n")}`;
+  if (key !== wallFit.key) {
+    wallFit = { key, ...measureWall(paint, words.length) };
+    paint(wallFit.maxWords);
+  }
+  const wall = wallEl();
+  if (wall) wall.style.fontSize = `${wallFit.px}px`;
+}
+
 // Redraw whenever the projector's size changes: the window is resized, or the ⚙ overlay opens or
 // closes and the game moves into the space beside it. No new view comes then, but the oval's shape
 // changes, and the arrow must turn with it.

@@ -130,7 +130,7 @@ test("prompts are sorted by type, count desc, text", () => {
 
 test("summary counts prompts per level by common, and the beginner words", () => {
   const data = {
-    dictionary: ["a", "b"], known: ["a"], beginner: ["a", "b", "c"], blockedWords: [], blockedNames: ["x"],
+    dictionary: ["a", "b"], known: ["a"], beginner: ["a", "b", "c"], blockedWords: [], blockedNames: ["x"], ranks: new Map(), levels: new Map(), heads: new Map(), names: [],
     prompts: [
       { text: "aa", type: "contains" as const, count: 25, common: 15 },
       { text: "ab", type: "contains" as const, count: 250, common: 14 },
@@ -267,4 +267,63 @@ test("prompts carry common = beginner words that fit", () => {
   const an = ps.find((p) => p.type === "contains" && p.text === "an")!;
   assert.equal(an.common, 2);
   assert.ok(ps.every((p) => typeof p.common === "number"));
+});
+
+test("ranks give every NGSL family form its headword's rank", () => {
+  const d = buildWordData(raw({
+    scowl: lines(["be", "was", "apple", "apples"]),
+    ngsl: [lines(["be,was,is", "apple,apples"])],
+    ngslStats: "Lemma,SFI Rank,SFI,Adj\r\nbe,2,86,48\r\napple,900,50,10\r\n",
+  }));
+  assert.equal(d.ranks.get("was"), 2);
+  assert.equal(d.ranks.get("be"), 2);
+  assert.equal(d.ranks.get("apples"), 900);
+});
+
+test("known words with no NGSL rank get 100000", () => {
+  const d = buildWordData(raw({ scowl: lines(["apple", "zebra"]), ngsl: [lines(["apple"])], cefrj: "zebra,noun,A1,x", ngslStats: "Lemma,SFI Rank\napple,5\n" }));
+  assert.equal(d.ranks.get("apple"), 5);
+  assert.equal(d.ranks.get("zebra"), 100000);
+});
+
+test("names excludes words also in NGSL or CEFR-J", () => {
+  const d = buildWordData(raw({
+    scowl: lines(["turkey", "english", "paris"]),
+    ngsl: [lines(["turkey"])],
+    cefrj: "english,noun,A1,x\n",
+    places: lines(["# countries", "turkey", "barbados", "# nationalities and languages", "english", "# cities", "paris"]),
+    brands: lines(["tiktok"]),
+    namesExtra: [lines(["roysland"])],
+  }));
+  assert.ok(!d.names.includes("turkey"));
+  assert.ok(!d.names.includes("english"));
+  assert.ok(d.names.includes("barbados"));
+  assert.ok(d.names.includes("tiktok"));
+  assert.ok(d.names.includes("paris"));
+  assert.ok(d.names.includes("roysland"));
+});
+
+test("parseCefrj gives each headword its lowest CEFR-J level (A1 = 1 ... B2 = 4)", () => {
+  const c = parseCefrj("headword,pos,CEFR\nhope,verb,A1,\nhope,noun,B1,\nherd,noun,B1,\nshed/sheds,noun,B2,\nagenda,noun,B1,\n");
+  assert.equal(c.levels.get("hope"), 1);
+  assert.equal(c.levels.get("herd"), 3);
+  assert.equal(c.levels.get("sheds"), 4);
+  assert.equal(c.levels.get("hoping"), undefined);
+});
+
+test("levels and heads for the Rarest word award", () => {
+  const d = buildWordData(raw({
+    scowl: lines(["hope", "hoping", "hopes", "she", "her", "agenda", "agendas", "four", "fourth"]),
+    ngsl: [lines(["hope,hoping,hopes", "she,her", "agenda,agendas"]), lines(["four,fourth"])],
+    cefrj: "hope,verb,A1,\nher,pron,A1,\nshe,pron,A1,\nagenda,noun,B1,\nfour,num,A1,\n",
+    ngslStats: "Lemma,SFI Rank\nshe,24\nhope,250\nagenda,2030\n",
+  }));
+  assert.equal(d.levels.get("hope"), 1);
+  assert.equal(d.levels.get("agenda"), 3);
+  assert.equal(d.levels.get("hoping"), undefined);
+  assert.equal(d.heads.get("hoping"), "hope");
+  assert.equal(d.heads.get("agendas"), "agenda");
+  assert.equal(d.heads.get("her"), undefined); // a CEFR-J headword stands for itself
+  assert.equal(d.heads.get("hope"), undefined);
+  assert.equal(d.heads.get("fourth"), undefined); // "four" has no NGSL rank
 });

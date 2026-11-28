@@ -71,6 +71,9 @@ export const ghostActivity: KnockoutActivity = {
     }
     return { ok: true, kind: "ghost" };
   },
+  privateWords(ctx, pid) {
+    return [...(st(ctx).words.get(pid) ?? [])];
+  },
   view(ctx, pid) {
     const pl = ctx.player(pid);
     return {

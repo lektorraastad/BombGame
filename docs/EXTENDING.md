@@ -45,8 +45,8 @@ Run both `npm test` and the type check after every change. Both must pass before
 These come from the game's design. The tests in `tests/engine/views.test.ts` check most of them.
 
 - **Privacy.** Nothing is saved to disk and nicknames are never logged. Screens never get a player's `token` (their secret rejoin key).
-- **The projector** never shows ghost words, silent answers, ghost points or scores. The only player words it shows are real-turn words (each player's last one, and the longest word in the results) and live typing. (It also shows dictionary example answers, which are not player words.)
-- **Student screens** get the projector's view plus their own `me` data. So they show other players' last real-turn words and the live typing, but never other players' scores, ghost points, silent answers or ghost words. Each student sees only their own score, and a ghost sees only their own ghost points and streak (in `me.activity`).
+- **The projector** never shows ghost words, silent answers, ghost points or scores. The only player words it shows are real-turn words and Everyone-at-once answers (each player's last one, the award words and the "Words we played" wall in the results) and live typing. The results never show a count per student: "Most words" shows names only. (It also shows dictionary example answers, which are not player words.)
+- **Student screens** get the projector's view plus their own `me` data. So they show other players' last real-turn words and the live typing, but never other players' scores, ghost points, silent answers or ghost words. Each student sees only their own score, and a ghost sees only their own ghost points and streak (in `me.activity`). At the end of a game, a student's own silent and ghost words appear only in their own `me.summary` (the "Your game" card).
 - Otherwise, ghost points appear only on the teacher's control screen. The results rank the best ghosts without points.
 - **Live typing** is on by default. When it is on, the projector and student screens show only the current Classic player's text (the control screen receives it in its view but doesn't draw it), with blocked words masked as stars, and only while a game is running: never in Everyone at once and never during the results. The room stores typing only for that one player, so anyone else's keystrokes change nothing and send nothing. Typed text is cleared every time a new prompt is dealt, so a half-typed (or silent) word never shows for the next turn.
 - **Views only read.** Code in `src/engine/views.ts` must never change the room. It uses read-only methods on `Room` such as `prompt()`, `modeView()`, `activityView(pid)`, `isOn(pid)`, `bombRemaining()` and `typingOf(pid)`. It must not use `room.context()`, which can change the game. Tests may use `room.context()`.
@@ -74,6 +74,8 @@ The short version:
 2. Add it to `ACTIVITIES` in `src/engine/registry.ts`.
 3. Write `tests/engine/<name>.test.ts` (copy the setup from `tests/engine/ghost.test.ts`).
 4. Run the tests and the type check.
+
+**Words for the "Your game" card (optional).** If knocked-out players type words in your activity, give it `privateWords(ctx, pid)`, returning that player's own words this game, in the order played (ghost mode returns its own per-player word sets). The room reads them through `room.ghostWordsOf(pid)`, and they appear in one place only: that player's own `me.summary` at the end of the game (the "and 4 as a ghost" count, and their longest and rarest word). They never reach the projector, the word wall, Copy words or the awards, and Most words never counts them. Without `privateWords`, the card counts no words from the activity.
 
 ## 3. Add a setting
 

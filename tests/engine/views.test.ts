@@ -199,7 +199,8 @@ test("results include ghost leaderboard and longest word", () => {
   const v = projectorView(room);
   assert.equal(v.phase, "results");
   const nick = (id: PlayerId) => room.players().find((x) => x.id === id)!.nickname;
-  assert.deepEqual(v.results, {
+  const { winners, ghostRanking, longestWord } = v.results!;
+  assert.deepEqual({ winners, ghostRanking, longestWord }, {
     winners: [first],
     ghostRanking: [
       { id: g2, nickname: nick(g2), avatar: avatarOf(room, g2) },
@@ -396,4 +397,90 @@ test("typing is never shown in Everyone at once", () => {
   for (const id of ids) room.typing(id, "sta");
   assert.equal("typing" in projectorView(room), false);
   for (const id of ids) assert.equal("typing" in playerView(room, id)!, false);
+});
+
+/** Every key anywhere in a JSON value. */
+function keysOf(value: unknown, out = new Set<string>()): Set<string> {
+  if (Array.isArray(value)) for (const v of value) keysOf(v, out);
+  else if (value && typeof value === "object") {
+    for (const [k, v] of Object.entries(value)) { out.add(k); keysOf(v, out); }
+  }
+  return out;
+}
+
+/** A game with a turn word, two silent words and a ghost word, ended. */
+function endedGame() {
+  const { room, ids } = setup(4, { comeback: false });
+  const on = current(room);
+  const [silent, ghost] = others(room, ids);
+  room.submit(silent, "stone");
+  room.submit(silent, "stand");
+  room.context().loseLife(ghost);
+  room.submit(ghost, "strong");
+  assert.deepEqual(room.submit(on, "station"), { ok: true, kind: "turn" });
+  room.context().endGame([on]);
+  return { room, ids, on, silent, ghost };
+}
+
+test("projector results carry awards, words and step, and no counts", () => {
+  const { room, on, silent } = endedGame();
+  const r = projectorView(room).results!;
+  assert.equal(r.step, "awards");
+  assert.deepEqual(r.words, ["station"]);
+  assert.deepEqual(r.awards.map((a) => a.kind), ["longestRarest", "mostWords", "bestGhost"]);
+  assert.deepEqual(r.awards[0].players.map((p) => p.id), [on]);
+  assert.deepEqual(r.awards[1].players.map((p) => p.id), [silent]);
+  for (const v of [projectorView(room), playerView(room, on)!.results]) {
+    const keys = keysOf(v);
+    for (const k of ["score", "ghostPoints", "turnWords", "silentWords", "ghostWords", "summary"]) assert.ok(!keys.has(k), `no ${k}`);
+    const json = JSON.stringify(v);
+    for (const w of ["stone", "stand", "strong"]) assert.ok(!json.includes(w), `no private word ${w}`);
+  }
+});
+
+test("a player's summary is in their own view only", () => {
+  const { room, ids, on, silent, ghost } = endedGame();
+  const sv = playerView(room, silent)!;
+  assert.deepEqual(sv.me.summary, { turnWords: 0, silentWords: 2, ghostWords: 0, longest: "stone", rarest: "stone", awards: ["mostWords"] });
+  assert.deepEqual(playerView(room, ghost)!.me.summary!.ghostWords, 1);
+  for (const id of ids.filter((x) => x !== silent)) {
+    const json = JSON.stringify(playerView(room, id));
+    assert.ok(!json.includes("stone") && !json.includes("stand"), "nobody else sees the silent words");
+  }
+  assert.ok(!JSON.stringify(playerView(room, on)).includes("strong"), "nobody else sees the ghost words");
+  assert.ok(!JSON.stringify(controlView(room)).includes("stand"), "the control view has no private words");
+  room.playAgain();
+  assert.equal(playerView(room, silent)!.me.summary, undefined, "no summary outside the results");
+});
+
+test("no summary while a game runs", () => {
+  const { room, ids } = setup(3);
+  assert.equal(playerView(room, ids[0])!.me.summary, undefined);
+});
+
+test("the control view carries the words", () => {
+  const { room } = endedGame();
+  assert.deepEqual(controlView(room).words, ["station"]);
+  room.playAgain();
+  assert.equal(controlView(room).words, undefined);
+});
+
+test("a tie of more than 8 keeps every id out of the shared results", () => {
+  const { deps } = makeDeps(11);
+  const room = createRoom({ code: "ABCD", deps, checker: makeTestChecker(), bank: createPromptBank([ST]), blockedNames: fixtureBlocked });
+  const ids: PlayerId[] = [];
+  for (let i = 0; i < 10; i++) { const j = room.join("tok-" + i, "Player" + i); if (j.ok) ids.push(j.playerId); }
+  room.updateSettings({ startLives: 1, timerStyle: "visible" });
+  room.start();
+  for (const id of ids.filter((x) => x !== current(room))) room.submit(id, "stone");
+  room.submit(current(room), "street");
+  room.context().endGame([]);
+  for (const r of [projectorView(room).results!, playerView(room, ids[0])!.results!, controlView(room).results!]) {
+    const most = r.awards.find((a) => a.kind === "mostWords")!;
+    assert.deepEqual(most, { kind: "mostWords", players: [], tied: 10 });
+    const keys = keysOf(r.awards);
+    assert.ok(!keys.has("ids"), "no internal id list");
+    assert.ok([...keys].every((k) => ["kind", "players", "word", "tied", "id", "nickname", "avatar"].includes(k)));
+  }
+  assert.ok(playerView(room, ids[3])!.me.summary!.awards.includes("mostWords"));
 });

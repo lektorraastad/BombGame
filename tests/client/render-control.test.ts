@@ -231,3 +231,38 @@ test("More settings is folded unless the page says it is open, in overlay mode t
     assert.ok(renderControl(view(), ui({ overlay, moreOpen: true })).includes(`<details class="more" open><summary>`));
   }
 });
+
+test("the control panel shows Show words, disabled on the words step, and Copy words", () => {
+  const btn = (html: string, cmd: string) => html.match(new RegExp(`<button[^>]*data-cmd="${cmd}"[^>]*>([^<]*)<`));
+  const copy = (html: string) => html.match(/<button[^>]*data-copy-words[^>]*>([^<]*)</);
+  const fallback = (html: string) => html.match(/<textarea[^>]*data-copy-fallback[^>]*>([^<]*)<\/textarea>/);
+  const results = (step: string, words = ["apple", "milk"]) => ({ ...view({}, "results"), results: { winners: [], awards: [], words, step }, words });
+  for (const overlay of [false, true]) {
+    const html = renderControl(results("awards"), ui({ overlay }));
+    assert.equal(btn(html, "showWords")![1], "Show words");
+    assert.ok(!btn(html, "showWords")![0].includes("disabled"));
+    assert.equal(copy(html)![1], "Copy words");
+    assert.ok(!copy(html)![0].includes("disabled"));
+    const box = fallback(html);
+    assert.ok(box && box[0].includes("readonly") && box[0].includes("hidden"), "the fallback box waits, hidden");
+    assert.equal(box[1], "apple\nmilk");
+  }
+  const wall = renderControl(results("words"), ui());
+  assert.ok(btn(wall, "showWords")![0].includes("disabled"));
+  assert.ok(!copy(wall)![0].includes("disabled"), "Copy words works on the wall too");
+  assert.equal(copy(renderControl(results("words"), ui({ copied: true })))![1], "Copied");
+  const shown = fallback(renderControl(results("words"), ui({ copyFallback: true })));
+  assert.ok(shown && !shown[0].includes("hidden"), "the box shows when the clipboard refuses");
+  assert.ok(copy(renderControl(results("words", []), ui()))![0].includes("disabled"), "nothing to copy");
+  for (const phase of ["lobby", "playing", "paused"]) {
+    const html = renderControl(view({}, phase), ui());
+    assert.ok(!btn(html, "showWords") && !copy(html) && !fallback(html), phase);
+  }
+});
+
+test("the copy fallback box escapes the words", () => {
+  const v = { ...view({}, "results"), results: { winners: [], awards: [], words: ["<b>x</b>"], step: "words" }, words: ["<b>x</b>"] };
+  const html = renderControl(v, ui({ copyFallback: true }));
+  assert.ok(!html.includes("<b>x"));
+  assert.ok(html.includes("&lt;b&gt;x&lt;/b&gt;"));
+});

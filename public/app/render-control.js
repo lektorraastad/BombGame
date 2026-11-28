@@ -8,7 +8,7 @@ import { avatarImg } from "./avatars.js";
 export const FEW_PROMPTS = 15;
 
 /**
- * @typedef {{ overlay: boolean, confirmKick?: string | null, renaming?: string | null, message?: string, moreOpen?: boolean }} ControlUi
+ * @typedef {{ overlay: boolean, confirmKick?: string | null, renaming?: string | null, message?: string, moreOpen?: boolean, copied?: boolean, copyFallback?: boolean }} ControlUi
  * @typedef {Record<string, Record<string, number>>} PromptCounts
  */
 
@@ -69,7 +69,7 @@ export function renderControl(view, ui) {
   const msg = ui.message ? `<p class="ctl-msg" role="alert">${esc(ui.message)}</p>` : "";
   return `<div class="ctl${ui.overlay ? " ctl-overlay" : ""}">
 <header class="ctl-head"><span>Room <strong>${esc(view.code)}</strong></span><span>${PHASE_LABEL[view.phase] ?? ""}${view.locked ? " · Locked" : ""}</span></header>
-${msg}${buttons(view)}${status(view)}${players(view, ui)}${settings(view, ui)}
+${msg}${buttons(view)}${endButtons(view, ui)}${status(view)}${players(view, ui)}${settings(view, ui)}
 </div>`;
 }
 
@@ -80,6 +80,21 @@ function buttons(view) {
   return `<section class="ctl-buttons">
 ${cmdButton("start", "Start", view.phase === "lobby")}${pause}${cmdButton("skip", "Skip", playing)}${cmdButton("end", "End", running(view))}${cmdButton("playAgain", "Play again", view.phase === "results")}${view.locked ? cmdButton("unlock", "Unlock", true) : cmdButton("lock", "Lock", true)}
 </section>`;
+}
+
+/**
+ * On the results: Show words (moves the projector to the wall; off once it shows) and Copy words
+ * (the wall's words, one per line). The box holds the same words for copying by hand, hidden until
+ * the clipboard refuses. The words are already public on the projector, so the overlay has them too.
+ * @param {any} view @param {ControlUi} ui
+ */
+function endButtons(view, ui) {
+  if (view.phase !== "results") return "";
+  const words = (Array.isArray(view.words) ? view.words : []).filter((/** @type {unknown} */ w) => typeof w === "string");
+  const onWall = view.results?.step === "words";
+  const copy = `<button type="button" data-copy-words${words.length ? "" : " disabled"}>${ui.copied ? "Copied" : "Copy words"}</button>`;
+  const box = `<textarea class="ctl-copybox" data-copy-fallback readonly rows="6" aria-label="The words, to copy by hand"${ui.copyFallback ? "" : " hidden"}>${esc(words.join("\n"))}</textarea>`;
+  return `<section class="ctl-end">${cmdButton("showWords", "Show words", !onWall)}${copy}${box}</section>`;
 }
 
 /** @param {any} view */

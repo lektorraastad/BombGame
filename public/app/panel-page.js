@@ -5,6 +5,8 @@ import { reasonText } from "./render-player.js";
 import { themeOf } from "./theme.js";
 
 const KICK_CONFIRM_MS = 3000;
+/** How long Copy words says "Copied". */
+const COPIED_MS = 2000;
 
 /**
  * @param {HTMLElement} root
@@ -18,6 +20,10 @@ export function mountPanel(root, opts) {
   let message = "";
   // Whether "More settings" is open. The panel redraws on every view, so the fold's state lives here.
   let moreOpen = false;
+  // Copy words: "Copied" for a moment, or the words in a box when the clipboard refuses.
+  let copied = false;
+  /** @type {any} */ let copiedTimer = null;
+  let copyFallback = false;
 
   function draw() {
     if (!view) return;
@@ -34,7 +40,9 @@ export function mountPanel(root, opts) {
     // Roy opens and closes the fold with the browser's own <details>: read it before it is replaced.
     const fold = /** @type {HTMLDetailsElement | null} */ (root.querySelector("details.more"));
     if (fold) moreOpen = fold.open;
-    root.innerHTML = renderControl(view, { overlay: opts.overlay, confirmKick, renaming, message, moreOpen });
+    const keepBox = act && root.contains(act) && act.matches("[data-copy-fallback]");
+    root.innerHTML = renderControl(view, { overlay: opts.overlay, confirmKick, renaming, message, moreOpen, copied, copyFallback });
+    if (keepBox) selectFallback();
     if (keepBtn) /** @type {HTMLElement | null} */ (root.querySelector(keepBtn))?.focus();
     if (keep) {
       const box = /** @type {HTMLInputElement | null} */ (root.querySelector(keep.sel));
@@ -43,6 +51,37 @@ export function mountPanel(root, opts) {
         box.focus();
       }
     }
+  }
+
+  /** Focus the fallback box with all its words selected, ready to copy by hand. */
+  function selectFallback() {
+    const box = /** @type {HTMLTextAreaElement | null} */ (root.querySelector("[data-copy-fallback]"));
+    if (!box || box.hidden) return;
+    box.focus();
+    box.select();
+  }
+
+  /** Copy the wall's words, one per line, in this browser only. Nothing is stored. */
+  function copyWords() {
+    const words = Array.isArray(view?.words) ? view.words.filter((/** @type {unknown} */ w) => typeof w === "string") : [];
+    const refused = () => {
+      copyFallback = true;
+      draw();
+      selectFallback();
+    };
+    const clip = navigator.clipboard;
+    if (!clip || typeof clip.writeText !== "function") return refused();
+    clip.writeText(words.join("\n")).then(() => {
+      copied = true;
+      copyFallback = false;
+      if (copiedTimer !== null) clearTimeout(copiedTimer);
+      copiedTimer = setTimeout(() => {
+        copiedTimer = null;
+        copied = false;
+        draw();
+      }, COPIED_MS);
+      draw();
+    }, refused);
   }
 
   /** @param {object} msg */
@@ -68,6 +107,7 @@ export function mountPanel(root, opts) {
     if (!el || !root.contains(el)) return;
     const cmd = el.dataset.cmd;
     if (cmd) return send({ t: "cmd", cmd });
+    if (el.hasAttribute("data-copy-words")) return copyWords();
     const preset = el.dataset.preset;
     if (preset) return send({ t: "cmd", cmd: "settings", settings: { preset } });
     const pid = el.dataset.pid ?? "";
@@ -137,6 +177,11 @@ export function mountPanel(root, opts) {
     /** @param {any} v a controlView */
     setView(v) {
       view = v;
+      // A new game: the copy box from the last one goes.
+      if (v.phase !== "results") {
+        copyFallback = false;
+        copied = false;
+      }
       // The control page follows the theme too. On the projector the overlay's view is the same room.
       document.documentElement.dataset.theme = themeOf(v);
       if (renaming && !v.players.some((/** @type {any} */ p) => p.id === renaming)) renaming = null;

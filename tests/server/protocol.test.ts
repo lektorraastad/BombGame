@@ -14,7 +14,7 @@ test("validate accepts every message shape", () => {
   ok({ t: "join", code: "ABCD", token: "tok-3", nickname: "Ola" });
   ok({ t: "submit", word: "station" });
   ok({ t: "typing", text: "sta" });
-  for (const cmd of ["start", "pause", "resume", "skip", "end", "playAgain", "lock", "unlock"]) ok({ t: "cmd", cmd });
+  for (const cmd of ["start", "pause", "resume", "skip", "end", "playAgain", "showWords", "lock", "unlock"]) ok({ t: "cmd", cmd });
   ok({ t: "cmd", cmd: "kick", pid: "p1" });
   ok({ t: "cmd", cmd: "rename", pid: "p1", nickname: "Kari" });
   ok({ t: "cmd", cmd: "settings", settings: { startLives: 3, mode: "classic" } });
