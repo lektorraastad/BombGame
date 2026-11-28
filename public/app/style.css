@@ -703,8 +703,12 @@ main:not(.p-lobby) .circle .seat:not(.small) > .spark { font-size: 1.5em; }
 .spark .ring {
   position: absolute; left: -0.6em; top: -0.6em; width: 1.2em; height: 1.2em; border-radius: 50%; box-sizing: border-box;
   border: 0.12em solid var(--spark); box-shadow: 0 0 0.4em var(--spark); opacity: 0.6; transform: scale(1.2);
+  /* Only the opacity animates (motionless): the ring ends invisible by itself, with no redraw needed. */
+  animation: spark-hold 700ms linear forwards; animation-delay: inherit;
 }
-.spark.ghost .ring { border-color: var(--muted); box-shadow: 0 0 0.4em var(--muted); opacity: 0.35; }
+.spark.ghost .ring { border-color: var(--muted); box-shadow: 0 0 0.4em var(--muted); opacity: 0.35; animation-name: spark-hold-faint; }
+@keyframes spark-hold { 0%, 99% { opacity: 0.6; } 100% { opacity: 0; } }
+@keyframes spark-hold-faint { 0%, 99% { opacity: 0.35; } 100% { opacity: 0; } }
 .spark i { display: none; }
 
 @media (prefers-reduced-motion: no-preference) {

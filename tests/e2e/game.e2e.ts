@@ -1716,7 +1716,9 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
       assert.ok(!text.includes(word) && !tiles.includes(word), `the word shows on ${page === host ? "the projector" : "the laptop"}`);
     }
     for (const b of bots) if (b !== waiting) assert.ok(!JSON.stringify(b.view()).includes(`"${word}"`), "the word is in another student's view");
-    // It runs its 0.7 s and is gone.
-    for (const page of [host, student]) await page.locator(".circle .seat > .spark").waitFor({ state: "detached", timeout: WAIT });
+    // It runs its 0.7 s in CSS and ends invisible by itself: the page does not redraw for it, so it can stay in the page.
+    for (const page of [host, student]) {
+      await page.waitForFunction(() => { const r = document.querySelector(".circle .seat > .spark .ring"); return !r || getComputedStyle(r).opacity === "0"; }, null, { timeout: WAIT });
+    }
   });
 });

@@ -18,7 +18,9 @@ export function everydayWords(read: (name: string) => string): Set<string> {
   const known = new Set(list(readOptional(read, "known.txt")));
   const out = new Set<string>();
   for (const l of readOptional(read, "ranks.txt").split("\n")) {
-    const [w, r, level, head] = l.replace(/\r$/, "").split("\t").map((c) => c.trim());
+    const cols = l.replace(/\r$/, "").split("\t").map((c) => c.trim());
+    if (cols.length < 4) continue; // an older two-column file: beginner examples only
+    const [w, r, level, head] = cols;
     if (!w || head || names.has(w) || !known.has(w)) continue;
     const lvl = level && Number.isInteger(Number(level)) ? Number(level) : null;
     const rank = r && Number.isFinite(Number(r)) ? Number(r) : null;

@@ -247,7 +247,10 @@ export function createMotion(now) {
       const t = now();
       /** @type {Map<string, { elapsedMs: number, ghost: boolean }>} */
       const out = new Map();
-      for (const [pid, s] of sparkAt) if (t - s.at < SPARK_MS) out.set(pid, { elapsedMs: t - s.at, ghost: s.ghost });
+      for (const [pid, s] of sparkAt) {
+        if (t - s.at < SPARK_MS) out.set(pid, { elapsedMs: t - s.at, ghost: s.ghost });
+        else if (t - s.at >= SPARK_GAP_MS) sparkAt.delete(pid); // the gap is over too: forget it
+      }
       return out;
     },
 
@@ -296,7 +299,7 @@ export function createMotion(now) {
     },
 
     /**
-     * True while a swing, an explosion, a pop, a spark, a moment, the results hold or the example words are
+     * True while a swing, an explosion, a pop, a moment, the results hold or the example words are
      * still running, so the page keeps redrawing. The hidden fuse's flame grows in CSS: not here.
      */
     busy() {
@@ -311,12 +314,9 @@ export function createMotion(now) {
         if (t - at < HEART_MS) cracking = true;
         else heartAt.delete(pid);
       }
-      let sparking = false;
-      for (const [pid, s] of sparkAt) {
-        if (t - s.at < SPARK_MS) sparking = true;
-        else if (t - s.at >= SPARK_GAP_MS) sparkAt.delete(pid); // the gap is over too: forget it
-      }
-      return popping || cracking || sparking || swinging() || exploding() || holding() || showingWord() || showingRefused()
+      // Sparks never keep the page busy: one starts on the redraw that follows its view and CSS ends it
+      // (forwards, invisible). sparks() forgets a finished one.
+      return popping || cracking || swinging() || exploding() || holding() || showingWord() || showingRefused()
         || showingWin() || (hasExamples && showingExamples());
     },
   };

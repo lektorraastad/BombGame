@@ -554,10 +554,10 @@ test("a silent moment sparks that seat for SPARK_MS", () => {
   assert.equal(m.sparks().size, 0);
   m.view(classicView("a", { moments: [{ kind: "silent", pid: "c" }] }));
   assert.deepEqual([...m.sparks()], [["c", { elapsedMs: 0, ghost: false }]]);
-  assert.equal(m.busy(), true);
+  assert.equal(m.busy(), false, "busy() stays false while only sparks run: CSS finishes them");
   clock.t += SPARK_MS - 1;
   assert.deepEqual([...m.sparks()], [["c", { elapsedMs: SPARK_MS - 1, ghost: false }]]);
-  assert.equal(m.busy(), true);
+  assert.equal(m.busy(), false, "busy() stays false while only sparks run");
   clock.t += 1;
   assert.equal(m.sparks().size, 0);
   assert.equal(m.busy(), false);
@@ -601,4 +601,14 @@ test("sparks never start in the lobby or on the results, and junk moments are ig
   m.view(classicView(null, { phase: "results", moments: [{ kind: "ghost", pid: "b" }] }));
   m.view(classicView("a", { moments: [{ kind: "silent" }, { kind: "ghost", pid: 7 }, { kind: "silent", pid: "" }] }));
   assert.equal(m.sparks().size, 0);
+});
+
+test("a spark that has passed its gap is forgotten by sparks(), and the seat can spark again", () => {
+  const { clock, m } = tracker();
+  m.view(classicView("a"));
+  m.view(classicView("a", { moments: [{ kind: "silent", pid: "c" }] }));
+  clock.t += SPARK_GAP_MS + 1;
+  assert.equal(m.sparks().size, 0);
+  m.view(classicView("a", { moments: [{ kind: "silent", pid: "c" }] }));
+  assert.deepEqual([...m.sparks()], [["c", { elapsedMs: 0, ghost: false }]]);
 });

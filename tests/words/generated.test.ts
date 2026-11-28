@@ -177,6 +177,12 @@ test("everydayWords: B1 and below, own headword, not a name, NGSL rank of 2000 o
   assert.deepEqual([...everydayWords(read)].sort(), ["bridge", "house", "lamp"]);
 });
 
+test("everydayWords: a two-column ranks.txt contributes nothing, even for low ranks and forms", () => {
+  const known = "apple\napples\nlamp\n";
+  const read = (n: string) => (n === "ranks.txt" ? "apple\t900\napples\t900\nlamp\t1800\n" : n === "known.txt" ? known : "");
+  assert.equal(everydayWords(read).size, 0);
+});
+
 test("old ranks.txt: beginner examples only", () => {
   const none = (n: string) => { if (n === "ranks.txt" || n === "names.txt") throw new Error("ENOENT"); return gen(n); };
   assert.equal(everydayWords(none).size, 0);

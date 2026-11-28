@@ -473,6 +473,9 @@ test("every moment's keyframes and animations are inside the no-preference media
   // Walk the braces: note which blocks are "@media (prefers-reduced-motion: no-preference)".
   const stack: boolean[] = [];
   let found = 0;
+  // The one exception: the reduced-motion spark ring's opacity-only "spark-hold" (no movement), which
+  // ends it invisible without a redraw. Tested below in the spark test.
+  const hold = (i: number) => /^(@keyframes spark-hold(-faint)?\b|animation\s*:\s*spark-hold\b)/.test(section.slice(i));
   const re = /@keyframes [\w-]+|animation\s*:|\{|\}/g;
   let lastHead = 0;
   for (let m; (m = re.exec(section)); ) {
@@ -483,6 +486,7 @@ test("every moment's keyframes and animations are inside the no-preference media
       stack.pop();
       lastHead = m.index + 1;
     } else {
+      if (hold(m.index)) continue;
       found++;
       assert.ok(stack.some(Boolean), `${m[0]} at ${m.index} is outside the no-preference media query`);
     }
@@ -505,8 +509,12 @@ test("reduced-motion CSS: spark keyframes only under no-preference", () => {
     assert.ok(new RegExp(`@keyframes ${k} `).test(inside), `${k} under no-preference`);
     assert.ok(!before.includes(`@keyframes ${k}`), `${k} not outside`);
   }
-  // Without motion: a still ring for the spark's time, and no star points.
+  // Without motion: a still ring for the spark's time, and no star points. Only its opacity animates,
+  // ending invisible by itself (no redraw is needed after SPARK_MS).
   assert.match(before, /\.spark \.ring \{[^}]*opacity: 0\.\d/);
+  assert.match(before, /\.spark \.ring \{[^}]*animation: spark-hold 700ms[^;]*forwards/);
+  assert.match(before, /@keyframes spark-hold \{[^}]*(?:\{[^}]*\}[^}]*)*\}/);
+  assert.ok(!/@keyframes spark-hold[^]*?(transform|translate|scale|rotate)/.test(before.slice(before.indexOf("@keyframes spark-hold"), before.indexOf("@keyframes spark-hold") + 200)), "motionless");
   assert.match(before, /\.spark i \{[^}]*display: none/);
   // The colours come from the theme: the spark colour, and muted for a ghost.
   assert.match(CSS, /\.spark \.ring \{[^}]*var\(--spark\)/);
