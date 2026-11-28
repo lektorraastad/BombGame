@@ -690,8 +690,48 @@ main.results h1 { color: var(--muted); margin: 4px 0 0; }
 /* The win burst: only with motion allowed (without, the winner simply shows). */
 .win-burst { display: none; }
 .p-podium { position: relative; }
+/* The spark (SPARK_MS, 700 ms): a silent or ghost answer was accepted. A ring and six small star
+   points from the emoji, the same every time, never a word. It sits in the emoji's grid area, and
+   its em is the emoji's size. A ghost's is in the muted colour and fainter. Without motion: only the
+   ring, still and soft, for the spark's time. */
+.circle .seat > .spark {
+  grid-column: 2; grid-row: 1 / span 2; justify-self: center; align-self: center;
+  position: relative; width: 0; height: 0; pointer-events: none; font-size: 1.9em; z-index: 1;
+}
+main:not(.p-lobby) .circle .seat:not(.small) > .spark { font-size: 1.5em; }
+.circle.compact .seat.small > .spark { grid-column: 2 / 4; grid-row: 1; font-size: 1.7em; }
+.spark .ring {
+  position: absolute; left: -0.6em; top: -0.6em; width: 1.2em; height: 1.2em; border-radius: 50%; box-sizing: border-box;
+  border: 0.12em solid var(--spark); box-shadow: 0 0 0.4em var(--spark); opacity: 0.6; transform: scale(1.2);
+  /* Only the opacity animates (motionless): the ring ends invisible by itself, with no redraw needed. */
+  animation: spark-hold 700ms linear forwards; animation-delay: inherit;
+}
+.spark.ghost .ring { border-color: var(--muted); box-shadow: 0 0 0.4em var(--muted); opacity: 0.35; animation-name: spark-hold-faint; }
+@keyframes spark-hold { 0%, 99% { opacity: 0.6; } 100% { opacity: 0; } }
+@keyframes spark-hold-faint { 0%, 99% { opacity: 0.35; } 100% { opacity: 0; } }
+.spark i { display: none; }
 
 @media (prefers-reduced-motion: no-preference) {
+  /* The spark: the ring swells and fades as the six points fly out (a ghost's less far, fainter). */
+  .spark .ring { opacity: 0; animation: spark-ring 700ms ease-out both; animation-delay: inherit; }
+  .spark i {
+    display: block; position: absolute; left: -0.16em; top: -0.16em; width: 0.32em; height: 0.32em; opacity: 0;
+    background: var(--spark); clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+    animation: spark-fly 700ms ease-out both; animation-delay: inherit;
+  }
+  .spark.ghost .ring { animation-name: spark-ring-faint; }
+  .spark.ghost i { background: var(--muted); animation-name: spark-fly-faint; }
+  @keyframes spark-ring { 0% { transform: scale(0.6); opacity: 0.95; } 100% { transform: scale(1.7); opacity: 0; } }
+  @keyframes spark-ring-faint { 0% { transform: scale(0.6); opacity: 0.55; } 100% { transform: scale(1.5); opacity: 0; } }
+  @keyframes spark-fly {
+    0% { transform: rotate(var(--a)) translateY(-0.25em) scale(0.5); opacity: 1; }
+    100% { transform: rotate(var(--a)) translateY(-1.25em) scale(1); opacity: 0; }
+  }
+  @keyframes spark-fly-faint {
+    0% { transform: rotate(var(--a)) translateY(-0.25em) scale(0.4); opacity: 0.6; }
+    100% { transform: rotate(var(--a)) translateY(-0.85em) scale(0.8); opacity: 0; }
+  }
+
   /* The correct word (WORD_MS, 650 ms): the matched letters light up and hop (about 200 ms), then
      the word shrinks and flies to the seat's word (about 350 ms) and fades as the seat pops. On top
      of everything: the next turn draws as normal underneath. */

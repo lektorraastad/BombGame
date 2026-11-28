@@ -106,7 +106,7 @@ test("typing in Everyone at once triggers no change", () => {
 });
 
 test("final 4: blocked list is case-insensitive and names are NFC-normalised", () => {
-  const checker = createWordChecker({ dictionary: ["damn", "fine"], known: ["damn", "fine"], blocked: ["Damn"] });
+  const checker = createWordChecker({ dictionary: ["damn", "fine"], known: ["damn", "fine"], blocked: ["Damn"], everyday: ["damn", "fine"] });
   assert.equal(checker.isBlocked("damn"), true);
   assert.equal(checker.isWord("damn"), false);
   assert.deepEqual(checker.examples({ text: "a", type: "contains", count: 1, common: 0 }, 5, () => 0.5), []);

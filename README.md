@@ -103,6 +103,7 @@ In the control panel you can:
   - **Hard:** any letters at all, including very hard ones like "sts".
 - **Minimum turn time** (Classic, hidden fuse) is 8 seconds: after a correct word, the next player always has at least this long.
 - **Live typing** is on by default: in Classic, everyone can watch the current player's letters appear on the projector and on the laptops (rude words show as stars). To switch it off, untick **Live typing** in the settings.
+- **Sparks:** when a waiting student answers silently, their seat gives a small spark on the projector and on every laptop. A ghost's answer gets a fainter spark. The words are never shown, and there's no sound.
 - **Start**, **Pause** and **Resume**, **Skip** a prompt nobody can answer, and **End** the game early.
 - **Play again** after a game. The same players stay in the room.
 - **Lock** the room so nobody new can join.

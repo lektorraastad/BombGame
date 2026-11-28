@@ -18,21 +18,23 @@ import { tiles, matchedTiles } from "./tiles.js";
  *   word?: WordMoment,                             // motion.word(): the correct Classic word flying to its seat
  *   refused?: RefusedMoment,                       // motion.refused(): the current player's word was refused
  *   hearts?: Map<string, number>,                  // motion.hearts(): player id to ms since they lost a heart
+ *   sparks?: Map<string, Spark>,                   // motion.sparks(): player id to a silent or ghost answer's spark
  *   examples?: string[] | null,                    // the example words to show under the bomb, or null
  * }} CircleOptions
  */
 /** @typedef {ReturnType<import("./motion.js").createMotion>} Motion */
 /** @typedef {ReturnType<Motion["word"]>} WordMoment */
 /** @typedef {ReturnType<Motion["refused"]>} RefusedMoment */
+/** @typedef {{ elapsedMs: number, ghost: boolean }} Spark */
 
 /**
  * The moments for the circle, from a page's UI options (the projector's or the laptop's). The
  * examples are only the ones the page says to show now (motion.examplesShown): left out, none.
- * @param {{ word?: WordMoment, refused?: RefusedMoment, hearts?: Map<string, number>, examples?: string[] | null }} ui
- * @returns {Pick<CircleOptions, "word" | "refused" | "hearts" | "examples">}
+ * @param {{ word?: WordMoment, refused?: RefusedMoment, hearts?: Map<string, number>, sparks?: Map<string, Spark>, examples?: string[] | null }} ui
+ * @returns {Pick<CircleOptions, "word" | "refused" | "hearts" | "sparks" | "examples">}
  */
 export function circleMoments(ui) {
-  return { word: ui.word ?? null, refused: ui.refused ?? null, hearts: ui.hearts, examples: ui.examples ?? null };
+  return { word: ui.word ?? null, refused: ui.refused ?? null, hearts: ui.hearts, sparks: ui.sparks, examples: ui.examples ?? null };
 }
 
 /** @param {unknown} n */
@@ -46,6 +48,20 @@ const late = (ms) => `animation-delay:-${ms}ms`;
 /** The heart cracking in two: two halves of one heart, drawn only while motion is allowed. @param {number} ms */
 const crack = (ms) =>
   `<span class="crack" style="${late(ms)}" aria-hidden="true"><span class="crack-l">❤</span><span class="crack-r">❤</span></span>`;
+
+/** The spark's six star points, at these angles round the emoji. */
+const SPARK_POINTS = [0, 60, 120, 180, 240, 300].map((a) => `<i style="--a:${a}deg"></i>`).join("");
+
+/**
+ * A silent or ghost answer's spark: a ring and six star points from the emoji, the same every time.
+ * It carries no text at all, so it can never show the word. Nothing for junk. @param {unknown} s
+ */
+function spark(s) {
+  const ms = s && typeof s === "object" ? msOf(/** @type {any} */ (s).elapsedMs) : null;
+  if (ms === null) return "";
+  const ghost = /** @type {any} */ (s).ghost === true;
+  return `<span class="spark${ghost ? " ghost" : ""}" style="${late(ms)}" aria-hidden="true"><span class="ring"></span>${SPARK_POINTS}</span>`;
+}
 
 /**
  * The spotlight: the current player's live typing, large under the bomb. It shows in Classic (someone
@@ -153,7 +169,8 @@ export function renderCircle(view, opts) {
         ? `<span class="name shake" style="${late(refusedMs)}">${esc(p.nickname)}</span>`
         : `<span class="name">${esc(p.nickname)}</span>`;
       const under = word(view, p, spot, refused && typingShown ? refusedMs : null, land);
-      return `<div class="${cls}" style="${style}">${avatarImg(p.avatar)}${name}${lives}${away}${answered}${under}</div>`;
+      const sparked = opts.sparks instanceof Map ? spark(opts.sparks.get(p.id)) : "";
+      return `<div class="${cls}" style="${style}">${avatarImg(p.avatar)}${sparked}${name}${lives}${away}${answered}${under}</div>`;
     })
     .join("");
 

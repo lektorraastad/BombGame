@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { loadWordData } from "../../src/words/load.ts";
+import { loadWordData, everydayWords } from "../../src/words/load.ts";
 import { buildWordData } from "../../src/words/build.ts";
 import { readRaw } from "../../scripts/build-words.ts";
 import { levelOf } from "../../src/engine/prompts.ts";
@@ -163,4 +163,50 @@ test("an old two-column ranks.txt still loads", () => {
   const { rarity } = loadWordData((n) => (n === "ranks.txt" ? old : gen(n)));
   assert.equal(typeof rarity("apple"), "number");
   assert.equal(rarity("barbados"), null);
+});
+
+test("everydayWords: B1 and below, own headword, not a name, NGSL rank of 2000 or less when there's no level", () => {
+  const rows = [
+    "house\t300\t1\t", "bridge\t900\t3\t", "mercy\t1500\t4\t", // B2: out
+    "houses\t300\t1\thouse", // a form: out
+    "oslo\t100000\t1\t", // a name: out
+    "lamp\t1800\t\t", "lamps\t1800\t\tlamp", "ferret\t100000\t\t", "rare\t2500\t\t", // no level
+  ].join("\n");
+  const known = "house\nbridge\nmercy\nhouses\noslo\nlamp\nlamps\nferret\nrare\n";
+  const read = (n: string) => (n === "ranks.txt" ? rows : n === "names.txt" ? "oslo\n" : n === "known.txt" ? known : "");
+  assert.deepEqual([...everydayWords(read)].sort(), ["bridge", "house", "lamp"]);
+});
+
+test("everydayWords: a two-column ranks.txt contributes nothing, even for low ranks and forms", () => {
+  const known = "apple\napples\nlamp\n";
+  const read = (n: string) => (n === "ranks.txt" ? "apple\t900\napples\t900\nlamp\t1800\n" : n === "known.txt" ? known : "");
+  assert.equal(everydayWords(read).size, 0);
+});
+
+test("old ranks.txt: beginner examples only", () => {
+  const none = (n: string) => { if (n === "ranks.txt" || n === "names.txt") throw new Error("ENOENT"); return gen(n); };
+  assert.equal(everydayWords(none).size, 0);
+  const { checker } = loadWordData(none);
+  const beginner = new Set(gen("beginner.txt").split("\n").map((l) => l.trim()).filter(Boolean));
+  const prompts = JSON.parse(gen("prompts.json")) as Prompt[];
+  for (const p of prompts) for (const w of checker.examples(p, 3, Math.random)) assert.ok(beginner.has(w), `${p.text}: ${w}`);
+});
+
+test("over every prompt in prompts.json, every example is a beginner or everyday word, and 'paragraphed' never appears", () => {
+  const { checker } = loadWordData(gen);
+  const beginner = new Set(gen("beginner.txt").split("\n").map((l) => l.trim()).filter(Boolean));
+  const everyday = everydayWords(gen);
+  let seed = 12345;
+  const random = () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296);
+  const prompts = JSON.parse(gen("prompts.json")) as Prompt[];
+  const counts = [0, 0, 0, 0];
+  for (const p of prompts) {
+    const ex = checker.examples(p, 3, random);
+    counts[ex.length]++;
+    for (const w of ex) {
+      assert.ok(beginner.has(w) || everyday.has(w), `${p.text}: ${w}`);
+      assert.notEqual(w, "paragraphed");
+    }
+  }
+  console.log("examples per prompt (0,1,2,3):", counts.join(","));
 });

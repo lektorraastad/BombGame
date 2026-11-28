@@ -166,7 +166,7 @@ function draw(again = true) {
   const bomb = motion.bombState(countdownMs, shown.phase === "playing" && !shown.paused);
   const ui = {
     countdownMs, credits: CREDITS, site: location.host, bomb, popElapsed: motion.popElapsed, ringAspect,
-    word: motion.word(), refused: motion.refused(), hearts: motion.hearts(), win: motion.win(),
+    word: motion.word(), refused: motion.refused(), hearts: motion.hearts(), sparks: motion.sparks(), win: motion.win(),
     examples: motion.examplesShown(shown) ? shown.examples : null,
   };
   /** @param {number | undefined} maxWords */

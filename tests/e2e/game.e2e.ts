@@ -1684,4 +1684,41 @@ describe("bomb game end to end", { skip: HAVE_PLAYWRIGHT ? false : "Playwright i
       assert.deepEqual(out, [], root);
     }
   });
+
+  test("with 15 students, a silent answer sparks that seat on the projector and on another laptop, and the word appears nowhere", async () => {
+    const { host, code } = await hostRoom();
+    const bots: Awaited<ReturnType<typeof wsPlayer>>[] = [];
+    for (const name of SPOT_NAMES.slice(0, -1)) bots.push(await wsPlayer(code, name));
+    const student = await joinPlayer(code, SPOT_NAMES.at(-1)!, LAPTOP_VIEWPORT);
+    await host.locator(".seat").nth(SPOT_NAMES.length - 1).waitFor({ timeout: WAIT });
+    await host.setViewportSize({ width: 1920, height: 1080 });
+    await settings(host, code, { mode: "classic", timerStyle: "visible", turnTime: 60, promptTypes: ["contains"], silentAnswers: true });
+    await startFromOverlay(host);
+    await host.waitForTimeout(800); // every laptop has had its first view: a spark never starts from that
+    const prompt = await projectorPrompt(host);
+    const t = prompt.text.toLowerCase();
+    const word = KNOWN.filter((x) => x.includes(t) && x.length >= 9).sort((a, b) => b.length - a.length)[0];
+    assert.ok(word, `no long word for ${t}`);
+    const waiting = bots.find((b) => b.view()?.phase === "playing" && b.view()?.me?.isOn === false)!;
+    assert.ok(waiting, "a waiting student");
+    const name = waiting.view().me.nickname as string;
+    // Both screens watch for the spark on that seat while the answer goes in.
+    const sparked = [host, student].map((page) =>
+      page.locator(".circle .seat:has(> .spark)", { has: page.locator(".name", { hasText: new RegExp(`^${name}$`) }) }).waitFor({ state: "attached", timeout: WAIT }));
+    waiting.send({ t: "submit", word });
+    await Promise.all(sparked);
+    for (const page of [host, student]) {
+      const html = await page.locator(".circle").innerHTML();
+      assert.equal((html.match(/class="spark"/g) ?? []).length, 1, "one spark, on that seat");
+      assert.ok(!/class="spark ghost"/.test(html), "a silent answer is not a ghost's");
+      const text = (await page.locator("body").textContent()) ?? "";
+      const tiles = await page.locator(".tiles").allTextContents();
+      assert.ok(!text.includes(word) && !tiles.includes(word), `the word shows on ${page === host ? "the projector" : "the laptop"}`);
+    }
+    for (const b of bots) if (b !== waiting) assert.ok(!JSON.stringify(b.view()).includes(`"${word}"`), "the word is in another student's view");
+    // It runs its 0.7 s in CSS and ends invisible by itself: the page does not redraw for it, so it can stay in the page.
+    for (const page of [host, student]) {
+      await page.waitForFunction(() => { const r = document.querySelector(".circle .seat > .spark .ring"); return !r || getComputedStyle(r).opacity === "0"; }, null, { timeout: WAIT });
+    }
+  });
 });

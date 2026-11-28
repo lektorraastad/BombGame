@@ -30,13 +30,16 @@ export function createWordChecker(opts: {
   blocked: Iterable<string>;
   /** Beginner words (CEFR-J A1–A2, plus names and Roy's words that count as known). Example answers come from these first. */
   beginner?: Iterable<string>;
+  /** Other everyday words, used after the beginner words. Absent means none. Nothing else is ever used as an example. */
+  everyday?: Iterable<string>;
 }): WordChecker {
   const lower = (items: Iterable<string>) => [...items].map((w) => w.toLowerCase());
   const dictionary = new Set(lower(opts.dictionary));
-  const known = [...new Set(lower(opts.known))];
+  const knownSet = new Set(lower(opts.known));
   const blocked = new Set(lower(opts.blocked));
   const beginner = [...new Set(lower(opts.beginner ?? []))];
   const beginnerSet = new Set(beginner);
+  const everyday = [...new Set(lower(opts.everyday ?? []))].filter((w) => knownSet.has(w) && !beginnerSet.has(w));
 
   const matches = (p: Prompt, w: string): boolean =>
     p.type === "contains" ? w.includes(p.text) : p.type === "starts" ? w.startsWith(p.text) : w.endsWith(p.text);
@@ -55,7 +58,7 @@ export function createWordChecker(opts: {
         return pool;
       };
       const first = shuffled(beginner.filter(fits));
-      const rest = shuffled(known.filter((w) => fits(w) && !beginnerSet.has(w)));
+      const rest = shuffled(everyday.filter(fits));
       return [...first, ...rest].slice(0, Math.max(0, n));
     },
   };

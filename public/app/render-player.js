@@ -23,6 +23,7 @@ import { renderLogo } from "./logo.js";
  *   word?: import("./render-circle.js").CircleOptions["word"],         // the moments from motion.js,
  *   refused?: import("./render-circle.js").CircleOptions["refused"],   // as on the projector
  *   hearts?: Map<string, number>,
+ *   sparks?: import("./render-circle.js").CircleOptions["sparks"],  // motion.sparks(): silent and ghost answers
  *   examples?: string[] | null,
  *   win?: import("./render-projector.js").WinMoment,
  * }} PlayerUi
