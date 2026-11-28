@@ -1,6 +1,6 @@
 # Bomb game: everyone involved (batch 6)
 
-Status: draft for Roy's approval, 2026-11-28.
+Status: draft for Roy's approval, 2026-11-28 (builder review answered).
 
 Batch 6 of the second round of improvements. It builds on batch 4 (`2026-11-27-look-and-moments-design.md`: moments, the hub's moment list, `motion.js`) and batch 5 (`2026-11-28-end-of-game-design.md`: `ranks.txt` with CEFR-J levels and NGSL headwords). Read those first.
 
@@ -56,13 +56,13 @@ Roy agreed on 28 November 2026 that A is the way.
 
 ### 4.2 Everyday example words
 After an explosion, the game shows up to three example words that fit the letters. They are picked in this order, at random within each group:
-1. **Beginner words** (`beginner.txt`), as today.
+1. **Beginner words** (`beginner.txt`), as today. These include well-known names like *Norway*, *Norwegian* or *American*, which stay allowed because students know them and they are real answers **(Claude's call, after review)**.
 2. **Other everyday words**, if fewer than three beginner words fit. A word counts as everyday when:
    - it is in `known.txt`;
    - it is not a name;
    - it is its own headword, not a form of another word (in `ranks.txt`, its headword column is empty);
    - and its CEFR-J level is B1 or below, or, with no level, its NGSL rank is 2000 or less **(Claude's call)**.
-3. If even those run out, the game **shows fewer**: two, one or none. It never fills in with word forms, rare words or names.
+3. If even those run out, the game **shows fewer**: two, one or none. With today's word lists that's about 25 of the 1,686 sets of letters with none, and about 40 with one or two. It never fills in with word forms, rare words or names.
 
 This replaces today's fallback to any known word. Blocked words stay out, as today.
 
@@ -85,7 +85,7 @@ This replaces today's fallback to any known word. Blocked words stay out, as tod
   - then from everyday words: never forms, rare words or names;
   - fewer than three when none are left;
   - "paragraphed" is never an example.
-  - A check over every real prompt in `prompts.json`: no example is a word form or a name.
+  - A check over every real prompt in `prompts.json`: every example is either a beginner word or an everyday word as defined in 4.2. A "word form" means a word whose headword column in `ranks.txt` is not empty, so adjectives like *embarrassed* or *amazing* that are their own headwords stay allowed **(Claude's call, after review)**.
 - **Motion and renderer tests:**
   - the spark is timed from arrival, and at most one per second per seat;
   - the ghost spark has its own look;
