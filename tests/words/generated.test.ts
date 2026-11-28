@@ -138,3 +138,29 @@ test("an old generated folder without ranks.txt or names.txt still loads", () =>
   const { rarity } = loadWordData((n) => { if (n === "ranks.txt" || n === "names.txt") throw new Error("ENOENT"); return gen(n); });
   assert.notEqual(rarity("barbados"), null);
 });
+
+test("ranks.txt has the CEFR-J level and NGSL headword columns", () => {
+  const rows = new Map(gen("ranks.txt").trim().split("\n").map((l) => [l.split("\t")[0], l.split("\t")]));
+  assert.deepEqual(rows.get("threaten"), ["threaten", "1521", "4", ""]);
+  assert.deepEqual(rows.get("hoping"), ["hoping", "250", "", "hope"]);
+});
+
+test("the generated lists rank the final review's examples sensibly", () => {
+  const { rarity } = loadWordData(gen);
+  const r = (w: string) => rarity(w)!;
+  const order = ["agendas", "accompany", "troop", "amplify", "threaten", "hypotheses"];
+  for (let i = 1; i < order.length; i++) assert.ok(r(order[i - 1]) < r(order[i]), `${order[i - 1]} < ${order[i]}`);
+  assert.ok(r("bracket") > r("troop") && r("bracket") < r("threaten"));
+  assert.ok(r("helper") < r("threaten"));
+  assert.ok(r("apologise") < r("agendas"));
+  assert.ok(r("biggest") <= r("television") && r("happier") <= r("television"));
+  assert.equal(r("hoping"), r("hope"));
+  assert.ok(r("herd") > r("her") && r("shed") > r("she") && r("ward") > r("war") && r("heed") > r("he"));
+});
+
+test("an old two-column ranks.txt still loads", () => {
+  const old = "apple\t900\nzebra\t100000\n";
+  const { rarity } = loadWordData((n) => (n === "ranks.txt" ? old : gen(n)));
+  assert.equal(typeof rarity("apple"), "number");
+  assert.equal(rarity("barbados"), null);
+});

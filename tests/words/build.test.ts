@@ -130,7 +130,7 @@ test("prompts are sorted by type, count desc, text", () => {
 
 test("summary counts prompts per level by common, and the beginner words", () => {
   const data = {
-    dictionary: ["a", "b"], known: ["a"], beginner: ["a", "b", "c"], blockedWords: [], blockedNames: ["x"], ranks: new Map(), names: [],
+    dictionary: ["a", "b"], known: ["a"], beginner: ["a", "b", "c"], blockedWords: [], blockedNames: ["x"], ranks: new Map(), levels: new Map(), heads: new Map(), names: [],
     prompts: [
       { text: "aa", type: "contains" as const, count: 25, common: 15 },
       { text: "ab", type: "contains" as const, count: 250, common: 14 },
@@ -301,4 +301,29 @@ test("names excludes words also in NGSL or CEFR-J", () => {
   assert.ok(d.names.includes("tiktok"));
   assert.ok(d.names.includes("paris"));
   assert.ok(d.names.includes("roysland"));
+});
+
+test("parseCefrj gives each headword its lowest CEFR-J level (A1 = 1 ... B2 = 4)", () => {
+  const c = parseCefrj("headword,pos,CEFR\nhope,verb,A1,\nhope,noun,B1,\nherd,noun,B1,\nshed/sheds,noun,B2,\nagenda,noun,B1,\n");
+  assert.equal(c.levels.get("hope"), 1);
+  assert.equal(c.levels.get("herd"), 3);
+  assert.equal(c.levels.get("sheds"), 4);
+  assert.equal(c.levels.get("hoping"), undefined);
+});
+
+test("levels and heads for the Rarest word award", () => {
+  const d = buildWordData(raw({
+    scowl: lines(["hope", "hoping", "hopes", "she", "her", "agenda", "agendas", "four", "fourth"]),
+    ngsl: [lines(["hope,hoping,hopes", "she,her", "agenda,agendas"]), lines(["four,fourth"])],
+    cefrj: "hope,verb,A1,\nher,pron,A1,\nshe,pron,A1,\nagenda,noun,B1,\nfour,num,A1,\n",
+    ngslStats: "Lemma,SFI Rank\nshe,24\nhope,250\nagenda,2030\n",
+  }));
+  assert.equal(d.levels.get("hope"), 1);
+  assert.equal(d.levels.get("agenda"), 3);
+  assert.equal(d.levels.get("hoping"), undefined);
+  assert.equal(d.heads.get("hoping"), "hope");
+  assert.equal(d.heads.get("agendas"), "agenda");
+  assert.equal(d.heads.get("her"), undefined); // a CEFR-J headword stands for itself
+  assert.equal(d.heads.get("hope"), undefined);
+  assert.equal(d.heads.get("fourth"), undefined); // "four" has no NGSL rank
 });

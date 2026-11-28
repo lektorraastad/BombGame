@@ -22,12 +22,18 @@ export function loadWordData(read: (name: string) => string): {
   const checker = createWordChecker({ dictionary, known, blocked: list(read("blocked-words.txt")), beginner });
   // ranks.txt and names.txt are newer than the other files: an old folder without them still loads.
   const optional = (name: string): string => { try { return read(name); } catch { return ""; } };
+  // ranks.txt rows: word, rank, level, headword. An older file has only word and rank.
   const ranks = new Map<string, number>();
+  const levels = new Map<string, number>();
+  const heads = new Map<string, string>();
   for (const l of optional("ranks.txt").split("\n")) {
-    const [w, r] = l.trim().split("\t");
-    if (w && Number.isFinite(Number(r))) ranks.set(w, Number(r));
+    const [w, r, level, head] = l.replace(/\r$/, "").split("\t").map((c) => c.trim());
+    if (!w) continue;
+    if (r && Number.isFinite(Number(r))) ranks.set(w, Number(r));
+    if (level && Number.isInteger(Number(level))) levels.set(w, Number(level));
+    if (head) heads.set(w, head);
   }
-  const rarity = createRarity({ beginner, known, ranks, names: list(optional("names.txt")), dictionary });
+  const rarity = createRarity({ beginner, known, ranks, levels, heads, names: list(optional("names.txt")), dictionary });
   const bank = createPromptBank(JSON.parse(read("prompts.json")) as Prompt[]);
   return {
     checker,

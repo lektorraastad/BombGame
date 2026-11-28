@@ -68,16 +68,21 @@ export function parseNgslRanks(text: string): Map<string, number> {
   return out;
 }
 
-/** NGSL lemma files: each line is a headword (first) and its forms. Returns form -> best headword rank. */
-export function ngslFamilyRanks(texts: string[], headRanks: Map<string, number>): Map<string, number> {
-  const out = new Map<string, number>();
+/**
+ * NGSL lemma files: each line is a headword (first) and its forms. Returns form -> the
+ * best-ranked headword it belongs to, with that rank. Families whose headword has no rank are skipped.
+ */
+export function ngslFamilies(texts: string[], headRanks: Map<string, number>): Map<string, { head: string; rank: number }> {
+  const out = new Map<string, { head: string; rank: number }>();
   for (const text of texts) {
     for (const raw of text.split("\n")) {
       if (raw.replace(/^\uFEFF/, "").trimStart().startsWith("##")) continue;
       const forms = raw.split(",").map(cleanLine).filter((w) => w !== "");
       const rank = forms.length ? headRanks.get(forms[0]) : undefined;
       if (rank === undefined) continue;
-      for (const w of forms) if (isGameWord(w) && rank < (out.get(w) ?? Infinity)) out.set(w, rank);
+      for (const w of forms) {
+        if (isGameWord(w) && rank < (out.get(w)?.rank ?? Infinity)) out.set(w, { head: forms[0], rank });
+      }
     }
   }
   return out;
@@ -100,13 +105,18 @@ export function parseBlocked(text: string): { words: Set<string>; names: Set<str
   return { words, names };
 }
 
+/** CEFR levels as numbers: A1 = 1, A2 = 2, B1 = 3, B2 = 4 (C1 = 5, C2 = 6). */
+const CEFR_LEVEL: Record<string, number> = { A1: 1, A2: 2, B1: 3, B2: 4, C1: 5, C2: 6 };
+
 /**
  * CEFR-J Vocabulary Profile CSV (headword,pos,CEFR,...). Headwords like "a.m./A.M./am/AM"
- * are split on "/" and only game words are kept. `beginner` holds the A1 and A2 headwords.
+ * are split on "/" and only game words are kept. `beginner` holds the A1 and A2 headwords;
+ * `levels` gives each headword its lowest level (hope is A1 as a verb and B1 as a noun: 1).
  */
-export function parseCefrj(text: string): { all: Set<string>; beginner: Set<string> } {
+export function parseCefrj(text: string): { all: Set<string>; beginner: Set<string>; levels: Map<string, number> } {
   const all = new Set<string>();
   const beginner = new Set<string>();
+  const levels = new Map<string, number>();
   for (const raw of text.split("\n")) {
     const cols = raw.replace(/\uFEFF/g, "").replace(/\r/g, "").split(",");
     const level = (cols[2] ?? "").trim().toUpperCase();
@@ -116,9 +126,10 @@ export function parseCefrj(text: string): { all: Set<string>; beginner: Set<stri
       if (!isGameWord(w)) continue;
       all.add(w);
       if (level === "A1" || level === "A2") beginner.add(w);
+      if (CEFR_LEVEL[level] < (levels.get(w) ?? Infinity)) levels.set(w, CEFR_LEVEL[level]);
     }
   }
-  return { all, beginner };
+  return { all, beginner, levels };
 }
 
 /** Name and known-word files: one entry per line, "#" notes; entries that aren't game words are skipped. */
@@ -163,6 +174,13 @@ export type WordData = {
   prompts: Prompt[];
   /** Known word form -> NGSL frequency rank of its headword (100000 when it has none). */
   ranks: Map<string, number>;
+  /** Known word -> its own CEFR-J level (A1 = 1 ... B2 = 4); missing when it has none. */
+  levels: Map<string, number>;
+  /**
+   * Known NGSL family form -> its headword, for a form that is neither a CEFR-J headword nor
+   * an NGSL headword itself (hoping -> hope, agendas -> agenda).
+   */
+  heads: Map<string, string>;
   /** Words on a name list that are not also ordinary NGSL or CEFR-J words. */
   names: string[];
 };
@@ -279,9 +297,19 @@ export function buildWordData(raw: RawWords): WordData {
   for (const w of [...scowl, ...known, ...answerOnly]) if (!blockedWords.has(w)) dictionary.add(w);
 
   // Frequency ranks for the Rarest word award: every NGSL family form gets its headword's rank.
-  const family = ngslFamilyRanks(raw.ngsl, parseNgslRanks(raw.ngslStats ?? ""));
+  // CEFR-J levels and NGSL headwords set the word's level, and a form counts as its headword.
+  const headRanks = parseNgslRanks(raw.ngslStats ?? "");
+  const family = ngslFamilies(raw.ngsl, headRanks);
   const ranks = new Map<string, number>();
-  for (const w of sortedArray(known)) ranks.set(w, family.get(w) ?? 100000);
+  const levels = new Map<string, number>();
+  const heads = new Map<string, string>();
+  for (const w of sortedArray(known)) {
+    const f = family.get(w);
+    ranks.set(w, f?.rank ?? 100000);
+    const level = cefrj.levels.get(w);
+    if (level !== undefined) levels.set(w, level);
+    else if (f && f.head !== w && !headRanks.has(w) && known.has(f.head)) heads.set(w, f.head);
+  }
 
   // Names: on a name list, not blocked, and not also an ordinary NGSL or CEFR-J word.
   const ordinary = new Set<string>(cefrj.all);
@@ -293,6 +321,8 @@ export function buildWordData(raw: RawWords): WordData {
 
   return {
     ranks,
+    levels,
+    heads,
     names: sortedArray(names),
     dictionary: sortedArray(dictionary),
     known: sortedArray(known),

@@ -51,7 +51,10 @@ export function writeGenerated(outDir: string, data: WordData, skipped: string[]
   writeFileSync(join(outDir, "beginner.txt"), txt(data.beginner));
   writeFileSync(join(outDir, "blocked-words.txt"), txt(data.blockedWords));
   writeFileSync(join(outDir, "blocked-names.txt"), txt(data.blockedNames));
-  writeFileSync(join(outDir, "ranks.txt"), [...data.ranks].map(([w, r]) => `${w}\t${r}`).join("\n") + "\n");
+  // ranks.txt: word, NGSL rank (100000 when none), CEFR-J level (1-4, empty when none),
+  // NGSL headword the word counts as (empty when it stands for itself).
+  const rankRow = ([w, r]: [string, number]) => `${w}\t${r}\t${data.levels.get(w) ?? ""}\t${data.heads.get(w) ?? ""}`;
+  writeFileSync(join(outDir, "ranks.txt"), [...data.ranks].map(rankRow).join("\n") + "\n");
   writeFileSync(join(outDir, "names.txt"), txt(data.names));
   writeFileSync(join(outDir, "prompts.json"), JSON.stringify(data.prompts));
   const summary = summarize(data, skipped);

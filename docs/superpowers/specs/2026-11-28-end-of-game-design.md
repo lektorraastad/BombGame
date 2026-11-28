@@ -100,12 +100,17 @@ Next to the card, the laptop shows the winner's emoji and name, as in the mockup
 ### 4.4 What "rarest" means
 "Rarest" is worked out from the word lists the game already builds, at build time, into a small generated ranking file **(Claude's call on the format)**:
 - **Names never count.** A word counts as a name when it is on a name list (places, nationalities, languages, holidays, brands, Roy's `names-extra.txt`) and **not** also an ordinary word in the NGSL or CEFR-J lists **(Claude's call, after review)**. So "turkey" and "polish" are ordinary words, and "barbados" or "tiktok" are names. ("english" and "china" are names too: neither is in the NGSL or CEFR-J lists.) Names are skipped. If a student only played names, there is no Rarest word for them.
-- **Word forms count as their base word (Claude's call, after review).** A plural or other form ("apples", "played", "running") is ranked as its base word when the base is in the lists: strip -s, -es, -ed, -ing (with the usual spelling changes, such as a doubled consonant or a dropped e), or use the NGSL's own word families. This stops "apples" counting as rarer than "magnificent".
+- **Word forms count as their base word (Claude's call, after the final review).** A word that is in the CEFR-J list keeps its own place, so "herd", "shed" and "ward" are never read as "her", "she" and "war". A form in an NGSL word family counts as the family's headword: "hoping" is "hope", "agendas" is "agenda", "biggest" is "big". Any other word counts as its most common base word in the lists, found by stripping -s, -es, -ed, -ing (with the usual spelling changes, such as a doubled consonant or a dropped e). A bare -d is only taken off a word that ends in -ed ("hoped" is "hope"). This stops "apples" counting as rarer than "magnificent".
 - **From most common to rarest:**
   1. beginner words (`beginner.txt`);
   2. other known words (`known.txt`);
   3. words only in the big dictionary, which are the rarest.
-- **Within the beginner and known groups,** a less frequent word is rarer, using the NGSL frequency rank of the word's headword. A known word with no rank counts as rarer than every ranked word in its group.
+- **Within the beginner and known groups (Claude's call, after the final review),** words are compared in this order:
+  1. **Level:** the word's CEFR-J level, from A1 (most common) to B2 (rarest). A word with no CEFR-J level gets one from its NGSL frequency rank: up to 600 is A1, up to 1150 is A2, up to 1700 is B1, and anything rarer is B2. A word with neither (such as "fourth", or a word in Roy's `known-extra.txt`) counts as A2.
+  2. **Length:** the longer word is rarer.
+  3. **Frequency:** the less frequent word (higher NGSL rank) is rarer. A word with no NGSL rank counts as rank 3000, just past the end of the NGSL.
+
+  So "hypotheses" (B2, 10 letters) is rarer than "threaten" (B2, 8), then "bracket" (B2, 7), "troop" (B2, 5), "accompany" (B1, 9) and "agendas" (B1, 6), and an easy word with no rank, like "helper" or "teamwork", no longer beats them all.
 - **Ties:** the longer word, then the one played first.
 
 ### 4.5 What the server adds
